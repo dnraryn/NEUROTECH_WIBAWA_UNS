@@ -67,3 +67,42 @@ Object.assign(window, {
   REPORTS, REPORTS_BY_ID,
   CURRENT_WORKER,
 });
+
+// ── Live worker data from Firestore ───────────────────────────────────────
+// The rows above are the offline fallback. Once a user is signed in, App.jsx
+// calls ntStartWorkerSync(): we subscribe to the `workers` collection and
+// replace the rows IN PLACE (same array/object identities) so every screen
+// picks them up on its next render — no per-screen rewrite needed.
+let _workerUnsub = null;
+
+const applyWorkerRows = (rows) => {
+  WORKERS.splice(0, WORKERS.length, ...rows);
+  Object.keys(WORKERS_BY_ID).forEach((k) => delete WORKERS_BY_ID[k]);
+  rows.forEach((w) => { WORKERS_BY_ID[w.id] = w; });
+  const cur = WORKERS_BY_ID["rizky-a"] || rows[0];
+  if (cur) Object.assign(CURRENT_WORKER, cur);
+  window.dispatchEvent(new CustomEvent("nt-data"));
+};
+
+const ntStartWorkerSync = () => {
+  if (_workerUnsub || !window.ntWorkers) return;
+  _workerUnsub = window.ntWorkers.subscribe((rows) => {
+    if (rows.length) applyWorkerRows(rows);   // empty collection → keep the mock rows
+  });
+};
+
+const ntStopWorkerSync = () => {
+  if (_workerUnsub) { _workerUnsub(); _workerUnsub = null; }
+};
+
+// One-time seed helper — run once from the browser console while signed in:
+//   await ntSeedWorkers()
+const ntSeedWorkers = async () => {
+  if (!window.ntWorkers) throw new Error("Firebase belum siap.");
+  const rows = WORKERS_RAW.map((w) => ({ ...w, id: slugify(w.name) }));
+  const n = await window.ntWorkers.seed(rows);
+  console.info(`[NeuroTech] ${n} pekerja ter-upload ke Firestore.`);
+  return n;
+};
+
+Object.assign(window, { ntStartWorkerSync, ntStopWorkerSync, ntSeedWorkers });

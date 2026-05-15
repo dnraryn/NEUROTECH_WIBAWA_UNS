@@ -1,6 +1,9 @@
 // NeuroTech root — hash router dispatches to per-persona screens inside their
 // native frame (mobile 360×780 or desktop 1280×800). Persona switcher in the
 // header is a glorified shortcut to the persona's home route.
+//
+// Auth: App tracks the Firebase session. Unauthenticated visitors are sent to
+// /login; a no-auth "demo" bypass (sessionStorage) is kept for walkthroughs.
 
 const ROUTES = {
   // Worker mobile (app prefix: w)
@@ -30,6 +33,10 @@ const PERSONAS = [
   { id: "m", label: "Manajemen SMK3",    home: "/m/overview",  icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3h18v4H3zM3 11h18v4H3zM3 19h18v2H3z"/></svg> },
 ];
 
+// Where each role lands after signing in, and how its role reads in the UI.
+const ROLE_HOME  = { worker: "/w/readiness", supervisor: "/s/overview", manager: "/m/overview" };
+const ROLE_LABEL = { worker: "Pekerja", supervisor: "Supervisor K3", manager: "Manajemen SMK3" };
+
 // Resolve a route — supports dynamic 3-segment routes (s/workers/:id, s/alerts/:id).
 // Always returns objects with the same shape as ROUTES entries (c, frame, label).
 const resolveRoute = (route) => {
@@ -53,25 +60,87 @@ const resolveRoute = (route) => {
   return null;
 };
 
+// Full-screen status message (session check / redirect).
+const Splash = ({ text }) => (
+  <div className="app-shell" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
+    <div style={{ color: "var(--nt-text-2)", fontSize: 14, fontWeight: 600 }}>{text}</div>
+  </div>
+);
+
 const App = () => {
   const route = useHashRoute();
+  const [authUser, setAuthUser] = React.useState(undefined); // undefined = still checking
+  const [profile, setProfile] = React.useState(null);
+  const [, bump] = React.useReducer((n) => n + 1, 0);
+  const demo = typeof sessionStorage !== "undefined" && sessionStorage.getItem("nt-demo") === "1";
 
-  // Default landing: redirect empty hash to worker readiness
+  // Track the Firebase session: load the profile, start/stop the data sync.
   React.useEffect(() => {
-    if (!route.app) navigate("/w/readiness");
-  }, [route.app]);
+    if (!window.ntAuth) { setAuthUser(null); return; }
+    return window.ntAuth.onChange(async (user) => {
+      if (user) {
+        let p = null;
+        try { p = await window.ntAuth.getProfile(user.uid); }
+        catch (err) { console.error("[NeuroTech] profil gagal dimuat:", err.message); }
+        setProfile(p);
+        window.NT_PROFILE = p;
+        window.ntStartWorkerSync?.();
+      } else {
+        setProfile(null);
+        window.NT_PROFILE = null;
+        window.ntStopWorkerSync?.();
+      }
+      setAuthUser(user || null);
+    });
+  }, []);
+
+  // Re-render when Firestore pushes fresh worker data.
+  React.useEffect(() => {
+    const onData = () => bump();
+    window.addEventListener("nt-data", onData);
+    return () => window.removeEventListener("nt-data", onData);
+  }, []);
+
+  // Default landing + auth guard — runs once the session state is known.
+  React.useEffect(() => {
+    if (authUser === undefined) return;            // still checking the session
+    const onLogin = route.app === "login";
+    const authed = !!authUser || demo;
+    if (!authed && !onLogin) { navigate("/login"); return; }
+    if (authed && onLogin) {
+      if (authUser && !profile) return;            // wait until the role is known
+      navigate(ROLE_HOME[profile && profile.role] || "/w/readiness");
+      return;
+    }
+    if (authed && !route.app) {
+      navigate(ROLE_HOME[profile && profile.role] || "/w/readiness");
+    }
+  }, [authUser, profile, route.app, route.page, demo]);
+
+  const onLogout = async () => {
+    try { await window.ntAuth?.signOut(); } catch (e) { /* ignore */ }
+    sessionStorage.removeItem("nt-demo");
+    window.toast?.("Anda telah keluar.", { kind: "info" });
+    navigate("/login");
+  };
+
+  if (authUser === undefined) return <Splash text="Memeriksa sesi…" />;
+
+  const authed = !!authUser || demo;
+  if (!authed && route.app !== "login") return <Splash text="Mengalihkan ke halaman masuk…" />;
 
   const resolved = resolveRoute(route) || ROUTES["w/readiness"];
   const ScreenComponent = resolved.c;
   const isAuth = resolved.frame === "auth";
   const activePersona = PERSONAS.find((p) => p.id === route.app);
+  const homeHref = ROLE_HOME[profile && profile.role] || "/w/readiness";
 
   return (
     <div className="app-shell">
       {!isAuth && (
         <>
           <header className="app-topbar">
-            <Link to="/w/readiness" style={{ display: "flex" }}>
+            <Link to={homeHref} style={{ display: "flex" }}>
               <div className="app-brand">
                 <img src="assets/neurotech-logo.png" alt="NeuroTech" width="40" height="40" style={{ borderRadius: 10 }} />
                 <div className="app-brand-name">
@@ -85,9 +154,23 @@ const App = () => {
                 <span className="app-meta-dot" />
                 <span>Monitoring Fatigue · Cognitive Load · K3</span>
               </div>
-              <Link to="/login">
-                <NeuroBtn tone="default" size="sm">Masuk</NeuroBtn>
-              </Link>
+              {profile ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 12, color: "var(--nt-text-2)" }}>
+                    {profile.name} · {ROLE_LABEL[profile.role] || profile.role}
+                  </span>
+                  <NeuroBtn tone="default" size="sm" onClick={onLogout}>Keluar</NeuroBtn>
+                </div>
+              ) : demo ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 12, color: "var(--nt-text-3)" }}>Mode demo</span>
+                  <NeuroBtn tone="default" size="sm" onClick={onLogout}>Keluar demo</NeuroBtn>
+                </div>
+              ) : (
+                <Link to="/login">
+                  <NeuroBtn tone="default" size="sm">Masuk</NeuroBtn>
+                </Link>
+              )}
             </div>
           </header>
 
