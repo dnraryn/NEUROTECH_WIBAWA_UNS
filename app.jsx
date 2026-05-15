@@ -23,7 +23,8 @@ const ROUTES = {
   // Management SMK3 desktop (app prefix: m)
   "m/overview":  { c: () => <ManagementDashboard />, frame: "desktop", label: "Analitik" },
 
-  // Auth
+  // Public — no auth required
+  "landing":     { c: () => <LandingPage />, frame: "landing", label: "Beranda" },
   "login":       { c: () => <AuthLogin />, frame: "auth", label: "Masuk" },
 };
 
@@ -107,10 +108,10 @@ const App = () => {
   // Default landing + auth guard — runs once the session state is known.
   React.useEffect(() => {
     if (authUser === undefined) return;            // still checking the session
-    const onLogin = route.app === "login";
+    const publicPage = route.app === "login" || route.app === "landing";
     const authed = !!authUser || demo;
-    if (!authed && !onLogin) { navigate("/login"); return; }
-    if (authed && onLogin) {
+    if (!authed && !publicPage) { navigate("/landing"); return; }
+    if (authed && publicPage) {
       if (authUser && !profile) return;            // wait until the role is known
       navigate(ROLE_HOME[profile && profile.role] || "/w/readiness");
       return;
@@ -137,7 +138,8 @@ const App = () => {
   if (authUser === undefined) return <Splash text="Memeriksa sesi…" />;
 
   const authed = !!authUser || demo;
-  if (!authed && route.app !== "login") return <Splash text="Mengalihkan ke halaman masuk…" />;
+  if (!authed && route.app !== "login" && route.app !== "landing")
+    return <Splash text="Memuat…" />;
 
   // A signed-in user is locked to one persona; demo users see all three.
   const roleApp = authUser && !demo && profile ? ROLE_APP[profile.role] : null;
@@ -147,7 +149,7 @@ const App = () => {
 
   const resolved = resolveRoute(route) || ROUTES["w/readiness"];
   const ScreenComponent = resolved.c;
-  const isAuth = resolved.frame === "auth";
+  const chromeless = resolved.frame === "auth" || resolved.frame === "landing";
   const activePersona = PERSONAS.find((p) => p.id === route.app);
   const homeHref = ROLE_HOME[profile && profile.role] || "/w/readiness";
   // Only show persona tabs the current user may open.
@@ -155,7 +157,7 @@ const App = () => {
 
   return (
     <div className="app-shell">
-      {!isAuth && (
+      {!chromeless && (
         <>
           <header className="app-topbar">
             <Link to={homeHref} style={{ display: "flex" }}>
@@ -210,9 +212,9 @@ const App = () => {
         </>
       )}
 
-      <main className="app-stage" style={isAuth ? { padding: 0 } : undefined}>
+      <main className="app-stage" style={chromeless ? { padding: 0 } : undefined}>
         <div className={"app-frame app-frame--" + resolved.frame}>
-          {!isAuth && (
+          {!chromeless && (
             <span className="app-frame-caption">
               {resolved.frame === "mobile" ? "360 × 780" : "1280 × 800"} · {resolved.label}
               {route.id ? ` · ${route.id}` : ""}

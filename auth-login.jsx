@@ -26,7 +26,13 @@ const authErrorMessage = (err) => {
 };
 
 const AuthLogin = () => {
-  const [mode, setMode] = React.useState("login"); // "login" | "register"
+  // Landing-page CTAs may request the register form via sessionStorage.
+  const [mode, setMode] = React.useState(() => {
+    if (typeof sessionStorage === "undefined") return "login";
+    const requested = sessionStorage.getItem("nt-auth-mode");
+    sessionStorage.removeItem("nt-auth-mode");
+    return requested === "register" ? "register" : "login";
+  }); // "login" | "register"
   const [name, setName] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
