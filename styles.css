@@ -450,18 +450,105 @@ html, body {
   position: relative;
 }
 
-.nt-landing-nav {
+/* offset so smooth-scroll targets clear the sticky navbar */
+.nt-landing-hero,
+.nt-landing-section { scroll-margin-top: 84px; }
+
+/* ── Navbar — Emotiv-style with dropdown menus ───────────────── */
+.nt-nav {
   position: sticky;
   top: 0;
-  z-index: 30;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 6vw;
-  background: rgba(8, 18, 37, 0.72);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  z-index: 40;
+  background: rgba(8, 18, 37, 0.82);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid rgba(96, 150, 240, 0.12);
+}
+.nt-nav-inner {
+  max-width: 1240px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  padding: 12px 5vw;
+}
+.nt-nav-menu {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+}
+.nt-nav-item { position: relative; }
+.nt-nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--nt-text-2);
+  padding: 9px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color .15s, background .15s;
+}
+.nt-nav-link:hover { color: var(--nt-text); background: rgba(96, 150, 240, 0.10); }
+.nt-nav-chev { transition: transform .2s ease; }
+.nt-nav-item:hover .nt-nav-chev { transform: rotate(180deg); }
+
+.nt-nav-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 286px;
+  margin-top: 6px;
+  background: var(--nt-surface);
+  border: var(--nt-hairline);
+  border-radius: 16px;
+  box-shadow: var(--nt-shadow-out-lg), var(--nt-glow-soft);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: nt-pop .16s ease;
+}
+/* invisible bridge so the gap between trigger and panel stays hoverable */
+.nt-nav-dropdown::before {
+  content: "";
+  position: absolute;
+  top: -8px; left: 0; right: 0; height: 8px;
+}
+.nt-nav-drop-link {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 11px;
+  cursor: pointer;
+  transition: background .14s;
+}
+.nt-nav-drop-link:hover { background: rgba(96, 150, 240, 0.12); }
+.nt-nav-drop-title { font-size: 13.5px; font-weight: 700; color: var(--nt-text); }
+.nt-nav-drop-desc { font-size: 11.5px; color: var(--nt-text-3); }
+
+.nt-nav-actions { display: flex; align-items: center; gap: 8px; }
+.nt-nav-icon {
+  width: 38px; height: 38px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 11px;
+  border: var(--nt-hairline);
+  background: var(--nt-surface);
+  color: var(--nt-text-2);
+  cursor: pointer;
+  transition: color .15s, box-shadow .15s;
+}
+.nt-nav-icon:hover { color: var(--nt-cyan); box-shadow: var(--nt-glow-soft); }
+
+@media (max-width: 880px) {
+  .nt-nav-menu { display: none; }
 }
 
 /* ── Hero ────────────────────────────────────────────────────── */
@@ -678,19 +765,89 @@ html, body {
   z-index: 1;
   text-align: center;
 }
-.nt-landing-footer {
+/* ── Footer — Emotiv-style multi-column ──────────────────────── */
+.nt-foot {
+  margin-top: 50px;
+  background: linear-gradient(180deg, transparent, rgba(5, 11, 26, 0.65));
+  border-top: 1px solid rgba(96, 150, 240, 0.12);
+}
+.nt-foot-top {
+  max-width: 1240px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.3fr 3fr;
+  gap: 48px;
+  padding: 60px 5vw 40px;
+}
+.nt-foot-brand { max-width: 300px; }
+.nt-foot-blurb {
+  font-size: 13px;
+  color: var(--nt-text-2);
+  line-height: 1.65;
+  margin: 16px 0 18px;
+}
+.nt-foot-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--nt-cyan);
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(47, 212, 238, 0.30);
+  background: rgba(47, 212, 238, 0.07);
+}
+.nt-foot-cols {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 28px;
+}
+.nt-foot-col-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--nt-text);
+  margin-bottom: 12px;
+}
+.nt-foot-sub {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--nt-text-4);
+  margin: 14px 0 6px;
+}
+.nt-foot-link {
+  display: block;
+  font-size: 13px;
+  color: var(--nt-text-2);
+  padding: 6px 0;
+  cursor: pointer;
+  transition: color .14s, padding-left .14s;
+}
+.nt-foot-link:hover { color: var(--nt-cyan); padding-left: 4px; }
+.nt-foot-bottom {
+  max-width: 1240px;
+  margin: 0 auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 14px;
-  padding: 30px 6vw;
-  border-top: 1px solid rgba(96, 150, 240, 0.12);
-}
-.nt-landing-footer-meta {
-  font-size: 11.5px;
+  gap: 12px;
+  padding: 20px 5vw 32px;
+  border-top: 1px solid rgba(96, 150, 240, 0.10);
+  font-size: 12px;
   color: var(--nt-text-3);
-  letter-spacing: 0.04em;
+}
+.nt-foot-bottom-links { display: flex; gap: 18px; }
+.nt-foot-bottom-links a { color: var(--nt-text-3); cursor: pointer; transition: color .14s; }
+.nt-foot-bottom-links a:hover { color: var(--nt-cyan); }
+
+@media (max-width: 820px) {
+  .nt-foot-top { grid-template-columns: 1fr; gap: 34px; }
+  .nt-foot-cols { grid-template-columns: repeat(2, 1fr); }
 }
 
 /* ── Landing keyframes ───────────────────────────────────────── */

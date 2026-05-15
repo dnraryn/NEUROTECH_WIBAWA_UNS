@@ -1,4 +1,5 @@
-// Landing page (/landing) — interactive marketing entry, brain.fm-inspired.
+// Landing page (/landing) — interactive marketing entry, brain.fm-inspired,
+// with an Emotiv-style dropdown navbar and a multi-column footer.
 // Sections fade + slide into view on scroll via IntersectionObserver (<Reveal>).
 
 // Reveal — fades & lifts its children into view when scrolled near.
@@ -41,6 +42,44 @@ const Brand = ({ size = 30 }) => (
   </div>
 );
 
+// Smooth-scroll to a landing section by id.
+const scrollToId = (id) => {
+  const el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+};
+
+// ── Navbar menu (Emotiv-style dropdowns, NeuroTech content) ────────────────
+const NAV_MENU = [
+  { label: "Solusi", links: [
+    { label: "Pemantauan Fatigue", desc: "Deteksi kelelahan mental real-time", to: "solusi" },
+    { label: "Beban Kognitif", desc: "Ukur cognitive load saat bekerja", to: "solusi" },
+    { label: "Kesiapan Pra-Shift", desc: "Skor readiness dari data tidur", to: "solusi" },
+    { label: "Deteksi Microsleep", desc: "Peringatan dini sebelum insiden", to: "cara-kerja" },
+  ]},
+  { label: "Fitur", links: [
+    { label: "App Pekerja", desc: "Pantau kondisi otak Anda sendiri", to: "solusi" },
+    { label: "Dashboard Supervisor", desc: "Overview tim & alert K3", to: "solusi" },
+    { label: "Analitik Manajemen", desc: "Tren agregat & skor SMK3", to: "solusi" },
+  ]},
+  { label: "Cara Kerja", to: "cara-kerja" },
+  { label: "Dukungan", links: [
+    { label: "Panduan Memulai", desc: "Langkah pertama dengan NeuroTech", to: "cara-kerja" },
+    { label: "Integrasi Muse", desc: "Hubungkan headband Muse 2 / Muse S", to: "cara-kerja" },
+    { label: "Hubungi Kami", desc: "Tim dukungan siap membantu", to: "mulai" },
+  ]},
+];
+
+// ── Footer columns (Emotiv-style, NeuroTech content) ───────────────────────
+const FOOT_COLS = [
+  { title: "Solusi", links: ["Pemantauan Fatigue", "Beban Kognitif", "Kesiapan Pra-Shift", "Deteksi Microsleep", "Manajemen K3"] },
+  { title: "Fitur", groups: [
+    { sub: "Aplikasi", links: ["App Pekerja", "Dashboard Supervisor", "Analitik Manajemen"] },
+    { sub: "Perangkat", links: ["Muse 2", "Muse S", "Kalibrasi EEG", "Alert Real-time"] },
+  ]},
+  { title: "Dukungan", links: ["Panduan Memulai", "FAQ", "Basis Pengetahuan", "Hubungi Kami", "Status Sistem"] },
+  { title: "Perusahaan", links: ["Tentang NeuroTech", "Kebijakan Privasi", "Syarat Penggunaan", "Keamanan Data", "Karier"] },
+];
+
 const LANDING_FEATURES = [
   { icon: "👷", title: "Pekerja", text: "Cek readiness pra-shift, pantau kondisi otak saat bekerja, dan lihat tren tidur — privat, hanya untuk Anda." },
   { icon: "🛡", title: "Supervisor K3", text: "Dashboard tim real-time: siapa kritis, alert microsleep, jadwal shift, dan laporan dalam satu layar." },
@@ -63,6 +102,8 @@ const LANDING_STATS = [
 const EEG_HEIGHTS = [38, 62, 28, 82, 50, 70, 34, 90, 46, 66, 30, 74];
 
 const LandingPage = () => {
+  const [openMenu, setOpenMenu] = React.useState(null);
+
   const goRegister = () => { sessionStorage.setItem("nt-auth-mode", "register"); navigate("/login"); };
   const goLogin = () => { sessionStorage.removeItem("nt-auth-mode"); navigate("/login"); };
   const goDemo = () => {
@@ -70,20 +111,86 @@ const LandingPage = () => {
     window.toast?.("Mode demo aktif — tanpa login", { kind: "info" });
     navigate("/w/readiness");
   };
+  const comingSoon = (label) =>
+    window.toast?.(`Halaman "${label}" akan segera tersedia`, { kind: "info" });
 
   return (
     <div className="nt-landing">
-      {/* ── Sticky nav ──────────────────────────────────────────── */}
-      <nav className="nt-landing-nav">
-        <Brand size={30} />
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <NeuroBtn tone="ghost" size="sm" onClick={goLogin}>Masuk</NeuroBtn>
-          <NeuroBtn tone="primary" size="sm" onClick={goRegister}>Daftar</NeuroBtn>
+      {/* ── Navbar — Emotiv-style with dropdown menus ───────────── */}
+      <nav className="nt-nav">
+        <div className="nt-nav-inner">
+          <Brand size={30} />
+
+          <div className="nt-nav-menu">
+            {NAV_MENU.map((item) => (
+              item.links ? (
+                <div
+                  key={item.label}
+                  className="nt-nav-item"
+                  onMouseEnter={() => setOpenMenu(item.label)}
+                  onMouseLeave={() => setOpenMenu(null)}
+                >
+                  <button
+                    className="nt-nav-link"
+                    onClick={() => setOpenMenu(openMenu === item.label ? null : item.label)}
+                  >
+                    {item.label}
+                    <svg className="nt-nav-chev" width="11" height="11" viewBox="0 0 24 24"
+                      fill="none" stroke="currentColor" strokeWidth="3"
+                      strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M6 9l6 6 6-6" />
+                    </svg>
+                  </button>
+                  {openMenu === item.label && (
+                    <div className="nt-nav-dropdown">
+                      {item.links.map((l) => (
+                        <a
+                          key={l.label}
+                          className="nt-nav-drop-link"
+                          onClick={() => { scrollToId(l.to); setOpenMenu(null); }}
+                        >
+                          <span className="nt-nav-drop-title">{l.label}</span>
+                          <span className="nt-nav-drop-desc">{l.desc}</span>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <button
+                  key={item.label}
+                  className="nt-nav-link"
+                  onClick={() => scrollToId(item.to)}
+                >
+                  {item.label}
+                </button>
+              )
+            ))}
+          </div>
+
+          <div className="nt-nav-actions">
+            <button className="nt-nav-icon" title="Cari"
+              onClick={() => comingSoon("Pencarian")}>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <circle cx="11" cy="11" r="7" />
+                <path d="M21 21l-4.3-4.3" />
+              </svg>
+            </button>
+            <button className="nt-nav-icon" title="Masuk" onClick={goLogin}>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 21c0-4 4-6 8-6s8 2 8 6" />
+              </svg>
+            </button>
+            <NeuroBtn tone="primary" size="sm" onClick={goRegister}>Mulai</NeuroBtn>
+          </div>
         </div>
       </nav>
 
       {/* ── Hero ────────────────────────────────────────────────── */}
-      <header className="nt-landing-hero">
+      <header className="nt-landing-hero" id="hero">
         <span className="nt-landing-orb nt-landing-orb--a" />
         <span className="nt-landing-orb nt-landing-orb--b" />
 
@@ -149,7 +256,7 @@ const LandingPage = () => {
       </header>
 
       {/* ── Features: three personas ────────────────────────────── */}
-      <section className="nt-landing-section">
+      <section className="nt-landing-section" id="solusi">
         <Reveal>
           <div className="nt-eyebrow" style={{ textAlign: "center" }}>Tiga sudut pandang</div>
           <h2 className="nt-landing-h2">Satu sistem untuk seluruh tim K3</h2>
@@ -168,7 +275,7 @@ const LandingPage = () => {
       </section>
 
       {/* ── How it works ────────────────────────────────────────── */}
-      <section className="nt-landing-section">
+      <section className="nt-landing-section" id="cara-kerja">
         <Reveal>
           <div className="nt-eyebrow" style={{ textAlign: "center" }}>Cara kerja</div>
           <h2 className="nt-landing-h2">Dari sinyal otak ke pencegahan insiden</h2>
@@ -187,7 +294,7 @@ const LandingPage = () => {
       </section>
 
       {/* ── Final call to action ────────────────────────────────── */}
-      <section className="nt-landing-section">
+      <section className="nt-landing-section" id="mulai">
         <Reveal>
           <div className="nt-landing-final">
             <span className="nt-landing-orb nt-landing-orb--c" />
@@ -207,11 +314,47 @@ const LandingPage = () => {
         </Reveal>
       </section>
 
-      {/* ── Footer ──────────────────────────────────────────────── */}
-      <footer className="nt-landing-footer">
-        <Brand size={24} />
-        <div className="nt-landing-footer-meta">
-          © 2026 NeuroTech · Technology of the Mind · Sistem Monitoring Fatigue &amp; K3
+      {/* ── Footer — Emotiv-style multi-column ───────────────────── */}
+      <footer className="nt-foot">
+        <div className="nt-foot-top">
+          <div className="nt-foot-brand">
+            <Brand size={28} />
+            <p className="nt-foot-blurb">
+              Sistem monitoring fatigue, beban kognitif, dan K3 berbasis EEG Muse —
+              deteksi dini sebelum kelelahan menjadi insiden.
+            </p>
+            <div className="nt-foot-badge">
+              <span>✦</span> Mendukung penerapan SMK3
+            </div>
+          </div>
+
+          <div className="nt-foot-cols">
+            {FOOT_COLS.map((col) => (
+              <div className="nt-foot-col" key={col.title}>
+                <div className="nt-foot-col-title">{col.title}</div>
+                {col.links && col.links.map((l) => (
+                  <a key={l} className="nt-foot-link" onClick={() => comingSoon(l)}>{l}</a>
+                ))}
+                {col.groups && col.groups.map((g) => (
+                  <div key={g.sub}>
+                    <div className="nt-foot-sub">{g.sub}</div>
+                    {g.links.map((l) => (
+                      <a key={l} className="nt-foot-link" onClick={() => comingSoon(l)}>{l}</a>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="nt-foot-bottom">
+          <span>© 2026 NeuroTech · Technology of the Mind</span>
+          <div className="nt-foot-bottom-links">
+            <a onClick={() => comingSoon("Kebijakan Privasi")}>Privasi</a>
+            <a onClick={() => comingSoon("Syarat Penggunaan")}>Syarat</a>
+            <a onClick={() => comingSoon("Keamanan Data")}>Keamanan Data</a>
+          </div>
         </div>
       </footer>
     </div>
