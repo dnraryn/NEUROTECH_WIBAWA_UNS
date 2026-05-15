@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NeuroTech — Monitoring Fatigue, Cognitive Load & K3</title>
+  <meta name="description" content="Sistem pemantauan kelelahan mental, beban kognitif, dan K3 berbasis Muse 2 / Muse S." />
+
+  <link rel="icon" type="image/png" href="assets/neurotech-logo.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- React + Babel via CDN — matches the prototype's plain-script style -->
+  <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
+
+  <!-- Firebase (compat build to fit plain-script setup) — init only -->
+  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+  <script src="firebase-init.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!--
+    Order matters: each file ends with Object.assign(window, {...}) to publish
+    its primitives/screens. Later files reference them as bare identifiers,
+    which resolve via the global scope. Babel runs type="text/babel" scripts
+    in order, in the global scope (no module wrapper). Do NOT add
+    data-type="module" — that would isolate scopes and break the sharing.
+  -->
+  <!-- Foundations first: router/modal/toast → primitives → shared mock data -->
+  <script type="text/babel" src="router.jsx"></script>
+  <script type="text/babel" src="primitives.jsx"></script>
+  <script type="text/babel" src="mock-data.jsx"></script>
+
+  <!-- Page-level screens (rely on primitives + mock-data) -->
+  <script type="text/babel" src="worker-screens.jsx"></script>
+  <script type="text/babel" src="worker-profile.jsx"></script>
+  <script type="text/babel" src="supervisor-screen.jsx"></script>
+  <script type="text/babel" src="supervisor-workers.jsx"></script>
+  <script type="text/babel" src="supervisor-alerts.jsx"></script>
+  <script type="text/babel" src="supervisor-schedule.jsx"></script>
+  <script type="text/babel" src="supervisor-reports.jsx"></script>
+  <script type="text/babel" src="management-screen.jsx"></script>
+  <script type="text/babel" src="auth-login.jsx"></script>
+
+  <!-- App shell + router mount LAST -->
+  <script type="text/babel" src="app.jsx"></script>
+</body>
+</html>

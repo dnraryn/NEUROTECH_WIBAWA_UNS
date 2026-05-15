@@ -1,0 +1,396 @@
+/* NeuroTech — Neumorphism design tokens */
+:root {
+  /* Surface */
+  --nt-bg: #e6ecf3;
+  --nt-bg-2: #eef2f8;
+  --nt-bg-deep: #d8e0ea;
+  --nt-surface: #e8eef5;
+
+  /* Brand from logo */
+  --nt-brand-deep: #1a2b4a;
+  --nt-brand: #2a4a73;
+  --nt-brand-mid: #3a7fb5;
+  --nt-cyan: #4ec3e0;
+  --nt-cyan-soft: #8fd6ea;
+
+  /* Accent palette (referensi UI) */
+  --nt-blue: #6cb6f0;
+  --nt-blue-2: #8cc6f5;
+  --nt-purple: #9c8bf0;
+  --nt-purple-2: #b9adf5;
+  --nt-pink: #ff8aa1;
+  --nt-pink-2: #ffaebb;
+  --nt-yellow: #ffc56a;
+  --nt-yellow-2: #ffd791;
+  --nt-green: #7dd1a1;
+  --nt-green-2: #a8e0c0;
+  --nt-red: #ff7a7a;
+
+  /* Text */
+  --nt-text: #2c3e50;
+  --nt-text-2: #5a6c80;
+  --nt-text-3: #8a9aae;
+  --nt-text-4: #b2bfd0;
+
+  /* Shadows — soft neumorphism */
+  --nt-sh-light: rgba(255, 255, 255, 0.95);
+  --nt-sh-dark: rgba(163, 177, 198, 0.55);
+  --nt-sh-dark-2: rgba(140, 156, 180, 0.35);
+
+  --nt-shadow-out: -7px -7px 14px var(--nt-sh-light), 7px 7px 14px var(--nt-sh-dark);
+  --nt-shadow-out-sm: -4px -4px 8px var(--nt-sh-light), 4px 4px 8px var(--nt-sh-dark-2);
+  --nt-shadow-out-lg: -12px -12px 24px var(--nt-sh-light), 12px 12px 24px var(--nt-sh-dark);
+  --nt-shadow-in: inset 3px 3px 6px var(--nt-sh-dark-2), inset -3px -3px 6px var(--nt-sh-light);
+  --nt-shadow-in-lg: inset 5px 5px 10px var(--nt-sh-dark), inset -5px -5px 10px var(--nt-sh-light);
+
+  /* Font */
+  --nt-font: "Manrope", "SF Pro Display", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --nt-font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   App shell — sits OUTSIDE .nt-screen so screens stay pixel-true
+   ────────────────────────────────────────────────────────────── */
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--nt-bg);
+  font-family: var(--nt-font);
+  color: var(--nt-text);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  position: relative;
+}
+
+.app-shell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(120% 80% at 10% 0%, rgba(255, 255, 255, 0.5), transparent 60%),
+    radial-gradient(120% 80% at 100% 100%, rgba(180, 200, 225, 0.25), transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.app-shell > * { position: relative; z-index: 1; }
+
+/* ── Top bar ─────────────────────────────────────────────────── */
+.app-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 32px;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.app-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.app-brand-name {
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+}
+
+.app-brand-name strong {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--nt-brand-deep);
+  letter-spacing: -0.01em;
+}
+
+.app-brand-name span {
+  font-size: 9px;
+  letter-spacing: 0.32em;
+  color: var(--nt-text-3);
+  margin-top: 3px;
+  text-transform: uppercase;
+}
+
+.app-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--nt-text-3);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.app-meta-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #7dd1a1;
+  box-shadow: 0 0 8px #7dd1a1aa;
+}
+
+/* ── Tab navigation ──────────────────────────────────────────── */
+.app-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  margin: 0 32px;
+  background: var(--nt-surface);
+  box-shadow: var(--nt-shadow-in);
+  border-radius: 999px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.app-tabs::-webkit-scrollbar { display: none; }
+
+.app-tab-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px;
+  position: relative;
+}
+
+.app-tab-group + .app-tab-group::before {
+  content: "";
+  position: absolute;
+  left: -2px;
+  top: 20%;
+  bottom: 20%;
+  width: 1px;
+  background: var(--nt-text-4);
+  opacity: 0.5;
+}
+
+.app-tab-group-label {
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  color: var(--nt-text-3);
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 0 8px;
+}
+
+.app-tab {
+  border: none;
+  background: transparent;
+  padding: 9px 18px;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--nt-text-2);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: box-shadow .15s, color .15s, background .15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-tab:hover {
+  color: var(--nt-brand-mid);
+}
+
+.app-tab.is-active {
+  background: var(--nt-surface);
+  box-shadow: var(--nt-shadow-out-sm);
+  color: var(--nt-brand-mid);
+}
+
+.app-tab-icon {
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Stage where the screen is shown ─────────────────────────── */
+.app-stage {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 32px;
+  overflow: auto;
+}
+
+.app-frame {
+  background: var(--nt-bg);
+  border-radius: 36px;
+  box-shadow: var(--nt-shadow-out-lg);
+  overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.app-frame--mobile {
+  width: 360px;
+  height: 780px;
+  border-radius: 44px;
+}
+
+.app-frame--desktop {
+  width: 1280px;
+  height: 800px;
+}
+
+.app-frame--auth {
+  width: 100vw;
+  height: 100vh;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.app-frame-caption {
+  position: absolute;
+  top: -28px;
+  left: 4px;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--nt-text-3);
+  font-weight: 700;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Original design styles
+   ────────────────────────────────────────────────────────────── */
+/* Generic neuro shapes */
+.neu-surface {
+  background: var(--nt-surface);
+  box-shadow: var(--nt-shadow-out);
+  border-radius: 24px;
+}
+.neu-surface-sm {
+  background: var(--nt-surface);
+  box-shadow: var(--nt-shadow-out-sm);
+  border-radius: 16px;
+}
+.neu-inset {
+  background: var(--nt-surface);
+  box-shadow: var(--nt-shadow-in);
+  border-radius: 16px;
+}
+.neu-pill {
+  background: var(--nt-surface);
+  box-shadow: var(--nt-shadow-out-sm);
+  border-radius: 999px;
+}
+.neu-pill-in {
+  background: var(--nt-surface);
+  box-shadow: var(--nt-shadow-in);
+  border-radius: 999px;
+}
+
+/* Common letter-spaced label */
+.nt-eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--nt-text-3);
+  font-weight: 600;
+}
+.nt-title-lg {
+  font-size: 34px;
+  font-weight: 700;
+  color: var(--nt-text);
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.nt-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--nt-text);
+  letter-spacing: -0.01em;
+}
+.nt-label {
+  font-size: 12px;
+  color: var(--nt-text-3);
+  font-weight: 500;
+}
+.nt-value {
+  font-weight: 700;
+  color: var(--nt-text);
+}
+
+/* Tiny EEG wave keyframes */
+@keyframes nt-pulse {
+  0%, 100% { opacity: 0.4; transform: scaleY(0.8); }
+  50% { opacity: 1; transform: scaleY(1.2); }
+}
+
+/* Modal + toast keyframes */
+@keyframes nt-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes nt-pop {
+  from { opacity: 0; transform: scale(0.94) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes nt-slide-in {
+  from { opacity: 0; transform: translateX(40px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* Hover state for clickable cards */
+.nt-card-click {
+  cursor: pointer;
+  transition: transform .15s, box-shadow .15s;
+}
+.nt-card-click:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--nt-shadow-out-lg);
+}
+
+/* Reset to make the artboard contents feel like real screens */
+.nt-screen, .nt-screen * {
+  box-sizing: border-box;
+  font-family: var(--nt-font);
+  -webkit-font-smoothing: antialiased;
+}
+.nt-screen {
+  background: var(--nt-bg);
+  color: var(--nt-text);
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Subtle radial highlight for depth on screen */
+.nt-screen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 80% at 20% 0%, rgba(255,255,255,0.7), transparent 60%),
+              radial-gradient(120% 80% at 100% 100%, rgba(180,200,225,0.25), transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+.nt-screen > * { position: relative; z-index: 1; }
+
+/* Responsive helper: shrink-to-fit on narrow viewports */
+@media (max-width: 1360px) {
+  .app-stage:has(.app-frame--desktop) {
+    padding: 32px 16px;
+  }
+}
