@@ -45,6 +45,10 @@ const ROLE_APP   = { worker: "w", supervisor: "s", manager: "m" };
 const resolveRoute = (route) => {
   const direct = ROUTES[`${route.app}/${route.page}`];
   if (direct && !route.id) return direct;
+  // Content/marketing pages — /p/<slug>
+  if (route.app === "p" && route.page) {
+    return { c: () => <ContentPage slug={route.page} />, frame: "landing", label: "Halaman" };
+  }
   // Dynamic detail routes
   if (route.app === "s" && route.page === "workers" && route.id) {
     return { c: () => <SupervisorWorkerDetail id={route.id} />, frame: "desktop", label: "Detail Pekerja" };
@@ -109,8 +113,9 @@ const App = () => {
   React.useEffect(() => {
     if (authUser === undefined) return;            // still checking the session
     const publicPage = route.app === "login" || route.app === "landing";
+    const contentPage = route.app === "p";   // /p/<slug> — open to everyone
     const authed = !!authUser || demo;
-    if (!authed && !publicPage) { navigate("/landing"); return; }
+    if (!authed && !publicPage && !contentPage) { navigate("/landing"); return; }
     if (authed && publicPage) {
       if (authUser && !profile) return;            // wait until the role is known
       navigate(ROLE_HOME[profile && profile.role] || "/w/readiness");
@@ -138,7 +143,7 @@ const App = () => {
   if (authUser === undefined) return <Splash text="Memeriksa sesi…" />;
 
   const authed = !!authUser || demo;
-  if (!authed && route.app !== "login" && route.app !== "landing")
+  if (!authed && route.app !== "login" && route.app !== "landing" && route.app !== "p")
     return <Splash text="Memuat…" />;
 
   // A signed-in user is locked to one persona; demo users see all three.
@@ -225,6 +230,7 @@ const App = () => {
       </main>
 
       <ToastProvider />
+      <AskAI />
     </div>
   );
 };
