@@ -36,6 +36,8 @@ const PERSONAS = [
 // Where each role lands after signing in, and how its role reads in the UI.
 const ROLE_HOME  = { worker: "/w/readiness", supervisor: "/s/overview", manager: "/m/overview" };
 const ROLE_LABEL = { worker: "Pekerja", supervisor: "Supervisor K3", manager: "Manajemen SMK3" };
+// Which route prefix (persona) each role is allowed to enter.
+const ROLE_APP   = { worker: "w", supervisor: "s", manager: "m" };
 
 // Resolve a route — supports dynamic 3-segment routes (s/workers/:id, s/alerts/:id).
 // Always returns objects with the same shape as ROUTES entries (c, frame, label).
@@ -79,6 +81,7 @@ const App = () => {
     if (!window.ntAuth) { setAuthUser(null); return; }
     return window.ntAuth.onChange(async (user) => {
       if (user) {
+        sessionStorage.removeItem("nt-demo");        // a real login exits demo mode
         let p = null;
         try { p = await window.ntAuth.getProfile(user.uid); }
         catch (err) { console.error("[NeuroTech] profil gagal dimuat:", err.message); }
@@ -114,6 +117,13 @@ const App = () => {
     }
     if (authed && !route.app) {
       navigate(ROLE_HOME[profile && profile.role] || "/w/readiness");
+      return;
+    }
+    // Role lock — a signed-in user may only enter their own persona's screens.
+    // Demo mode stays unrestricted (can browse every persona).
+    if (authUser && !demo && profile && ["w", "s", "m"].includes(route.app)) {
+      const allowed = ROLE_APP[profile.role];
+      if (allowed && route.app !== allowed) navigate(ROLE_HOME[profile.role]);
     }
   }, [authUser, profile, route.app, route.page, demo]);
 
@@ -129,11 +139,19 @@ const App = () => {
   const authed = !!authUser || demo;
   if (!authed && route.app !== "login") return <Splash text="Mengalihkan ke halaman masuk…" />;
 
+  // A signed-in user is locked to one persona; demo users see all three.
+  const roleApp = authUser && !demo && profile ? ROLE_APP[profile.role] : null;
+  if (roleApp && ["w", "s", "m"].includes(route.app) && route.app !== roleApp) {
+    return <Splash text="Mengalihkan ke area Anda…" />;
+  }
+
   const resolved = resolveRoute(route) || ROUTES["w/readiness"];
   const ScreenComponent = resolved.c;
   const isAuth = resolved.frame === "auth";
   const activePersona = PERSONAS.find((p) => p.id === route.app);
   const homeHref = ROLE_HOME[profile && profile.role] || "/w/readiness";
+  // Only show persona tabs the current user may open.
+  const visiblePersonas = roleApp ? PERSONAS.filter((p) => p.id === roleApp) : PERSONAS;
 
   return (
     <div className="app-shell">
@@ -175,7 +193,7 @@ const App = () => {
           </header>
 
           <nav className="app-tabs" role="tablist" aria-label="Pilih persona">
-            {PERSONAS.map((p) => (
+            {visiblePersonas.map((p) => (
               <div className="app-tab-group" key={p.id}>
                 <span className="app-tab-group-label">{p.icon}&nbsp;{p.label}</span>
                 <Link to={p.home}>
