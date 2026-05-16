@@ -116,4 +116,50 @@ window.ntSeedTestAccounts = async () => {
   return created;
 };
 
+// ── Anonymous sign-in ─────────────────────────────────────────────────────
+// Lets the company-code flow read/write Firestore without anyone logging in
+// with a Google/email account. Enable it once in Firebase Console:
+//   Authentication → Sign-in method → Anonymous → Enable.
+auth.signInAnonymously().catch((e) =>
+  console.error("[NeuroTech] anonymous sign-in gagal:", e.message));
+
+// ── Companies — created by the "Bergabung" flow, read by the login flow ────
+const ntCompany = {
+  // Sequential code per package, e.g. P-001, P-002 …
+  async nextCode(pkg) {
+    const prefix = ({ free: "F", bronze: "B", silver: "S", gold: "G", platinum: "P" })[pkg] || "X";
+    let n = 1;
+    try {
+      const snap = await db.collection("companies").where("package", "==", pkg).get();
+      n = snap.size + 1;
+    } catch (e) { console.warn("[NeuroTech] nextCode fallback:", e.message); }
+    return prefix + "-" + String(n).padStart(3, "0");
+  },
+  async create({ pkg, companyName, members }) {
+    const code = await ntCompany.nextCode(pkg);
+    await db.collection("companies").doc(code).set({
+      code, package: pkg, companyName, members,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    return code;
+  },
+  async getByCode(code) {
+    const snap = await db.collection("companies").doc((code || "").trim().toUpperCase()).get();
+    return snap.exists ? snap.data() : null;
+  },
+};
+
+// ── Member session (company-code login, kept in sessionStorage) ────────────
+const ntSession = {
+  get() {
+    try { return JSON.parse(sessionStorage.getItem("nt-session") || "null"); }
+    catch (e) { return null; }
+  },
+  set(s) { sessionStorage.setItem("nt-session", JSON.stringify(s)); },
+  clear() { sessionStorage.removeItem("nt-session"); },
+};
+
+window.ntCompany = ntCompany;
+window.ntSession = ntSession;
+
 console.info("[NeuroTech] Firebase initialised · project:", firebaseConfig.projectId);

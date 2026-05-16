@@ -43,8 +43,8 @@ const Brand = ({ size = 30 }) => (
 );
 
 // ── Shared navigation helpers ──────────────────────────────────────────────
-const goRegister = () => { sessionStorage.setItem("nt-auth-mode", "register"); navigate("/login"); };
-const goLogin = () => { sessionStorage.removeItem("nt-auth-mode"); navigate("/login"); };
+const goRegister = () => navigate("/join");   // "Bergabung dengan Kami"
+const goLogin = () => navigate("/login");
 const goDemo = () => {
   sessionStorage.setItem("nt-demo", "1");
   window.toast?.("Mode demo aktif, tanpa login", { kind: "info" });
@@ -165,7 +165,7 @@ const LandingNav = () => {
               <path d="M4 21c0-4 4-6 8-6s8 2 8 6" />
             </svg>
           </button>
-          <NeuroBtn tone="primary" size="sm" onClick={goRegister}>Mulai</NeuroBtn>
+          <NeuroBtn tone="primary" size="sm" onClick={goRegister}>Bergabung</NeuroBtn>
         </div>
       </div>
     </nav>
@@ -451,7 +451,7 @@ const LandingPage = () => (
 
         <Reveal delay={400}>
           <div className="nt-landing-cta">
-            <NeuroBtn tone="primary" size="lg" onClick={goRegister}>Mulai sekarang</NeuroBtn>
+            <NeuroBtn tone="primary" size="lg" onClick={goRegister}>Bergabung dengan Kami</NeuroBtn>
             <NeuroBtn tone="default" size="lg" onClick={goDemo}>Coba demo →</NeuroBtn>
           </div>
         </Reveal>
@@ -604,7 +604,7 @@ const LandingPage = () => (
               Buat akun untuk tim Anda, atau jelajahi dulu lewat mode demo.
             </p>
             <div className="nt-landing-cta">
-              <NeuroBtn tone="primary" size="lg" onClick={goRegister}>Buat akun</NeuroBtn>
+              <NeuroBtn tone="primary" size="lg" onClick={goRegister}>Bergabung dengan Kami</NeuroBtn>
               <NeuroBtn tone="default" size="lg" onClick={goDemo}>Coba demo →</NeuroBtn>
             </div>
           </div>
@@ -759,4 +759,4 @@ const PlanPricing = () => (
   </div>
 );
 
-Object.assign(window, { Reveal, Brand, VisiMisi, LandingNav, LandingFooter, LandingPage, PlanPricing });
+Object.assign(window, { Reveal, Brand, VisiMisi, LandingNav, LandingFooter, LandingPage, PlanPricing, PACKAGES });

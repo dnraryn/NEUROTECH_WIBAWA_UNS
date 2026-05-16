@@ -1481,6 +1481,182 @@ html, body {
 .nt-price-cta { margin-top: 18px; }
 
 /* ──────────────────────────────────────────────────────────────
+   Join flow (/join)
+   ────────────────────────────────────────────────────────────── */
+.nt-join { min-height: 100vh; width: 100%; position: relative; }
+.nt-join-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 6vw;
+  border-bottom: 1px solid rgba(96, 150, 240, 0.12);
+}
+.nt-join-body { display: flex; justify-content: center; padding: 46px 6vw 72px; }
+.nt-join-card {
+  width: 560px;
+  max-width: 100%;
+  background: var(--nt-surface);
+  border: var(--nt-hairline);
+  border-radius: 24px;
+  box-shadow: var(--nt-shadow-out), var(--nt-glow-soft);
+  padding: 36px 34px;
+}
+.nt-join-card--wide { width: 920px; }
+.nt-join-h1 {
+  font-size: clamp(24px, 3.4vw, 32px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--nt-text);
+  margin: 8px 0 0;
+}
+.nt-join-sub { font-size: 14px; color: var(--nt-text-2); line-height: 1.6; margin: 10px 0 0; }
+.nt-join-pick { cursor: pointer; transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
+.nt-join-pick:hover { transform: translateY(-3px); }
+.nt-join-pick.is-sel {
+  border: 1px solid var(--nt-cyan);
+  box-shadow: var(--nt-shadow-out), var(--nt-glow);
+}
+.nt-join-paybox {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 22px;
+  padding: 22px 24px;
+  background: var(--nt-bg-2);
+  border: var(--nt-hairline);
+  border-radius: 16px;
+  font-size: 14px;
+  color: var(--nt-text-2);
+}
+.nt-join-payamount {
+  font-size: 22px;
+  font-weight: 800;
+  background: var(--nt-brand-gradient);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+.nt-join-field { display: flex; flex-direction: column; gap: 6px; margin-top: 18px; }
+.nt-join-field > span {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--nt-text-3);
+}
+.nt-join-input {
+  background: var(--nt-bg-2);
+  border: var(--nt-hairline);
+  border-radius: 12px;
+  padding: 11px 14px;
+  color: var(--nt-text);
+  font-family: inherit;
+  font-size: 13.5px;
+  outline: none;
+  transition: border-color .15s ease;
+}
+.nt-join-input::placeholder { color: var(--nt-text-3); }
+.nt-join-input:focus { border-color: var(--nt-cyan); }
+.nt-join-section-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--nt-cyan);
+  margin: 24px 0 10px;
+}
+.nt-join-grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.nt-join-worker {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1.4fr 1fr auto;
+  gap: 8px;
+  margin-bottom: 8px;
+  align-items: center;
+}
+.nt-join-del {
+  width: 36px; height: 38px;
+  border: var(--nt-hairline);
+  background: var(--nt-bg-2);
+  color: var(--nt-red);
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.nt-join-add {
+  margin-top: 6px;
+  background: transparent;
+  border: 1px dashed rgba(96, 150, 240, 0.4);
+  color: var(--nt-cyan);
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.nt-join-add:hover { background: rgba(96, 150, 240, 0.08); }
+.nt-join-code {
+  font-size: 38px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  margin: 16px 0;
+  background: var(--nt-brand-gradient);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Member login (/login)
+   ────────────────────────────────────────────────────────────── */
+.nt-auth-screen {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  position: relative;
+  overflow: hidden;
+}
+.nt-auth-box {
+  position: relative;
+  z-index: 1;
+  width: 420px;
+  max-width: 100%;
+  background: var(--nt-surface);
+  border: var(--nt-hairline);
+  border-radius: 24px;
+  box-shadow: var(--nt-shadow-out-lg), var(--nt-glow);
+  padding: 34px 32px;
+}
+.nt-auth-title {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--nt-text);
+  text-align: center;
+  margin: 14px 0 0;
+}
+.nt-auth-text {
+  font-size: 13px;
+  color: var(--nt-text-2);
+  line-height: 1.6;
+  text-align: center;
+  margin: 8px 0 0;
+}
+.nt-auth-greet {
+  font-size: 13px;
+  color: var(--nt-text-2);
+  line-height: 1.65;
+  background: var(--nt-bg-2);
+  border: var(--nt-hairline);
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+.nt-auth-greet strong { color: var(--nt-cyan); }
+.nt-auth-foot { margin-top: 16px; font-size: 12px; color: var(--nt-text-3); text-align: center; }
+.nt-auth-foot a { color: var(--nt-cyan); cursor: pointer; font-weight: 700; }
+
+@media (max-width: 720px) {
+  .nt-join-grid3 { grid-template-columns: 1fr; }
+  .nt-join-worker { grid-template-columns: 1fr 1fr; }
+  .nt-join-del { width: 100%; }
+}
+
+/* ──────────────────────────────────────────────────────────────
    Auth page — mobile responsive (login form takes the screen)
    ────────────────────────────────────────────────────────────── */
 .nt-auth-grid {

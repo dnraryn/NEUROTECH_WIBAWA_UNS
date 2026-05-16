@@ -1,9 +1,9 @@
-// NeuroTech root, hash router dispatches to per-persona screens inside their
-// native frame (mobile 360×780 or desktop 1280×800). Persona switcher in the
-// header is a glorified shortcut to the persona's home route.
+// NeuroTech root — hash router dispatches to per-persona screens inside their
+// native frame (mobile 360×780 or desktop 1280×800).
 //
-// Auth: App tracks the Firebase session. Unauthenticated visitors are sent to
-// /login; a no-auth "demo" bypass (sessionStorage) is kept for walkthroughs.
+// Auth model: a member "session" (company code + member name + role) is kept
+// in sessionStorage. Visitors join via /join or log in via /login. A no-auth
+// "demo" bypass is kept for quick walkthroughs.
 
 const ROUTES = {
   // Worker mobile (app prefix: w)
@@ -26,7 +26,8 @@ const ROUTES = {
   // Public, no auth required
   "landing":     { c: () => <LandingPage />, frame: "landing", label: "Beranda" },
   "pricing":     { c: () => <PlanPricing />, frame: "landing", label: "Plan & Pricing" },
-  "login":       { c: () => <AuthLogin />, frame: "auth", label: "Masuk" },
+  "join":        { c: () => <JoinFlow />, frame: "landing", label: "Bergabung" },
+  "login":       { c: () => <MemberLogin />, frame: "auth", label: "Masuk" },
 };
 
 const PERSONAS = [
@@ -35,18 +36,17 @@ const PERSONAS = [
   { id: "m", label: "Manajemen SMK3",    home: "/m/overview",  icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3h18v4H3zM3 11h18v4H3zM3 19h18v2H3z"/></svg> },
 ];
 
-// Where each role lands after signing in, and how its role reads in the UI.
-const ROLE_HOME  = { worker: "/w/readiness", supervisor: "/s/overview", manager: "/m/overview" };
-const ROLE_LABEL = { worker: "Pekerja", supervisor: "Supervisor K3", manager: "Manajemen SMK3" };
-// Which route prefix (persona) each role is allowed to enter.
-const ROLE_APP   = { worker: "w", supervisor: "s", manager: "m" };
+// Role → home route, label, and which persona prefixes the role may open.
+// Management may open both the supervisor and the management views.
+const ROLE_HOME  = { pekerja: "/w/readiness", supervisor: "/s/overview", management: "/m/overview" };
+const ROLE_LABEL = { pekerja: "Pekerja", supervisor: "Supervisor", management: "Manajemen" };
+const ROLE_APPS  = { pekerja: ["w"], supervisor: ["s"], management: ["s", "m"] };
 
-// Resolve a route, supports dynamic 3-segment routes (s/workers/:id, s/alerts/:id).
-// Always returns objects with the same shape as ROUTES entries (c, frame, label).
+// Resolve a route — supports dynamic 3-segment routes and content pages.
 const resolveRoute = (route) => {
   const direct = ROUTES[`${route.app}/${route.page}`];
   if (direct && !route.id) return direct;
-  // Content/marketing pages, /p/<slug>
+  // Content/marketing pages — /p/<slug>
   if (route.app === "p" && route.page) {
     return { c: () => <ContentPage slug={route.page} />, frame: "landing", label: "Halaman" };
   }
@@ -68,7 +68,7 @@ const resolveRoute = (route) => {
   return null;
 };
 
-// Full-screen status message (session check / redirect).
+// Full-screen status message (redirect).
 const Splash = ({ text }) => (
   <div className="app-shell" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
     <div style={{ color: "var(--nt-text-2)", fontSize: 14, fontWeight: 600 }}>{text}</div>
@@ -77,30 +77,19 @@ const Splash = ({ text }) => (
 
 const App = () => {
   const route = useHashRoute();
-  const [authUser, setAuthUser] = React.useState(undefined); // undefined = still checking
-  const [profile, setProfile] = React.useState(null);
   const [, bump] = React.useReducer((n) => n + 1, 0);
-  const demo = typeof sessionStorage !== "undefined" && sessionStorage.getItem("nt-demo") === "1";
 
-  // Track the Firebase session: load the profile, start/stop the data sync.
+  // Read fresh each render — sessionStorage is not reactive.
+  const session = window.ntSession ? window.ntSession.get() : null;
+  const demo = typeof sessionStorage !== "undefined" && sessionStorage.getItem("nt-demo") === "1";
+  const authed = !!session || demo;
+  const homeOf = (session && ROLE_HOME[session.role]) || "/w/readiness";
+
+  // Start the live worker-data sync once anonymous auth is ready.
   React.useEffect(() => {
-    if (!window.ntAuth) { setAuthUser(null); return; }
-    return window.ntAuth.onChange(async (user) => {
-      if (user) {
-        sessionStorage.removeItem("nt-demo");        // a real login exits demo mode
-        let p = null;
-        try { p = await window.ntAuth.getProfile(user.uid); }
-        catch (err) { console.error("[NeuroTech] profil gagal dimuat:", err.message); }
-        setProfile(p);
-        window.NT_PROFILE = p;
-        window.ntStartWorkerSync?.();
-      } else {
-        setProfile(null);
-        window.NT_PROFILE = null;
-        window.ntStopWorkerSync?.();
-      }
-      setAuthUser(user || null);
-    });
+    const fb = window.NT_FIREBASE;
+    if (!fb || !fb.auth) { window.ntStartWorkerSync?.(); return; }
+    return fb.auth.onAuthStateChanged((u) => { if (u) window.ntStartWorkerSync?.(); });
   }, []);
 
   // Re-render when Firestore pushes fresh worker data.
@@ -110,71 +99,59 @@ const App = () => {
     return () => window.removeEventListener("nt-data", onData);
   }, []);
 
-  // Jump to the top of the page on every route change (so clicking a link
-  // never leaves the visitor scrolled down where they were).
+  // Jump to the top of the page on every route change.
   React.useLayoutEffect(() => {
     window.scrollTo(0, 0);
     const stage = document.querySelector(".app-stage");
     if (stage) stage.scrollTop = 0;
   }, [route.path]);
 
-  // Default landing + auth guard, runs once the session state is known.
+  // Routing guard.
   React.useEffect(() => {
-    if (authUser === undefined) return;            // still checking the session
-    const publicPage = route.app === "login" || route.app === "landing" || route.app === "pricing";
-    const contentPage = route.app === "p";   // /p/<slug>, open to everyone
-    const authed = !!authUser || demo;
+    const publicPage = ["landing", "pricing", "login", "join"].includes(route.app);
+    const contentPage = route.app === "p";
     if (!authed && !publicPage && !contentPage) { navigate("/landing"); return; }
-    if (authed && publicPage) {
-      if (authUser && !profile) return;            // wait until the role is known
-      navigate(ROLE_HOME[profile && profile.role] || "/w/readiness");
-      return;
+    // A logged-in member never sits on the login/join screens.
+    if (session && (route.app === "login" || route.app === "join")) {
+      navigate(homeOf); return;
     }
-    if (authed && !route.app) {
-      navigate(ROLE_HOME[profile && profile.role] || "/w/readiness");
-      return;
+    if (authed && !route.app) { navigate(session ? homeOf : "/w/readiness"); return; }
+    // Role lock — a member may only open their own persona's screens.
+    if (session && !demo && ["w", "s", "m"].includes(route.app)) {
+      const allowed = ROLE_APPS[session.role] || [];
+      if (!allowed.includes(route.app)) navigate(homeOf);
     }
-    // Role lock, a signed-in user may only enter their own persona's screens.
-    // Demo mode stays unrestricted (can browse every persona).
-    if (authUser && !demo && profile && ["w", "s", "m"].includes(route.app)) {
-      const allowed = ROLE_APP[profile.role];
-      if (allowed && route.app !== allowed) navigate(ROLE_HOME[profile.role]);
-    }
-  }, [authUser, profile, route.app, route.page, demo]);
+  }, [route.path]);
 
-  const onLogout = async () => {
-    try { await window.ntAuth?.signOut(); } catch (e) { /* ignore */ }
+  const onLogout = () => {
+    window.ntSession?.clear();
     sessionStorage.removeItem("nt-demo");
     window.toast?.("Anda telah keluar.", { kind: "info" });
     navigate("/login");
   };
 
-  if (authUser === undefined) return <Splash text="Memeriksa sesi…" />;
-
-  const authed = !!authUser || demo;
-  if (!authed && route.app !== "login" && route.app !== "landing" && route.app !== "p" && route.app !== "pricing")
-    return <Splash text="Memuat…" />;
-
-  // A signed-in user is locked to one persona; demo users see all three.
-  const roleApp = authUser && !demo && profile ? ROLE_APP[profile.role] : null;
-  if (roleApp && ["w", "s", "m"].includes(route.app) && route.app !== roleApp) {
-    return <Splash text="Mengalihkan ke area Anda…" />;
-  }
-
-  const resolved = resolveRoute(route) || ROUTES["w/readiness"];
-  const ScreenComponent = resolved.c;
+  const resolved = resolveRoute(route) || ROUTES["landing"];
   const chromeless = resolved.frame === "auth" || resolved.frame === "landing";
+
+  // Block rendering another persona's screen for a locked-in member.
+  if (session && !demo && ["w", "s", "m"].includes(route.app)) {
+    const allowed = ROLE_APPS[session.role] || [];
+    if (!allowed.includes(route.app)) return <Splash text="Mengalihkan ke area Anda…" />;
+  }
+  if (!authed && !chromeless && route.app !== "p") return <Splash text="Mengalihkan…" />;
+
+  const ScreenComponent = resolved.c;
   const activePersona = PERSONAS.find((p) => p.id === route.app);
-  const homeHref = ROLE_HOME[profile && profile.role] || "/w/readiness";
-  // Only show persona tabs the current user may open.
-  const visiblePersonas = roleApp ? PERSONAS.filter((p) => p.id === roleApp) : PERSONAS;
+  // Members see only the persona tabs their role allows; demo sees all.
+  const roleApps = session && !demo ? (ROLE_APPS[session.role] || []) : null;
+  const visiblePersonas = roleApps ? PERSONAS.filter((p) => roleApps.includes(p.id)) : PERSONAS;
 
   return (
     <div className="app-shell">
       {!chromeless && (
         <>
           <header className="app-topbar">
-            <Link to={homeHref} style={{ display: "flex" }}>
+            <Link to={homeOf} style={{ display: "flex" }}>
               <div className="app-brand">
                 <img src="assets/neurotech-logo.png" alt="NeuroTech" width="40" height="40" style={{ borderRadius: 10 }} />
                 <div className="app-brand-name">
@@ -188,10 +165,10 @@ const App = () => {
                 <span className="app-meta-dot" />
                 <span>Monitoring Fatigue · Cognitive Load · K3</span>
               </div>
-              {profile ? (
+              {session ? (
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ fontSize: 12, color: "var(--nt-text-2)" }}>
-                    {profile.name} · {ROLE_LABEL[profile.role] || profile.role}
+                    {session.memberName} · {ROLE_LABEL[session.role] || session.role} · {session.companyName}
                   </span>
                   <NeuroBtn tone="default" size="sm" onClick={onLogout}>Keluar</NeuroBtn>
                 </div>

@@ -289,9 +289,8 @@ const ContentPage = ({ slug }) => {
                 Buat akun untuk tim Anda, atau jelajahi dulu lewat mode demo.
               </p>
               <div className="nt-landing-cta">
-                <NeuroBtn tone="primary" size="lg"
-                  onClick={() => { sessionStorage.setItem("nt-auth-mode", "register"); navigate("/login"); }}>
-                  Buat akun
+                <NeuroBtn tone="primary" size="lg" onClick={() => navigate("/join")}>
+                  Bergabung
                 </NeuroBtn>
                 <NeuroBtn tone="default" size="lg"
                   onClick={() => { sessionStorage.setItem("nt-demo", "1"); navigate("/w/readiness"); }}>
