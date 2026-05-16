@@ -25,6 +25,7 @@ const ROUTES = {
 
   // Public, no auth required
   "landing":     { c: () => <LandingPage />, frame: "landing", label: "Beranda" },
+  "pricing":     { c: () => <PlanPricing />, frame: "landing", label: "Plan & Pricing" },
   "login":       { c: () => <AuthLogin />, frame: "auth", label: "Masuk" },
 };
 
@@ -120,7 +121,7 @@ const App = () => {
   // Default landing + auth guard, runs once the session state is known.
   React.useEffect(() => {
     if (authUser === undefined) return;            // still checking the session
-    const publicPage = route.app === "login" || route.app === "landing";
+    const publicPage = route.app === "login" || route.app === "landing" || route.app === "pricing";
     const contentPage = route.app === "p";   // /p/<slug>, open to everyone
     const authed = !!authUser || demo;
     if (!authed && !publicPage && !contentPage) { navigate("/landing"); return; }
@@ -151,7 +152,7 @@ const App = () => {
   if (authUser === undefined) return <Splash text="Memeriksa sesi…" />;
 
   const authed = !!authUser || demo;
-  if (!authed && route.app !== "login" && route.app !== "landing" && route.app !== "p")
+  if (!authed && route.app !== "login" && route.app !== "landing" && route.app !== "p" && route.app !== "pricing")
     return <Splash text="Memuat…" />;
 
   // A signed-in user is locked to one persona; demo users see all three.

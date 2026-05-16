@@ -13,6 +13,7 @@ const authErrorMessage = (err) => {
   const code = err && err.code;
   return {
     "nt/no-name":                  "Nama lengkap wajib diisi.",
+    "nt/bad-code":                 "Kode perusahaan tidak cocok dengan akun ini.",
     "auth/invalid-email":          "Format email tidak valid.",
     "auth/user-not-found":         "Email atau password salah.",
     "auth/wrong-password":         "Email atau password salah.",
@@ -36,6 +37,7 @@ const AuthLogin = () => {
   const [name, setName] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [code, setCode] = React.useState("");
   const [role, setRole] = React.useState("worker");
   const [busy, setBusy] = React.useState(false);
 
@@ -52,7 +54,13 @@ const AuthLogin = () => {
         await window.ntAuth.signUp({ name: name.trim(), email, password, role });
         window.toast?.("Akun berhasil dibuat. Selamat datang!", { kind: "success" });
       } else {
-        await window.ntAuth.signIn({ email, password });
+        const cred = await window.ntAuth.signIn({ email, password });
+        const prof = await window.ntAuth.getProfile(cred.user.uid);
+        // Company accounts must enter their matching company code.
+        if (prof && prof.companyCode && code.trim().toUpperCase() !== prof.companyCode) {
+          await window.ntAuth.signOut();
+          throw { code: "nt/bad-code" };
+        }
         window.toast?.("Berhasil masuk.", { kind: "success" });
       }
       // App.jsx's auth listener loads the profile and routes by role.
@@ -170,6 +178,15 @@ const AuthLogin = () => {
                 type="password" value={password} onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••" required minLength={6} style={fieldInput} />
             </label>
+
+            {!isRegister && (
+              <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <span style={fieldLabel}>Kode perusahaan</span>
+                <input
+                  type="text" value={code} onChange={(e) => setCode(e.target.value)}
+                  placeholder="mis. P-001 · kosongkan jika akun pribadi" style={fieldInput} />
+              </label>
+            )}
 
             {!isRegister && (
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, color: "var(--nt-text-3)" }}>

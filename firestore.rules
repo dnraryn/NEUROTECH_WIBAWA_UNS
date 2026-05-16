@@ -33,6 +33,13 @@ service cloud.firestore {
       allow write: if request.auth != null;
     }
 
+    // Company directory (code, package, owner). Any signed-in user may read;
+    // writes are open for the one-time test-account seed.
+    match /companies/{code} {
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
     // Everything else is denied by default.
   }
 }

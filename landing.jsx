@@ -71,7 +71,7 @@ const NAV_MENU = [
     { label: "Dashboard Supervisor", desc: "Overview tim & alert K3" },
     { label: "Analitik Manajemen", desc: "Tren agregat & skor SMK3" },
   ]},
-  { label: "Harga", section: "harga" },
+  { label: "Harga", route: "/pricing" },
   { label: "About NeuroTech", page: "about-neurotech" },
   { label: "Cara Kerja", section: "cara-kerja" },
   { label: "Dukungan", links: [
@@ -141,7 +141,7 @@ const LandingNav = () => {
               <button
                 key={item.label}
                 className="nt-nav-link"
-                onClick={() => (item.page ? navigate("/p/" + item.page) : goSection(item.section))}
+                onClick={() => (item.route ? navigate(item.route) : item.page ? navigate("/p/" + item.page) : goSection(item.section))}
               >
                 {item.label}
               </button>
@@ -550,51 +550,7 @@ const LandingPage = () => (
     {/* ── Research & journals ───────────────────────────────────── */}
     {/* ── About us: vision & mission ────────────────────────────── */}
     {/* ── Packages & pricing ────────────────────────────────────── */}
-    <section className="nt-landing-section" id="harga">
-      <Reveal>
-        <div className="nt-eyebrow" style={{ textAlign: "center" }}>Paket &amp; Harga</div>
-        <h2 className="nt-landing-h2">Pilih paket sesuai skala Anda</h2>
-        <p className="nt-landing-sub" style={{ marginTop: 14 }}>
-          Dari pengguna individu, UMKM, hingga perusahaan industri berat, ada paket
-          NeuroTech untuk setiap kebutuhan.
-        </p>
-      </Reveal>
-      <div className="nt-price-grid">
-        {PACKAGES.map((pk, i) => (
-          <Reveal key={pk.name} delay={i * 90}>
-            <div className={"nt-price-card" + (pk.popular ? " nt-price-card--popular" : "")}>
-              <div>
-                <span className="nt-price-name">{pk.name}</span>
-                {pk.popular && <span className="nt-price-badge">Populer</span>}
-              </div>
-              <div className="nt-price-amount">
-                {pk.price}
-                {pk.unit && <span className="nt-price-unit"> {pk.unit}</span>}
-              </div>
-              <div className="nt-price-seg">{pk.seg}</div>
-              <span className="nt-price-users">{pk.users}</span>
-              <ul className="nt-price-feats">
-                {pk.features.map((f, j) => (
-                  <li className="nt-price-feat" key={j}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                      stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M5 12l5 5L20 6" />
-                    </svg>
-                    <span>{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <div className="nt-price-cta">
-                <NeuroBtn tone={pk.tone} size="md" style={{ width: "100%" }}
-                  onClick={pk.name === "Free" ? goRegister : () => goSection("kontak")}>
-                  {pk.name === "Free" ? "Mulai gratis" : "Pilih " + pk.name}
-                </NeuroBtn>
-              </div>
-            </div>
-          </Reveal>
-        ))}
-      </div>
-    </section>
+    {/* Packages live on the dedicated /pricing page (PlanPricing component) */}
 
     {/* ── About us: vision & mission ────────────────────────────── */}
     <section className="nt-landing-section">
@@ -743,4 +699,64 @@ const LandingPage = () => (
   </div>
 );
 
-Object.assign(window, { Reveal, Brand, VisiMisi, LandingNav, LandingFooter, LandingPage });
+// ── Plan & Pricing — dedicated page ────────────────────────────────────────
+const PlanPricing = () => (
+  <div className="nt-landing">
+    <LandingNav />
+
+    <section className="nt-page-hero">
+      <span className="nt-landing-orb nt-landing-orb--a" />
+      <div className="nt-page-hero-inner">
+        <Reveal delay={0}><div className="nt-eyebrow">Plan &amp; Pricing</div></Reveal>
+        <Reveal delay={90}><h1 className="nt-page-title">Pilih paket sesuai skala Anda</h1></Reveal>
+        <Reveal delay={170}>
+          <p className="nt-page-intro">
+            Dari pengguna individu, UMKM, hingga perusahaan industri berat, ada paket
+            NeuroTech untuk setiap kebutuhan dan setiap skala tim.
+          </p>
+        </Reveal>
+      </div>
+    </section>
+
+    <section className="nt-landing-section">
+      <div className="nt-price-grid">
+        {PACKAGES.map((pk, i) => (
+          <Reveal key={pk.name} delay={i * 90}>
+            <div className={"nt-price-card" + (pk.popular ? " nt-price-card--popular" : "")}>
+              <div>
+                <span className="nt-price-name">{pk.name}</span>
+                {pk.popular && <span className="nt-price-badge">Populer</span>}
+              </div>
+              <div className="nt-price-amount">
+                {pk.price}
+                {pk.unit && <span className="nt-price-unit"> {pk.unit}</span>}
+              </div>
+              <div className="nt-price-seg">{pk.seg}</div>
+              <span className="nt-price-users">{pk.users}</span>
+              <ul className="nt-price-feats">
+                {pk.features.map((f, j) => (
+                  <li className="nt-price-feat" key={j}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M5 12l5 5L20 6" />
+                    </svg>
+                    <span>{f}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="nt-price-cta">
+                <NeuroBtn tone={pk.tone} size="md" style={{ width: "100%" }} onClick={goRegister}>
+                  {pk.name === "Free" ? "Mulai gratis" : "Pilih " + pk.name}
+                </NeuroBtn>
+              </div>
+            </div>
+          </Reveal>
+        ))}
+      </div>
+    </section>
+
+    <LandingFooter />
+  </div>
+);
+
+Object.assign(window, { Reveal, Brand, VisiMisi, LandingNav, LandingFooter, LandingPage, PlanPricing });

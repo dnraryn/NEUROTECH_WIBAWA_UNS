@@ -79,4 +79,41 @@ const ntWorkers = {
 window.ntAuth = ntAuth;
 window.ntWorkers = ntWorkers;
 
+// ── Test company accounts, one per package tier ───────────────────────────
+// Run window.ntSeedTestAccounts() ONCE in the browser console to create them.
+// Each becomes a real Firebase Auth account plus a users/ and companies/ doc.
+const NT_TEST_ACCOUNTS = [
+  { code: "F-001", pkg: "free",     role: "worker",     name: "Pengguna Free Demo",     email: "neurotech.free@gmail.com",     password: "free123456" },
+  { code: "B-001", pkg: "bronze",   role: "supervisor", name: "UMKM Bronze Demo",       email: "neurotech.bronze@gmail.com",   password: "bronze123456" },
+  { code: "S-001", pkg: "silver",   role: "supervisor", name: "Industri Silver Demo",   email: "neurotech.silver@gmail.com",   password: "silver123456" },
+  { code: "G-001", pkg: "gold",     role: "manager",    name: "Company Gold Demo",      email: "neurotech.gold@gmail.com",     password: "gold123456" },
+  { code: "P-001", pkg: "platinum", role: "manager",    name: "Company Platinum Demo",  email: "neurotech.platinum@gmail.com", password: "platinum123456" },
+];
+
+window.ntSeedTestAccounts = async () => {
+  let created = 0;
+  for (const a of NT_TEST_ACCOUNTS) {
+    try {
+      const cred = await auth.createUserWithEmailAndPassword(a.email, a.password);
+      await cred.user.updateProfile({ displayName: a.name });
+      await db.collection("users").doc(cred.user.uid).set({
+        name: a.name, email: a.email, role: a.role,
+        companyCode: a.code, package: a.pkg, companyName: a.name,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      await db.collection("companies").doc(a.code).set({
+        code: a.code, package: a.pkg, companyName: a.name, ownerEmail: a.email,
+      });
+      created += 1;
+      console.info("[NeuroTech] akun test dibuat:", a.code, "·", a.email);
+    } catch (e) {
+      if (e.code === "auth/email-already-in-use") console.warn("[NeuroTech] sudah ada:", a.email);
+      else console.error("[NeuroTech] gagal membuat", a.email, ":", e.message);
+    }
+  }
+  try { await auth.signOut(); } catch (e) { /* ignore */ }
+  console.info(`[NeuroTech] selesai, ${created} akun test baru dibuat.`);
+  return created;
+};
+
 console.info("[NeuroTech] Firebase initialised · project:", firebaseConfig.projectId);
