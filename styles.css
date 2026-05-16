@@ -620,11 +620,13 @@ html, body {
   max-width: 880px;
 }
 .nt-grad-text {
-  background: var(--nt-brand-gradient);
+  background: linear-gradient(100deg, #2a5fe0 0%, #76e8ff 50%, #2a5fe0 100%);
+  background-size: 220% auto;
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
   color: transparent;
+  animation: nt-shimmer 5s linear infinite;
 }
 .nt-landing-sub {
   font-size: clamp(14px, 1.5vw, 17px);
@@ -887,6 +889,13 @@ html, body {
   letter-spacing: -0.02em;
   line-height: 1.08;
   margin: 12px 0 0;
+  background: linear-gradient(100deg, #2a5fe0 0%, #76e8ff 50%, #2a5fe0 100%);
+  background-size: 220% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: nt-shimmer 5s linear infinite;
 }
 .nt-page-intro {
   font-size: clamp(14px, 1.5vw, 17px);
@@ -1250,6 +1259,83 @@ html, body {
   margin-top: 14px;
   color: var(--nt-green);
 }
+
+/* ──────────────────────────────────────────────────────────────
+   Animated gradient text — hero headline & content-page titles
+   ────────────────────────────────────────────────────────────── */
+@keyframes nt-shimmer {
+  to { background-position: 220% center; }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Content-page accordion (explanation expands on click)
+   ────────────────────────────────────────────────────────────── */
+.nt-page-hint {
+  font-size: 12px;
+  color: var(--nt-text-3);
+  text-align: center;
+  margin-bottom: 4px;
+}
+.nt-acc {
+  background: var(--nt-surface);
+  border: var(--nt-hairline);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--nt-shadow-out-sm);
+}
+.nt-acc-head {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 19px 24px;
+  font-family: inherit;
+  font-size: 15.5px;
+  font-weight: 700;
+  color: var(--nt-text);
+  text-align: left;
+  transition: color .14s ease;
+}
+.nt-acc-head:hover { color: var(--nt-cyan); }
+.nt-acc-chev {
+  flex-shrink: 0;
+  color: var(--nt-cyan);
+  transition: transform .26s ease;
+}
+.nt-acc.is-open .nt-acc-chev { transform: rotate(180deg); }
+.nt-acc-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height .3s ease;
+}
+.nt-acc.is-open .nt-acc-body { max-height: 520px; }
+.nt-acc-body p {
+  margin: 0;
+  padding: 0 24px 20px;
+  font-size: 14px;
+  color: var(--nt-text-2);
+  line-height: 1.7;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Ask AI — floating label + hidden-panel state
+   ────────────────────────────────────────────────────────────── */
+.nt-ai-label {
+  background: var(--nt-surface);
+  border: var(--nt-hairline);
+  color: var(--nt-text);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 13px;
+  border-radius: 999px;
+  box-shadow: var(--nt-shadow-out-sm), var(--nt-glow-soft);
+  white-space: nowrap;
+}
+.nt-ai-panel--hidden { display: none; }
 
 /* ──────────────────────────────────────────────────────────────
    Auth page — mobile responsive (login form takes the screen)

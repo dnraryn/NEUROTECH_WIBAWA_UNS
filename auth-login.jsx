@@ -105,7 +105,7 @@ const AuthLogin = () => {
               Pantau fatigue & cognitive load <span style={{ color: "var(--nt-brand-mid)" }}>sebelum</span> jadi insiden.
             </h1>
             <p style={{ fontSize: 14, color: "var(--nt-text-2)", marginTop: 14, lineHeight: 1.6, maxWidth: 380 }}>
-              Berbasis Muse 2 / Muse S. Menggabungkan data tidur pra-shift dengan pemantauan EEG saat shift. Data individu hanya untuk Anda. Tidak untuk sanksi.
+              Berbasis headband EEG Muse. Menggabungkan data tidur pra-shift dengan pemantauan EEG saat shift. Data individu hanya untuk Anda. Tidak untuk sanksi.
             </p>
             <div style={{ display: "flex", gap: 18, marginTop: 28, fontSize: 12, color: "var(--nt-text-3)" }}>
               <div><b style={{ color: "var(--nt-text-2)" }}>142</b> pekerja terpantau</div>

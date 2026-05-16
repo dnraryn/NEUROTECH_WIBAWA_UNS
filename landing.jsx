@@ -71,11 +71,11 @@ const NAV_MENU = [
     { label: "Dashboard Supervisor", desc: "Overview tim & alert K3" },
     { label: "Analitik Manajemen", desc: "Tren agregat & skor SMK3" },
   ]},
-  { label: "Edukasi", page: "education-space" },
+  { label: "About NeuroTech", page: "about-neurotech" },
   { label: "Cara Kerja" },
   { label: "Dukungan", links: [
     { label: "Panduan Memulai", desc: "Langkah pertama dengan NeuroTech" },
-    { label: "Integrasi Muse", desc: "Hubungkan headband Muse 2 / Muse S" },
+    { label: "Integrasi Muse", desc: "Hubungkan headband EEG Muse" },
     { label: "Hubungi Kami", desc: "Tim dukungan siap membantu" },
   ]},
 ];
@@ -85,10 +85,10 @@ const FOOT_COLS = [
   { title: "Solusi", links: ["Pemantauan Fatigue", "Beban Kognitif", "Kesiapan Pra-Shift", "Deteksi Microsleep", "Manajemen K3"] },
   { title: "Fitur", groups: [
     { sub: "Aplikasi", links: ["App Pekerja", "Dashboard Supervisor", "Analitik Manajemen"] },
-    { sub: "Perangkat", links: ["Muse 2", "Muse S", "Kalibrasi EEG", "Alert Real-time"] },
+    { sub: "Perangkat", links: ["Headband Muse", "Kalibrasi EEG", "Alert Real-time"] },
   ]},
-  { title: "Dukungan", links: ["Panduan Memulai", "FAQ", "Basis Pengetahuan", "Education Space", "Hubungi Kami", "Status Sistem"] },
-  { title: "Perusahaan", links: ["Tentang NeuroTech", "Kebijakan Privasi", "Syarat Penggunaan", "Keamanan Data", "Karier"] },
+  { title: "Dukungan", links: ["Panduan Memulai", "FAQ", "Basis Pengetahuan", "Integrasi Muse", "Hubungi Kami", "Status Sistem"] },
+  { title: "Perusahaan", links: ["About NeuroTech", "Kebijakan Privasi", "Syarat Penggunaan", "Keamanan Data", "Karier"] },
 ];
 
 // ── Navbar ─────────────────────────────────────────────────────────────────
@@ -224,7 +224,7 @@ const LANDING_FEATURES = [
 ];
 
 const LANDING_STEPS = [
-  { n: "01", title: "Pakai headband", text: "Pekerja memakai Muse 2 / Muse S. Kalibrasi baseline otak singkat dilakukan di awal shift." },
+  { n: "01", title: "Pakai headband", text: "Pekerja memakai headband EEG Muse. Kalibrasi baseline otak singkat dilakukan di awal shift." },
   { n: "02", title: "Analisis real-time", text: "Sinyal EEG diproses menjadi indeks Fatigue, Cognitive Load, dan Engagement setiap saat." },
   { n: "03", title: "Peringatan dini", text: "Sistem memberi alert sebelum kelelahan berubah menjadi microsleep atau insiden kerja." },
 ];

@@ -1,6 +1,7 @@
 // Content/marketing pages — every navbar & footer link resolves here via
 // /p/<slug>. ContentPage reuses LandingNav + LandingFooter for a consistent
 // shell. Keys must match slugify(label) of the link that points to them.
+// Each section is shown as a collapsible accordion (explanation on click).
 
 const CONTENT = {
   "pemantauan-fatigue": {
@@ -26,7 +27,7 @@ const CONTENT = {
     intro: "Kondisi pekerja sebelum shift dimulai sangat menentukan risiko sepanjang hari. NeuroTech menilainya lebih dulu.",
     sections: [
       { h: "Skor Readiness", p: "Sebelum shift, NeuroTech menggabungkan data tidur dan baseline EEG menjadi skor readiness 0–100. Skor di bawah ambang menandakan pekerja belum siap penuh." },
-      { h: "Data tidur terintegrasi", p: "Muse S dapat merekam tidur malam sebelumnya. Durasi dan kualitas tidur menjadi masukan utama skor kesiapan." },
+      { h: "Data tidur terintegrasi", p: "Headband Muse yang mendukung mode tidur dapat merekam tidur malam sebelumnya. Durasi dan kualitas tidur menjadi masukan utama skor kesiapan." },
       { h: "Keputusan penempatan", p: "Supervisor bisa memakai skor readiness untuk menyesuaikan tugas — menempatkan pekerja dengan skor rendah pada peran berisiko lebih kecil." },
     ],
   },
@@ -84,22 +85,14 @@ const CONTENT = {
       { h: "Sampai ke orang yang tepat", p: "Notifikasi dikirim ke pekerja terkait dan supervisornya secara bersamaan." },
     ],
   },
-  "muse-2": {
-    cat: "Perangkat", title: "Muse 2",
-    intro: "Headband EEG ringkas yang dipakai NeuroTech untuk pemantauan saat shift.",
+  "headband-muse": {
+    cat: "Perangkat", title: "Headband Muse",
+    intro: "NeuroTech bekerja dengan headband EEG Muse — dan kompatibel dengan seluruh model Muse yang mendukung koneksi Bluetooth.",
     sections: [
-      { h: "Sensor EEG multi-titik", p: "Muse 2 merekam aktivitas otak melalui beberapa sensor di dahi dan belakang telinga, cukup untuk menghitung indeks fatigue dan cognitive load." },
-      { h: "Nyaman untuk kerja", p: "Bentuknya ringan dan nirkabel, sehingga bisa dipakai sepanjang shift tanpa mengganggu aktivitas." },
-      { h: "Koneksi nirkabel", p: "Data dikirim via Bluetooth ke aplikasi NeuroTech secara real-time." },
-    ],
-  },
-  "muse-s": {
-    cat: "Perangkat", title: "Muse S",
-    intro: "Versi headband berbahan kain — nyaman dipakai termasuk saat tidur.",
-    sections: [
-      { h: "Pemantauan tidur", p: "Muse S dirancang nyaman dipakai tidur, sehingga bisa merekam kualitas tidur pra-shift yang menjadi dasar skor readiness." },
-      { h: "Sama andal untuk shift", p: "Selama shift, Muse S berfungsi sama seperti Muse 2 untuk memantau fatigue dan cognitive load." },
-      { h: "Baterai tahan lama", p: "Daya tahannya cukup untuk merekam tidur semalaman penuh tanpa perlu diisi ulang." },
+      { h: "Kompatibel dengan semua model Muse", p: "NeuroTech tidak terbatas pada satu perangkat. Selama headband Muse mendukung perekaman EEG dan koneksi Bluetooth — termasuk Muse 2, Muse S, maupun model Muse lainnya — perangkat itu bisa langsung dipakai dengan NeuroTech." },
+      { h: "Sensor EEG", p: "Headband Muse merekam aktivitas otak melalui sensor di dahi dan belakang telinga. Data ini cukup bagi NeuroTech untuk menghitung indeks Fatigue, Cognitive Load, dan Engagement." },
+      { h: "Koneksi nirkabel", p: "Semua perangkat terhubung lewat Bluetooth, mengirim sinyal EEG ke aplikasi NeuroTech secara real-time tanpa kabel yang mengganggu." },
+      { h: "Nyaman dipakai bekerja", p: "Headband Muse ringan dan nirkabel sehingga bisa dipakai sepanjang shift. Model berbahan kain juga nyaman dipakai tidur untuk merekam kualitas tidur pra-shift." },
     ],
   },
   "kalibrasi-eeg": {
@@ -125,7 +118,7 @@ const CONTENT = {
     intro: "Langkah pertama menggunakan NeuroTech, dari membuat akun hingga shift pertama.",
     sections: [
       { h: "1. Buat akun", p: "Daftar dengan email dan pilih peran Anda — Pekerja, Supervisor, atau Manajemen." },
-      { h: "2. Hubungkan headband", p: "Pasangkan Muse 2 atau Muse S, lalu lakukan kalibrasi baseline singkat." },
+      { h: "2. Hubungkan headband", p: "Pasangkan headband Muse Anda lewat Bluetooth, lalu lakukan kalibrasi baseline singkat." },
       { h: "3. Mulai shift", p: "Cek skor readiness Anda, lalu pantau kondisi otak secara live sepanjang shift." },
     ],
   },
@@ -135,7 +128,7 @@ const CONTENT = {
     sections: [
       { h: "Apakah data saya aman?", p: "Ya. Data EEG individu bersifat privat dan hanya bisa diakses oleh pemiliknya. Supervisor hanya melihat status ringkas." },
       { h: "Apakah dipakai untuk menghukum?", p: "Tidak. NeuroTech menganut kebijakan non-punitif — data dipakai untuk pencegahan dan perbaikan, bukan sanksi." },
-      { h: "Apakah headband mengganggu kerja?", p: "Tidak. Headband Muse ringan dan nirkabel, dirancang untuk dipakai nyaman sepanjang shift." },
+      { h: "Headband apa yang didukung?", p: "NeuroTech mendukung seluruh headband EEG Muse yang memiliki koneksi Bluetooth, termasuk Muse 2, Muse S, dan model Muse lainnya." },
     ],
   },
   "basis-pengetahuan": {
@@ -165,13 +158,16 @@ const CONTENT = {
       { h: "Pemeliharaan terjadwal", p: "Pemeliharaan sistem, bila ada, akan diumumkan lebih dulu di halaman ini." },
     ],
   },
-  "tentang-neurotech": {
-    cat: "Perusahaan", title: "Tentang NeuroTech",
-    intro: "NeuroTech lahir dari satu keyakinan: kecelakaan kerja akibat kelelahan bisa dicegah.",
+  "about-neurotech": {
+    cat: "Tentang", title: "About NeuroTech",
+    intro: "Kenali NeuroTech — teknologi EEG di baliknya, dan bagaimana sistem ini membantu mencegah kecelakaan kerja.",
     sections: [
-      { h: "Misi kami", p: "Membantu perusahaan melindungi pekerja dengan mendeteksi kelelahan mental sebelum berubah menjadi insiden." },
-      { h: "Teknologi", p: "NeuroTech memadukan headband EEG Muse, pemrosesan sinyal real-time, dan analitik K3 dalam satu sistem terpadu." },
-      { h: "Nilai kami", p: "Kami menjunjung privasi pekerja dan pendekatan non-punitif — teknologi untuk melindungi, bukan mengawasi." },
+      { h: "Apa itu EEG?", p: "Electroencephalography (EEG) adalah metode merekam aktivitas listrik otak melalui sensor di permukaan kepala. Setiap kali sel saraf bekerja, ia menghasilkan sinyal listrik kecil — EEG menangkap pola sinyal itu secara real-time, tanpa prosedur yang menyakitkan." },
+      { h: "Gelombang otak dan artinya", p: "Sinyal EEG terdiri dari beberapa pita gelombang — alpha, beta, theta, dan delta. Komposisinya berubah sesuai kondisi: gelombang beta dominan saat fokus, sedangkan theta dan alpha meningkat saat mengantuk dan lelah. Pergeseran inilah yang menjadi penanda kelelahan." },
+      { h: "Apa fungsi NeuroTech?", p: "NeuroTech mengubah sinyal EEG mentah menjadi indikator yang mudah dipahami — Fatigue Index, Cognitive Load Index, dan Engagement Index. Dengan begitu, kondisi otak pekerja bisa dipantau semudah membaca angka, bukan grafik rumit." },
+      { h: "Bagaimana mendeteksi kelelahan & microsleep", p: "NeuroTech membandingkan sinyal otak pekerja saat ini dengan baseline pribadinya. Ketika pola gelombang bergeser ke arah mengantuk — atau muncul anggukan kepala dan penurunan engagement mendadak — sistem mengenalinya sebagai tanda fatigue atau microsleep." },
+      { h: "Bagaimana ini mengurangi kecelakaan kerja", p: "Sebagian besar kecelakaan akibat kelelahan terjadi karena tidak ada peringatan sebelum pekerja kehilangan kewaspadaan. NeuroTech memberi alert dini sehingga pekerja bisa beristirahat dan supervisor bisa bertindak — memutus rantai sebelum berubah menjadi insiden." },
+      { h: "Misi & nilai kami", p: "NeuroTech lahir dari keyakinan bahwa kecelakaan kerja akibat kelelahan bisa dicegah. Kami menjunjung privasi pekerja dan pendekatan non-punitif — teknologi yang hadir untuk melindungi, bukan mengawasi." },
     ],
   },
   "kebijakan-privasi": {
@@ -210,17 +206,23 @@ const CONTENT = {
       { h: "Cara melamar", p: "Kirim CV dan portofolio ke neurotech.id@gmail.com dengan menyebutkan posisi yang Anda minati." },
     ],
   },
-  "education-space": {
-    cat: "Edukasi", title: "Education Space — Mengenal EEG",
-    intro: "Pahami teknologi di balik NeuroTech: apa itu EEG, dan bagaimana sinyal otak bisa membantu mencegah kecelakaan kerja.",
-    sections: [
-      { h: "Apa itu EEG?", p: "Electroencephalography (EEG) adalah metode merekam aktivitas listrik otak melalui sensor di permukaan kepala. Setiap kali sel saraf bekerja, ia menghasilkan sinyal listrik kecil — EEG menangkap pola sinyal itu secara real-time, tanpa prosedur yang menyakitkan." },
-      { h: "Gelombang otak dan artinya", p: "Sinyal EEG terdiri dari beberapa pita gelombang — alpha, beta, theta, dan delta. Komposisinya berubah sesuai kondisi: gelombang beta dominan saat fokus, sedangkan theta dan alpha meningkat saat mengantuk dan lelah. Pergeseran inilah yang menjadi penanda kelelahan." },
-      { h: "Apa fungsi NeuroTech?", p: "NeuroTech mengubah sinyal EEG mentah menjadi indikator yang mudah dipahami — Fatigue Index, Cognitive Load Index, dan Engagement Index. Dengan begitu, kondisi otak pekerja bisa dipantau semudah membaca angka, bukan grafik rumit." },
-      { h: "Bagaimana mendeteksi kelelahan & microsleep", p: "NeuroTech membandingkan sinyal otak pekerja saat ini dengan baseline pribadinya. Ketika pola gelombang bergeser ke arah mengantuk — atau muncul anggukan kepala dan penurunan engagement mendadak — sistem mengenalinya sebagai tanda fatigue atau microsleep." },
-      { h: "Bagaimana ini mengurangi kecelakaan kerja", p: "Sebagian besar kecelakaan akibat kelelahan terjadi karena tidak ada peringatan sebelum pekerja kehilangan kewaspadaan. NeuroTech memberi alert dini sehingga pekerja bisa beristirahat dan supervisor bisa bertindak — memutus rantai sebelum berubah menjadi insiden." },
-    ],
-  },
+};
+
+// Accordion item — heading is clickable; explanation expands on click.
+const AccordionItem = ({ h, p }) => {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <div className={"nt-acc" + (open ? " is-open" : "")}>
+      <button className="nt-acc-head" onClick={() => setOpen((o) => !o)}>
+        <span>{h}</span>
+        <svg className="nt-acc-chev" width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+      <div className="nt-acc-body"><p>{p}</p></div>
+    </div>
+  );
 };
 
 const ContentPage = ({ slug }) => {
@@ -265,12 +267,12 @@ const ContentPage = ({ slug }) => {
       </section>
 
       <div className="nt-page-body">
+        <Reveal>
+          <div className="nt-page-hint">Klik tiap judul untuk membuka penjelasannya.</div>
+        </Reveal>
         {page.sections.map((s, i) => (
-          <Reveal key={i} delay={i * 80}>
-            <article className="nt-page-section">
-              <h2 className="nt-page-h2">{s.h}</h2>
-              <p className="nt-page-p">{s.p}</p>
-            </article>
+          <Reveal key={i} delay={i * 70}>
+            <AccordionItem h={s.h} p={s.p} />
           </Reveal>
         ))}
       </div>
@@ -303,4 +305,4 @@ const ContentPage = ({ slug }) => {
   );
 };
 
-Object.assign(window, { CONTENT, ContentPage });
+Object.assign(window, { CONTENT, AccordionItem, ContentPage });
