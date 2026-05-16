@@ -52,8 +52,8 @@ const goDemo = () => {
 };
 // Every nav/footer label resolves to a content page at /p/<slug>.
 const goPage = (label) => navigate("/p/" + slugify(label));
-const goCaraKerja = () => {
-  const el = document.getElementById("cara-kerja");
+const goSection = (id) => {
+  const el = document.getElementById(id);
   if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   else navigate("/landing");
 };
@@ -71,8 +71,9 @@ const NAV_MENU = [
     { label: "Dashboard Supervisor", desc: "Overview tim & alert K3" },
     { label: "Analitik Manajemen", desc: "Tren agregat & skor SMK3" },
   ]},
+  { label: "Harga", section: "harga" },
   { label: "About NeuroTech", page: "about-neurotech" },
-  { label: "Cara Kerja" },
+  { label: "Cara Kerja", section: "cara-kerja" },
   { label: "Dukungan", links: [
     { label: "Panduan Memulai", desc: "Langkah pertama dengan NeuroTech" },
     { label: "Integrasi Muse", desc: "Hubungkan headband EEG Muse" },
@@ -140,7 +141,7 @@ const LandingNav = () => {
               <button
                 key={item.label}
                 className="nt-nav-link"
-                onClick={() => (item.page ? navigate("/p/" + item.page) : goCaraKerja())}
+                onClick={() => (item.page ? navigate("/p/" + item.page) : goSection(item.section))}
               >
                 {item.label}
               </button>
@@ -283,6 +284,25 @@ const CONTACT = {
   ig: "@neurotech.id",
   igUrl: "https://instagram.com/neurotech.id",
 };
+
+// Product packages — market tiers from individual users to large industry.
+const PACKAGES = [
+  { name: "Free", price: "Gratis", unit: "", tone: "default",
+    seg: "Pengguna individu", users: "1 pengguna",
+    features: ["Monitoring fatigue & cognitive load pribadi", "Skor readiness & riwayat tidur", "Berisi iklan di dalam aplikasi"] },
+  { name: "Bronze", price: "Rp 49.999", unit: "/bulan", tone: "default",
+    seg: "UMKM & usaha kecil", users: "Hingga 10 pengguna",
+    features: ["Semua fitur Free, tanpa iklan", "Dashboard supervisor untuk memantau pekerja", "Alert microsleep real-time"] },
+  { name: "Silver", price: "Rp 99.000", unit: "/bulan", tone: "primary", popular: true,
+    seg: "Industri skala menengah", users: "Hingga 25 pengguna",
+    features: ["Semua fitur Bronze", "Manajemen SMK3 dengan laporan & analitik K3", "Analitik manajemen agregat"] },
+  { name: "Gold", price: "Rp 199.000", unit: "/bulan", tone: "default",
+    seg: "Company & industri", users: "Hingga 50 pengguna",
+    features: ["Semua fitur Silver", "Laporan K3 lanjutan & ekspor data", "Dukungan prioritas"] },
+  { name: "Platinum", price: "Rp 379.000", unit: "/bulan", tone: "default",
+    seg: "Company skala besar", users: "50 hingga 100 pengguna",
+    features: ["Semua fitur Gold", "Onboarding & pelatihan tim", "Dukungan khusus (dedicated)"] },
+];
 
 // Bar heights for the decorative EEG strip (cycled across all bars).
 const EEG_HEIGHTS = [38, 62, 28, 82, 50, 70, 34, 90, 46, 66, 30, 74];
@@ -529,6 +549,54 @@ const LandingPage = () => (
 
     {/* ── Research & journals ───────────────────────────────────── */}
     {/* ── About us: vision & mission ────────────────────────────── */}
+    {/* ── Packages & pricing ────────────────────────────────────── */}
+    <section className="nt-landing-section" id="harga">
+      <Reveal>
+        <div className="nt-eyebrow" style={{ textAlign: "center" }}>Paket &amp; Harga</div>
+        <h2 className="nt-landing-h2">Pilih paket sesuai skala Anda</h2>
+        <p className="nt-landing-sub" style={{ marginTop: 14 }}>
+          Dari pengguna individu, UMKM, hingga perusahaan industri berat, ada paket
+          NeuroTech untuk setiap kebutuhan.
+        </p>
+      </Reveal>
+      <div className="nt-price-grid">
+        {PACKAGES.map((pk, i) => (
+          <Reveal key={pk.name} delay={i * 90}>
+            <div className={"nt-price-card" + (pk.popular ? " nt-price-card--popular" : "")}>
+              <div>
+                <span className="nt-price-name">{pk.name}</span>
+                {pk.popular && <span className="nt-price-badge">Populer</span>}
+              </div>
+              <div className="nt-price-amount">
+                {pk.price}
+                {pk.unit && <span className="nt-price-unit"> {pk.unit}</span>}
+              </div>
+              <div className="nt-price-seg">{pk.seg}</div>
+              <span className="nt-price-users">{pk.users}</span>
+              <ul className="nt-price-feats">
+                {pk.features.map((f, j) => (
+                  <li className="nt-price-feat" key={j}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M5 12l5 5L20 6" />
+                    </svg>
+                    <span>{f}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="nt-price-cta">
+                <NeuroBtn tone={pk.tone} size="md" style={{ width: "100%" }}
+                  onClick={pk.name === "Free" ? goRegister : () => goSection("kontak")}>
+                  {pk.name === "Free" ? "Mulai gratis" : "Pilih " + pk.name}
+                </NeuroBtn>
+              </div>
+            </div>
+          </Reveal>
+        ))}
+      </div>
+    </section>
+
+    {/* ── About us: vision & mission ────────────────────────────── */}
     <section className="nt-landing-section">
       <Reveal>
         <div className="nt-eyebrow" style={{ textAlign: "center" }}>Tentang Kami</div>
@@ -589,7 +657,7 @@ const LandingPage = () => (
     </section>
 
     {/* ── Consultation / contact ────────────────────────────────── */}
-    <section className="nt-contact">
+    <section className="nt-contact" id="kontak">
       <Reveal>
         <div className="nt-eyebrow" style={{ textAlign: "center" }}>Konsultasi</div>
         <h2 className="nt-landing-h2" style={{ marginBottom: 30 }}>Konsultasi &amp; Hubungi Kami</h2>
