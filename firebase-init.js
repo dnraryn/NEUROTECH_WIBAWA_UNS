@@ -162,4 +162,73 @@ const ntSession = {
 window.ntCompany = ntCompany;
 window.ntSession = ntSession;
 
+// ── Demo companies — one per package, pre-filled with members ──────────────
+// Run window.ntSeedCompanies() ONCE in the browser console to create them.
+const M = (id, name, role, roleDesc) => ({ id, name, role, roleDesc, password: "123456" });
+const NT_SEED_COMPANIES = [
+  { code: "F-001", package: "free", companyName: "Akun Pribadi Budi", members: [
+    M("m1", "Budi Santoso", "pekerja", "Pengguna Individu"),
+  ]},
+  { code: "B-001", package: "bronze", companyName: "UMKM Karya Mandiri", members: [
+    M("m1", "Hendra Wijaya", "management", "Pemilik Usaha"),
+    M("m2", "Sri Lestari", "supervisor", "Pengawas Lapangan"),
+    M("m3", "Andre Pratama", "pekerja", "Driver Truk"),
+    M("m4", "Dewi Anggraini", "pekerja", "Operator Gudang"),
+    M("m5", "Rizal Maulana", "pekerja", "Driver Truk"),
+    M("m6", "Putri Handayani", "pekerja", "Admin Logistik"),
+    M("m7", "Joko Susilo", "pekerja", "Teknisi"),
+  ]},
+  { code: "S-001", package: "silver", companyName: "CV Sinar Industri", members: [
+    M("m1", "Maria Gunawan", "management", "Direktur"),
+    M("m2", "Bambang Riyanto", "supervisor", "Supervisor Produksi"),
+    M("m3", "Lina Kusuma", "supervisor", "Supervisor K3"),
+    M("m4", "Agus Salim", "pekerja", "Operator Mesin"),
+    M("m5", "Nina Rahmawati", "pekerja", "Operator CCR"),
+    M("m6", "Eko Prasetyo", "pekerja", "Driver Forklift"),
+    M("m7", "Wati Suryani", "pekerja", "Lab Analyst"),
+    M("m8", "Doni Hartono", "pekerja", "Teknisi"),
+    M("m9", "Yusuf Hidayat", "pekerja", "Security CCTV"),
+  ]},
+  { code: "G-001", package: "gold", companyName: "PT Gold Manufaktur", members: [
+    M("m1", "Surya Dharma", "management", "General Manager"),
+    M("m2", "Ratna Dewi", "supervisor", "Supervisor Shift Pagi"),
+    M("m3", "Hadi Purnomo", "supervisor", "Supervisor Shift Malam"),
+    M("m4", "Indra Kurniawan", "pekerja", "Operator CCR"),
+    M("m5", "Sari Melati", "pekerja", "Operator Mesin"),
+    M("m6", "Fajar Nugroho", "pekerja", "Driver Truk"),
+    M("m7", "Tuti Marlina", "pekerja", "Dispatcher"),
+    M("m8", "Bayu Saputra", "pekerja", "Teknisi Listrik"),
+    M("m9", "Reni Astuti", "pekerja", "Lab Analyst"),
+    M("m10", "Gilang Ramadhan", "pekerja", "Driver Forklift"),
+    M("m11", "Sinta Permata", "pekerja", "Admin K3"),
+  ]},
+  { code: "P-001", package: "platinum", companyName: "PT Platinum Energi", members: [
+    M("m1", "Anton Wibowo", "management", "Direktur Operasional"),
+    M("m2", "Citra Lestari", "supervisor", "Supervisor Lapangan A"),
+    M("m3", "Dimas Aryo", "supervisor", "Supervisor Lapangan B"),
+    M("m4", "Endah Kusumawati", "supervisor", "Supervisor K3"),
+    M("m5", "Galih Pratama", "pekerja", "Operator CCR"),
+    M("m6", "Hesti Rahayu", "pekerja", "Operator Mesin"),
+    M("m7", "Irfan Maulana", "pekerja", "Driver Truk"),
+    M("m8", "Kartika Sari", "pekerja", "Dispatcher"),
+    M("m9", "Lukman Hakim", "pekerja", "Teknisi"),
+    M("m10", "Mega Wulandari", "pekerja", "Lab Analyst"),
+    M("m11", "Nanda Saputra", "pekerja", "Security CCTV"),
+    M("m12", "Oki Setiawan", "pekerja", "Driver Forklift"),
+    M("m13", "Pingkan Maharani", "pekerja", "Admin Logistik"),
+  ]},
+];
+
+window.ntSeedCompanies = async () => {
+  for (const c of NT_SEED_COMPANIES) {
+    await db.collection("companies").doc(c.code).set({
+      code: c.code, package: c.package, companyName: c.companyName, members: c.members,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    console.info("[NeuroTech] perusahaan demo dibuat:", c.code, "·", c.companyName);
+  }
+  console.info(`[NeuroTech] selesai, ${NT_SEED_COMPANIES.length} perusahaan demo dibuat.`);
+  return NT_SEED_COMPANIES.length;
+};
+
 console.info("[NeuroTech] Firebase initialised · project:", firebaseConfig.projectId);

@@ -42,6 +42,28 @@ const ROLE_HOME  = { pekerja: "/w/readiness", supervisor: "/s/overview", managem
 const ROLE_LABEL = { pekerja: "Pekerja", supervisor: "Supervisor", management: "Manajemen" };
 const ROLE_APPS  = { pekerja: ["w"], supervisor: ["s"], management: ["s", "m"] };
 
+// Per-package area access — the Free package unlocks only the worker app.
+const PACKAGE_APPS = {
+  free: ["w"], bronze: ["w", "s", "m"], silver: ["w", "s", "m"],
+  gold: ["w", "s", "m"], platinum: ["w", "s", "m"],
+};
+const APP_HOME = { w: "/w/readiness", s: "/s/overview", m: "/m/overview" };
+
+// Areas a member may open = their role's areas ∩ their package's areas.
+const allowedApps = (session) => {
+  if (!session) return ["w", "s", "m"];
+  const ra = ROLE_APPS[session.role] || ["w"];
+  const pa = PACKAGE_APPS[session.package] || ["w", "s", "m"];
+  const r = ra.filter((a) => pa.includes(a));
+  return r.length ? r : ["w"];
+};
+const homeFor = (session) => {
+  if (!session) return "/w/readiness";
+  const allow = allowedApps(session);
+  const roleHome = ROLE_HOME[session.role] || "/w/readiness";
+  return allow.includes(roleHome.split("/")[1]) ? roleHome : (APP_HOME[allow[0]] || "/w/readiness");
+};
+
 // Resolve a route — supports dynamic 3-segment routes and content pages.
 const resolveRoute = (route) => {
   const direct = ROUTES[`${route.app}/${route.page}`];
@@ -83,7 +105,7 @@ const App = () => {
   const session = window.ntSession ? window.ntSession.get() : null;
   const demo = typeof sessionStorage !== "undefined" && sessionStorage.getItem("nt-demo") === "1";
   const authed = !!session || demo;
-  const homeOf = (session && ROLE_HOME[session.role]) || "/w/readiness";
+  const homeOf = homeFor(session);
 
   // Start the live worker-data sync once anonymous auth is ready.
   React.useEffect(() => {
@@ -118,7 +140,7 @@ const App = () => {
     if (authed && !route.app) { navigate(session ? homeOf : "/w/readiness"); return; }
     // Role lock — a member may only open their own persona's screens.
     if (session && !demo && ["w", "s", "m"].includes(route.app)) {
-      const allowed = ROLE_APPS[session.role] || [];
+      const allowed = allowedApps(session);
       if (!allowed.includes(route.app)) navigate(homeOf);
     }
   }, [route.path]);
@@ -135,15 +157,14 @@ const App = () => {
 
   // Block rendering another persona's screen for a locked-in member.
   if (session && !demo && ["w", "s", "m"].includes(route.app)) {
-    const allowed = ROLE_APPS[session.role] || [];
-    if (!allowed.includes(route.app)) return <Splash text="Mengalihkan ke area Anda…" />;
+    if (!allowedApps(session).includes(route.app)) return <Splash text="Mengalihkan ke area Anda…" />;
   }
   if (!authed && !chromeless && route.app !== "p") return <Splash text="Mengalihkan…" />;
 
   const ScreenComponent = resolved.c;
   const activePersona = PERSONAS.find((p) => p.id === route.app);
   // Members see only the persona tabs their role allows; demo sees all.
-  const roleApps = session && !demo ? (ROLE_APPS[session.role] || []) : null;
+  const roleApps = session && !demo ? allowedApps(session) : null;
   const visiblePersonas = roleApps ? PERSONAS.filter((p) => roleApps.includes(p.id)) : PERSONAS;
 
   return (
