@@ -210,6 +210,17 @@ const CONTENT = {
       { h: "Cara melamar", p: "Kirim CV dan portofolio ke karir@neurotech.id dengan menyebutkan posisi yang Anda minati." },
     ],
   },
+  "education-space": {
+    cat: "Edukasi", title: "Education Space — Mengenal EEG",
+    intro: "Pahami teknologi di balik NeuroTech: apa itu EEG, dan bagaimana sinyal otak bisa membantu mencegah kecelakaan kerja.",
+    sections: [
+      { h: "Apa itu EEG?", p: "Electroencephalography (EEG) adalah metode merekam aktivitas listrik otak melalui sensor di permukaan kepala. Setiap kali sel saraf bekerja, ia menghasilkan sinyal listrik kecil — EEG menangkap pola sinyal itu secara real-time, tanpa prosedur yang menyakitkan." },
+      { h: "Gelombang otak dan artinya", p: "Sinyal EEG terdiri dari beberapa pita gelombang — alpha, beta, theta, dan delta. Komposisinya berubah sesuai kondisi: gelombang beta dominan saat fokus, sedangkan theta dan alpha meningkat saat mengantuk dan lelah. Pergeseran inilah yang menjadi penanda kelelahan." },
+      { h: "Apa fungsi NeuroTech?", p: "NeuroTech mengubah sinyal EEG mentah menjadi indikator yang mudah dipahami — Fatigue Index, Cognitive Load Index, dan Engagement Index. Dengan begitu, kondisi otak pekerja bisa dipantau semudah membaca angka, bukan grafik rumit." },
+      { h: "Bagaimana mendeteksi kelelahan & microsleep", p: "NeuroTech membandingkan sinyal otak pekerja saat ini dengan baseline pribadinya. Ketika pola gelombang bergeser ke arah mengantuk — atau muncul anggukan kepala dan penurunan engagement mendadak — sistem mengenalinya sebagai tanda fatigue atau microsleep." },
+      { h: "Bagaimana ini mengurangi kecelakaan kerja", p: "Sebagian besar kecelakaan akibat kelelahan terjadi karena tidak ada peringatan sebelum pekerja kehilangan kewaspadaan. NeuroTech memberi alert dini sehingga pekerja bisa beristirahat dan supervisor bisa bertindak — memutus rantai sebelum berubah menjadi insiden." },
+    ],
+  },
 };
 
 const ContentPage = ({ slug }) => {

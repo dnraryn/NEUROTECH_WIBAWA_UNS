@@ -1063,3 +1063,192 @@ html, body {
   transition: opacity .15s ease;
 }
 .nt-ai-send:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ──────────────────────────────────────────────────────────────
+   Landing: K3 accident hook
+   ────────────────────────────────────────────────────────────── */
+.nt-hook {
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 56px 6vw;
+}
+.nt-hook-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-top: 38px;
+}
+.nt-hook-stat {
+  background: var(--nt-surface);
+  border: var(--nt-hairline);
+  border-radius: 18px;
+  padding: 26px 24px;
+  box-shadow: var(--nt-shadow-out-sm);
+  height: 100%;
+}
+.nt-hook-stat-v {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  background: var(--nt-brand-gradient);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+.nt-hook-stat-l {
+  font-size: 13px;
+  color: var(--nt-text-2);
+  line-height: 1.6;
+  margin-top: 8px;
+}
+.nt-hook-note {
+  max-width: 680px;
+  margin: 28px auto 0;
+  font-size: 14.5px;
+  color: var(--nt-text-2);
+  line-height: 1.75;
+  text-align: center;
+}
+.nt-hook-note strong { color: var(--nt-text); }
+.nt-hook-src {
+  font-size: 11px;
+  color: var(--nt-text-3);
+  text-align: center;
+  margin-top: 14px;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Landing: research / journals
+   ────────────────────────────────────────────────────────────── */
+.nt-research-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-top: 40px;
+}
+.nt-research-card {
+  display: block;
+  background: var(--nt-surface);
+  border: var(--nt-hairline);
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow: var(--nt-shadow-out-sm);
+  text-decoration: none;
+  transition: transform .16s ease, box-shadow .16s ease;
+}
+.nt-research-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--nt-shadow-out), var(--nt-glow-soft);
+}
+.nt-research-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--nt-cyan);
+  border: 1px solid rgba(47, 212, 238, 0.30);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+.nt-research-title {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--nt-text);
+  line-height: 1.45;
+  margin-top: 12px;
+}
+.nt-research-meta {
+  font-size: 12px;
+  color: var(--nt-text-3);
+  margin-top: 8px;
+}
+.nt-research-link { color: var(--nt-cyan); font-weight: 600; }
+
+/* ──────────────────────────────────────────────────────────────
+   Landing: consultation / contact
+   ────────────────────────────────────────────────────────────── */
+.nt-contact {
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 24px 6vw 72px;
+}
+.nt-contact-card {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 34px;
+  background: linear-gradient(160deg, var(--nt-surface), var(--nt-bg-2));
+  border: var(--nt-hairline);
+  border-radius: 26px;
+  padding: 40px;
+  box-shadow: var(--nt-shadow-out), var(--nt-glow-soft);
+}
+.nt-contact-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 20px;
+}
+.nt-contact-row { display: flex; gap: 13px; align-items: flex-start; }
+.nt-contact-ico {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 11px;
+  background: var(--nt-bg-2);
+  box-shadow: var(--nt-shadow-in);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--nt-cyan);
+}
+.nt-contact-row-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--nt-text-3);
+}
+.nt-contact-row-value {
+  font-size: 13.5px;
+  color: var(--nt-text);
+  line-height: 1.55;
+  margin-top: 3px;
+}
+.nt-contact-row-value a { color: var(--nt-text); text-decoration: none; }
+.nt-contact-row-value a:hover { color: var(--nt-cyan); }
+.nt-contact-side {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-left: 1px solid rgba(96, 150, 240, 0.14);
+  padding-left: 34px;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Auth page — mobile responsive (login form takes the screen)
+   ────────────────────────────────────────────────────────────── */
+.nt-auth-grid {
+  position: relative;
+  width: 880px;
+  max-width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  gap: 32px;
+}
+
+@media (max-width: 760px) {
+  .nt-hook-stat-grid { grid-template-columns: 1fr; }
+  .nt-research-grid { grid-template-columns: 1fr; }
+  .nt-contact-card { grid-template-columns: 1fr; padding: 28px; }
+  .nt-contact-side {
+    border-left: none;
+    border-top: 1px solid rgba(96, 150, 240, 0.14);
+    padding-left: 0;
+    padding-top: 26px;
+  }
+}
+
+@media (max-width: 720px) {
+  .nt-auth-grid { grid-template-columns: 1fr; max-width: 420px; }
+  .nt-auth-brand { display: none; }
+}

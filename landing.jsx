@@ -71,6 +71,7 @@ const NAV_MENU = [
     { label: "Dashboard Supervisor", desc: "Overview tim & alert K3" },
     { label: "Analitik Manajemen", desc: "Tren agregat & skor SMK3" },
   ]},
+  { label: "Edukasi", page: "education-space" },
   { label: "Cara Kerja" },
   { label: "Dukungan", links: [
     { label: "Panduan Memulai", desc: "Langkah pertama dengan NeuroTech" },
@@ -86,7 +87,7 @@ const FOOT_COLS = [
     { sub: "Aplikasi", links: ["App Pekerja", "Dashboard Supervisor", "Analitik Manajemen"] },
     { sub: "Perangkat", links: ["Muse 2", "Muse S", "Kalibrasi EEG", "Alert Real-time"] },
   ]},
-  { title: "Dukungan", links: ["Panduan Memulai", "FAQ", "Basis Pengetahuan", "Hubungi Kami", "Status Sistem"] },
+  { title: "Dukungan", links: ["Panduan Memulai", "FAQ", "Basis Pengetahuan", "Education Space", "Hubungi Kami", "Status Sistem"] },
   { title: "Perusahaan", links: ["Tentang NeuroTech", "Kebijakan Privasi", "Syarat Penggunaan", "Keamanan Data", "Karier"] },
 ];
 
@@ -136,7 +137,11 @@ const LandingNav = () => {
                 )}
               </div>
             ) : (
-              <button key={item.label} className="nt-nav-link" onClick={goCaraKerja}>
+              <button
+                key={item.label}
+                className="nt-nav-link"
+                onClick={() => (item.page ? navigate("/p/" + item.page) : goCaraKerja())}
+              >
                 {item.label}
               </button>
             )
@@ -230,6 +235,53 @@ const LANDING_STATS = [
   { v: "−24%", l: "insiden fatigue" },
 ];
 
+// K3 accident hook — figures from BPJS Ketenagakerjaan (kecelakaan kerja nasional).
+const HOOK_STATS = [
+  { v: "462.241", l: "kasus kecelakaan kerja tercatat di Indonesia sepanjang 2024" },
+  { v: "Rp 3,49 T", l: "nilai klaim kecelakaan kerja yang dibayarkan selama 2024" },
+  { v: "370.747", l: "kasus pada 2023 — artinya angkanya terus meningkat tiap tahun" },
+];
+
+// Research references — real, verifiable publications on EEG fatigue detection.
+const RESEARCH = [
+  {
+    tag: "Survei",
+    title: "A Survey on Drowsiness Detection — Modern Applications and Methods",
+    venue: "IEEE Transactions on Intelligent Vehicles",
+    year: "2024",
+    url: "https://arxiv.org/abs/2408.12990",
+  },
+  {
+    tag: "Survei",
+    title: "EEG-based neural networks approaches for fatigue and drowsiness detection: A survey",
+    venue: "Neurocomputing (Elsevier)",
+    year: "2023",
+    url: "https://www.sciencedirect.com/science/article/abs/pii/S0925231223008329",
+  },
+  {
+    tag: "Jurnal",
+    title: "An EEG-Based Fatigue Detection and Mitigation System",
+    venue: "International Journal of Neural Systems",
+    year: "2016",
+    url: "https://pubmed.ncbi.nlm.nih.gov/27121994/",
+  },
+  {
+    tag: "Jurnal",
+    title: "Drowsiness detection using portable wireless EEG",
+    venue: "Computer Methods and Programs in Biomedicine",
+    year: "2022",
+    url: "https://www.sciencedirect.com/science/article/abs/pii/S016926072100609X",
+  },
+];
+
+// Consultation / contact details.
+const CONTACT = {
+  address: "Prodi Teknik Industri, Fakultas Teknik, Universitas Sebelas Maret — Jl. Ir. Sutami No. 36A, Kentingan, Jebres, Surakarta 57126, Jawa Tengah",
+  phone: "0812-3456-7859",
+  phoneIntl: "6281234567859",
+  email: "konsultasi@neurotech.id",
+};
+
 // Bar heights for the decorative EEG strip (cycled across all bars).
 const EEG_HEIGHTS = [38, 62, 28, 82, 50, 70, 34, 90, 46, 66, 30, 74];
 
@@ -303,6 +355,35 @@ const LandingPage = () => (
       </div>
     </header>
 
+    {/* ── Hook: K3 accidents are still high ─────────────────────── */}
+    <section className="nt-hook">
+      <Reveal>
+        <div className="nt-eyebrow" style={{ textAlign: "center" }}>Kenapa ini penting</div>
+        <h2 className="nt-landing-h2">Kecelakaan kerja masih tinggi — dan terus naik</h2>
+      </Reveal>
+      <div className="nt-hook-stat-grid">
+        {HOOK_STATS.map((s, i) => (
+          <Reveal key={i} delay={i * 110}>
+            <div className="nt-hook-stat">
+              <div className="nt-hook-stat-v">{s.v}</div>
+              <div className="nt-hook-stat-l">{s.l}</div>
+            </div>
+          </Reveal>
+        ))}
+      </div>
+      <Reveal delay={140}>
+        <p className="nt-hook-note">
+          Banyak insiden ini dipicu <strong>kelelahan dan microsleep</strong> — kondisi
+          yang tidak terlihat mata, tapi <strong>bisa dideteksi lebih awal lewat sinyal
+          otak (EEG)</strong>. Di situlah NeuroTech bekerja: mengubah kelelahan yang tak
+          terlihat menjadi peringatan dini yang bisa ditindaklanjuti.
+        </p>
+        <div className="nt-hook-src">
+          Sumber: BPJS Ketenagakerjaan — data kecelakaan kerja nasional 2023–2024.
+        </div>
+      </Reveal>
+    </section>
+
     {/* ── Features: three personas ──────────────────────────────── */}
     <section className="nt-landing-section" id="solusi">
       <Reveal>
@@ -341,6 +422,32 @@ const LandingPage = () => (
       </div>
     </section>
 
+    {/* ── Research & journals ───────────────────────────────────── */}
+    <section className="nt-landing-section">
+      <Reveal>
+        <div className="nt-eyebrow" style={{ textAlign: "center" }}>Riset &amp; Jurnal</div>
+        <h2 className="nt-landing-h2">Didukung bukti ilmiah</h2>
+        <p className="nt-landing-sub" style={{ marginTop: 14 }}>
+          Pemantauan kelelahan berbasis EEG bukan ide baru — sudah diteliti luas dan
+          terbukti efektif untuk keselamatan kerja. Beberapa rujukan ilmiahnya:
+        </p>
+      </Reveal>
+      <div className="nt-research-grid">
+        {RESEARCH.map((r, i) => (
+          <Reveal key={i} delay={i * 110}>
+            <a className="nt-research-card" href={r.url} target="_blank" rel="noopener noreferrer">
+              <span className="nt-research-tag">{r.tag}</span>
+              <div className="nt-research-title">{r.title}</div>
+              <div className="nt-research-meta">{r.venue} · {r.year}</div>
+              <div className="nt-research-meta">
+                <span className="nt-research-link">Buka sumber →</span>
+              </div>
+            </a>
+          </Reveal>
+        ))}
+      </div>
+    </section>
+
     {/* ── Final call to action ──────────────────────────────────── */}
     <section className="nt-landing-section" id="mulai">
       <Reveal>
@@ -356,6 +463,82 @@ const LandingPage = () => (
             <div className="nt-landing-cta">
               <NeuroBtn tone="primary" size="lg" onClick={goRegister}>Buat akun</NeuroBtn>
               <NeuroBtn tone="default" size="lg" onClick={goDemo}>Coba demo →</NeuroBtn>
+            </div>
+          </div>
+        </div>
+      </Reveal>
+    </section>
+
+    {/* ── Consultation / contact ────────────────────────────────── */}
+    <section className="nt-contact">
+      <Reveal>
+        <div className="nt-eyebrow" style={{ textAlign: "center" }}>Konsultasi</div>
+        <h2 className="nt-landing-h2" style={{ marginBottom: 30 }}>Konsultasi &amp; Hubungi Kami</h2>
+      </Reveal>
+      <Reveal delay={90}>
+        <div className="nt-contact-card">
+          <div>
+            <div className="nt-landing-card-title" style={{ marginTop: 0 }}>Informasi kontak</div>
+            <div className="nt-contact-rows">
+              <div className="nt-contact-row">
+                <span className="nt-contact-ico">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 21s-7-5.3-7-11a7 7 0 1114 0c0 5.7-7 11-7 11z" />
+                    <circle cx="12" cy="10" r="2.5" />
+                  </svg>
+                </span>
+                <div>
+                  <div className="nt-contact-row-label">Alamat</div>
+                  <div className="nt-contact-row-value">{CONTACT.address}</div>
+                </div>
+              </div>
+              <div className="nt-contact-row">
+                <span className="nt-contact-ico">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3.1 19.5 19.5 0 01-6-6A19.8 19.8 0 012.1 4.2 2 2 0 014.1 2h3a2 2 0 012 1.7c.1.9.3 1.8.6 2.6a2 2 0 01-.5 2.1L8 9.6a16 16 0 006 6l1.2-1.2a2 2 0 012.1-.5c.8.3 1.7.5 2.6.6a2 2 0 011.7 2z" />
+                  </svg>
+                </span>
+                <div>
+                  <div className="nt-contact-row-label">Telepon / WhatsApp</div>
+                  <div className="nt-contact-row-value">
+                    <a href={"tel:+" + CONTACT.phoneIntl}>{CONTACT.phone}</a>
+                  </div>
+                </div>
+              </div>
+              <div className="nt-contact-row">
+                <span className="nt-contact-ico">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="5" width="18" height="14" rx="2" />
+                    <path d="M3 7l9 6 9-6" />
+                  </svg>
+                </span>
+                <div>
+                  <div className="nt-contact-row-label">Email</div>
+                  <div className="nt-contact-row-value">
+                    <a href={"mailto:" + CONTACT.email}>{CONTACT.email}</a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="nt-contact-side">
+            <div className="nt-landing-card-title" style={{ marginTop: 0 }}>Butuh konsultasi?</div>
+            <p className="nt-landing-card-text">
+              Punya pertanyaan tentang penerapan NeuroTech di perusahaan Anda, atau ingin
+              berdiskusi soal pemantauan fatigue &amp; K3? Tim kami siap membantu.
+            </p>
+            <div style={{ marginTop: 18 }}>
+              <NeuroBtn tone="primary" size="lg"
+                onClick={() => window.open("https://wa.me/" + CONTACT.phoneIntl, "_blank")}>
+                Chat via WhatsApp
+              </NeuroBtn>
+            </div>
+            <div style={{ fontSize: 11.5, color: "var(--nt-text-3)", marginTop: 12 }}>
+              Jam operasional: Senin–Jumat, 08.00–16.00 WIB
             </div>
           </div>
         </div>

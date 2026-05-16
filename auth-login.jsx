@@ -95,12 +95,9 @@ const AuthLogin = () => {
         pointerEvents: "none"
       }} />
 
-      <div style={{
-        position: "relative", width: 880, maxWidth: "100%",
-        display: "grid", gridTemplateColumns: "1fr 1.1fr", gap: 32,
-      }}>
-        {/* Left: brand */}
-        <div style={{ padding: "20px 24px" }}>
+      <div className="nt-auth-grid">
+        {/* Left: brand — hidden on mobile so the form takes the screen */}
+        <div className="nt-auth-brand" style={{ padding: "20px 24px" }}>
           <NeuroLogo size={32} />
           <div style={{ marginTop: 56 }}>
             <div className="nt-eyebrow" style={{ fontSize: 11 }}>SISTEM MONITORING K3</div>
