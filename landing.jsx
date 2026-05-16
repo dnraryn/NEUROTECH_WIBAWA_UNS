@@ -1,8 +1,8 @@
-// Landing page (/landing) — interactive marketing entry, brain.fm-inspired,
+// Landing page (/landing), interactive marketing entry, brain.fm-inspired,
 // with an Emotiv-style dropdown navbar and a multi-column footer.
 // LandingNav + LandingFooter are exported so content pages can reuse them.
 
-// Reveal — fades & lifts its children into view when scrolled near.
+// Reveal, fades & lifts its children into view when scrolled near.
 const Reveal = ({ children, delay = 0, y = 28, style }) => {
   const ref = React.useRef(null);
   const [shown, setShown] = React.useState(false);
@@ -29,7 +29,7 @@ const Reveal = ({ children, delay = 0, y = 28, style }) => {
   );
 };
 
-// Brand lockup — SVG mark + gradient wordmark (NeuroLogo's own text is dark).
+// Brand lockup, SVG mark + gradient wordmark (NeuroLogo's own text is dark).
 const Brand = ({ size = 30 }) => (
   <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
     <NeuroLogo size={size} withText={false} color="#4a93ec" />
@@ -47,7 +47,7 @@ const goRegister = () => { sessionStorage.setItem("nt-auth-mode", "register"); n
 const goLogin = () => { sessionStorage.removeItem("nt-auth-mode"); navigate("/login"); };
 const goDemo = () => {
   sessionStorage.setItem("nt-demo", "1");
-  window.toast?.("Mode demo aktif — tanpa login", { kind: "info" });
+  window.toast?.("Mode demo aktif, tanpa login", { kind: "info" });
   navigate("/w/readiness");
 };
 // Every nav/footer label resolves to a content page at /p/<slug>.
@@ -178,7 +178,7 @@ const LandingFooter = () => (
       <div className="nt-foot-brand">
         <Brand size={28} />
         <p className="nt-foot-blurb">
-          Sistem monitoring fatigue, beban kognitif, dan K3 berbasis EEG Muse —
+          Sistem monitoring fatigue, beban kognitif, dan K3 berbasis EEG Muse ,
           deteksi dini sebelum kelelahan menjadi insiden.
         </p>
         <div className="nt-foot-badge">
@@ -218,7 +218,7 @@ const LandingFooter = () => (
 );
 
 const LANDING_FEATURES = [
-  { icon: "👷", title: "Pekerja", text: "Cek readiness pra-shift, pantau kondisi otak saat bekerja, dan lihat tren tidur — privat, hanya untuk Anda." },
+  { icon: "👷", title: "Pekerja", text: "Cek readiness pra-shift, pantau kondisi otak saat bekerja, dan lihat tren tidur, privat, hanya untuk Anda." },
   { icon: "🛡", title: "Supervisor K3", text: "Dashboard tim real-time: siapa kritis, alert microsleep, jadwal shift, dan laporan dalam satu layar." },
   { icon: "📊", title: "Manajemen SMK3", text: "Analitik agregat tren fatigue, skor K3, dan dampak intervensi untuk keputusan kebijakan." },
 ];
@@ -235,18 +235,18 @@ const LANDING_STATS = [
   { v: "−24%", l: "insiden fatigue" },
 ];
 
-// K3 accident hook — figures from BPJS Ketenagakerjaan (kecelakaan kerja nasional).
+// K3 accident hook, figures from BPJS Ketenagakerjaan (kecelakaan kerja nasional).
 const HOOK_STATS = [
   { v: "462.241", l: "kasus kecelakaan kerja tercatat di Indonesia sepanjang 2024" },
   { v: "Rp 3,49 T", l: "nilai klaim kecelakaan kerja yang dibayarkan selama 2024" },
-  { v: "370.747", l: "kasus pada 2023 — artinya angkanya terus meningkat tiap tahun" },
+  { v: "370.747", l: "kasus pada 2023, artinya angkanya terus meningkat tiap tahun" },
 ];
 
-// Research references — real, verifiable publications on EEG fatigue detection.
+// Research references, real, verifiable publications on EEG fatigue detection.
 const RESEARCH = [
   {
     tag: "Survei",
-    title: "A Survey on Drowsiness Detection — Modern Applications and Methods",
+    title: "A Survey on Drowsiness Detection, Modern Applications and Methods",
     venue: "IEEE Transactions on Intelligent Vehicles",
     year: "2024",
     url: "https://arxiv.org/abs/2408.12990",
@@ -276,7 +276,7 @@ const RESEARCH = [
 
 // Consultation / contact details.
 const CONTACT = {
-  address: "Prodi Teknik Industri, Fakultas Teknik, Universitas Sebelas Maret — Jl. Ir. Sutami No. 36A, Kentingan, Jebres, Surakarta 57126, Jawa Tengah",
+  address: "Prodi Teknik Industri, Fakultas Teknik, Universitas Sebelas Maret, Jl. Ir. Sutami No. 36A, Kentingan, Jebres, Surakarta 57126, Jawa Tengah",
   phone: "0812-3456-7859",
   phoneIntl: "6281234567859",
   email: "neurotech.id@gmail.com",
@@ -287,7 +287,45 @@ const CONTACT = {
 // Bar heights for the decorative EEG strip (cycled across all bars).
 const EEG_HEIGHTS = [38, 62, 28, 82, 50, 70, 34, 90, 46, 66, 30, 74];
 
-// ── Contact form — posts to the team inbox via FormSubmit (no backend) ──────
+// ── Vision & mission, shown on the landing page and the About page ────────
+const NT_VISI = "Menjadi sistem pemantauan kelelahan dan keselamatan kerja berbasis EEG yang membantu menekan angka kecelakaan kerja akibat fatigue di Indonesia.";
+const NT_MISI = [
+  "Mendeteksi kelelahan mental, beban kognitif, dan microsleep pekerja secara real-time sebelum berubah menjadi insiden.",
+  "Menyediakan indikator K3 yang objektif dan mudah dipahami bagi pekerja, supervisor, maupun manajemen.",
+  "Mendorong budaya keselamatan kerja yang non-punitif, tempat teknologi hadir untuk melindungi pekerja.",
+];
+
+const VisiMisi = () => (
+  <div className="nt-vm">
+    <div className="nt-vm-card">
+      <div className="nt-vm-ico">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z" />
+          <circle cx="12" cy="12" r="3.2" />
+        </svg>
+      </div>
+      <div className="nt-vm-title">Visi</div>
+      <p className="nt-vm-text">{NT_VISI}</p>
+    </div>
+    <div className="nt-vm-card">
+      <div className="nt-vm-ico">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="9" />
+          <circle cx="12" cy="12" r="5" />
+          <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
+        </svg>
+      </div>
+      <div className="nt-vm-title">Misi</div>
+      <ol className="nt-vm-list">
+        {NT_MISI.map((m, i) => <li key={i}>{m}</li>)}
+      </ol>
+    </div>
+  </div>
+);
+
+// ── Contact form, posts to the team inbox via FormSubmit (no backend) ──────
 const ContactForm = () => {
   const [form, setForm] = React.useState({ name: "", email: "", subject: "", message: "" });
   const [busy, setBusy] = React.useState(false);
@@ -308,7 +346,7 @@ const ContactForm = () => {
           Email: form.email,
           Subjek: form.subject,
           Pesan: form.message,
-          _subject: "Konsultasi NeuroTech — " + (form.subject || "tanpa subjek"),
+          _subject: "Konsultasi NeuroTech, " + (form.subject || "tanpa subjek"),
         }),
       });
       if (!res.ok) throw new Error("Gagal mengirim pesan. Coba lagi nanti.");
@@ -328,7 +366,7 @@ const ContactForm = () => {
         <div style={{ fontSize: 30 }}>✓</div>
         <div className="nt-landing-card-title" style={{ marginTop: 6 }}>Pesan terkirim</div>
         <p className="nt-landing-card-text" style={{ marginBottom: 14 }}>
-          Terima kasih — pesan Anda sudah kami terima dan akan dibalas lewat email.
+          Terima kasih, pesan Anda sudah kami terima dan akan dibalas lewat email.
         </p>
         <NeuroBtn tone="default" size="sm" onClick={() => setSent(false)}>Kirim pesan lain</NeuroBtn>
       </div>
@@ -386,7 +424,7 @@ const LandingPage = () => (
         <Reveal delay={300}>
           <p className="nt-landing-sub">
             NeuroTech menggabungkan data tidur pra-shift dengan pemantauan otak
-            real-time dari headband Muse — supaya kelelahan mental terdeteksi
+            real-time dari headband Muse, supaya kelelahan mental terdeteksi
             lebih dulu, bukan setelah terjadi kecelakaan.
           </p>
         </Reveal>
@@ -426,7 +464,7 @@ const LandingPage = () => (
     <section className="nt-hook">
       <Reveal>
         <div className="nt-eyebrow" style={{ textAlign: "center" }}>Kenapa ini penting</div>
-        <h2 className="nt-landing-h2">Kecelakaan kerja masih tinggi — dan terus naik</h2>
+        <h2 className="nt-landing-h2">Kecelakaan kerja masih tinggi, dan terus naik</h2>
       </Reveal>
       <Reveal delay={100}>
         <div className="nt-hook-stat-grid">
@@ -440,13 +478,13 @@ const LandingPage = () => (
       </Reveal>
       <Reveal delay={160}>
         <p className="nt-hook-note">
-          Banyak insiden ini dipicu <strong>kelelahan dan microsleep</strong> — kondisi
+          Banyak insiden ini dipicu <strong>kelelahan dan microsleep</strong>, kondisi
           yang tidak terlihat mata, tapi <strong>bisa dideteksi lebih awal lewat sinyal
           otak (EEG)</strong>. Di situlah NeuroTech bekerja: mengubah kelelahan yang tak
           terlihat menjadi peringatan dini yang bisa ditindaklanjuti.
         </p>
         <div className="nt-hook-src">
-          Sumber: BPJS Ketenagakerjaan — data kecelakaan kerja nasional 2023–2024.
+          Sumber: BPJS Ketenagakerjaan, data kecelakaan kerja nasional 2023–2024.
         </div>
       </Reveal>
     </section>
@@ -490,12 +528,26 @@ const LandingPage = () => (
     </section>
 
     {/* ── Research & journals ───────────────────────────────────── */}
+    {/* ── About us: vision & mission ────────────────────────────── */}
+    <section className="nt-landing-section">
+      <Reveal>
+        <div className="nt-eyebrow" style={{ textAlign: "center" }}>Tentang Kami</div>
+        <h2 className="nt-landing-h2">Mengapa NeuroTech ada</h2>
+        <p className="nt-landing-sub" style={{ marginTop: 14 }}>
+          NeuroTech dibuat untuk satu tujuan: mencegah kecelakaan kerja akibat
+          kelelahan, dengan teknologi yang melindungi pekerja.
+        </p>
+      </Reveal>
+      <Reveal delay={100}><VisiMisi /></Reveal>
+    </section>
+
+    {/* ── Research & journals ───────────────────────────────────── */}
     <section className="nt-landing-section">
       <Reveal>
         <div className="nt-eyebrow" style={{ textAlign: "center" }}>Riset &amp; Jurnal</div>
         <h2 className="nt-landing-h2">Didukung bukti ilmiah</h2>
         <p className="nt-landing-sub" style={{ marginTop: 14 }}>
-          Pemantauan kelelahan berbasis EEG bukan ide baru — sudah diteliti luas dan
+          Pemantauan kelelahan berbasis EEG bukan ide baru, sudah diteliti luas dan
           terbukti efektif untuk keselamatan kerja. Beberapa rujukan ilmiahnya:
         </p>
       </Reveal>
@@ -611,7 +663,7 @@ const LandingPage = () => (
           <div className="nt-contact-side">
             <div className="nt-landing-card-title" style={{ marginTop: 0 }}>Kirim pesan</div>
             <p className="nt-landing-card-text">
-              Isi formulir di bawah — pesan Anda akan kami terima langsung melalui email.
+              Isi formulir di bawah, pesan Anda akan kami terima langsung melalui email.
             </p>
             <ContactForm />
           </div>
@@ -623,4 +675,4 @@ const LandingPage = () => (
   </div>
 );
 
-Object.assign(window, { Reveal, Brand, LandingNav, LandingFooter, LandingPage });
+Object.assign(window, { Reveal, Brand, VisiMisi, LandingNav, LandingFooter, LandingPage });

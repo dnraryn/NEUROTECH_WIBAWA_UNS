@@ -1,4 +1,4 @@
-// Supervisor — Jadwal Shift (/s/schedule)
+// Supervisor, Jadwal Shift (/s/schedule)
 
 const SupervisorSchedule = () => {
   const [assignModal, setAssignModal] = React.useState(null); // { day, shift }
@@ -19,7 +19,7 @@ const SupervisorSchedule = () => {
             <NeuroIconBtn size={38} onClick={() => window.toast?.("Minggu berikutnya (mock)", { kind: "info" })}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6"/></svg>
             </NeuroIconBtn>
-            <NeuroBtn tone="primary" size="sm" onClick={() => window.toast?.("Publikasi jadwal — 10 pekerja akan dinotifikasi", { kind: "success" })}>
+            <NeuroBtn tone="primary" size="sm" onClick={() => window.toast?.("Publikasi jadwal, 10 pekerja akan dinotifikasi", { kind: "success" })}>
               Publikasi Jadwal
             </NeuroBtn>
           </div>
@@ -149,7 +149,7 @@ const SupervisorSchedule = () => {
         actions={
           <>
             <NeuroBtn tone="ghost" onClick={() => setAssignModal(null)}>Tutup</NeuroBtn>
-            <NeuroBtn tone="primary" onClick={() => { setAssignModal(null); window.toast?.("Tambah pekerja ke shift — fitur akan datang", { kind: "info" }); }}>+ Tambah pekerja</NeuroBtn>
+            <NeuroBtn tone="primary" onClick={() => { setAssignModal(null); window.toast?.("Tambah pekerja ke shift, fitur akan datang", { kind: "info" }); }}>+ Tambah pekerja</NeuroBtn>
           </>
         }>
         {assignModal && (

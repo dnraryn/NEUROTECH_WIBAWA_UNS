@@ -1,4 +1,4 @@
-// Worker mobile — Profile & settings (/w/profile)
+// Worker mobile, Profile & settings (/w/profile)
 
 const WorkerProfile = () => {
   const w = CURRENT_WORKER;
@@ -17,7 +17,7 @@ const WorkerProfile = () => {
         </NeuroIconBtn>
       </Link>
       <div style={{ fontSize: 12, letterSpacing: "0.42em", color: "var(--nt-text-2)", fontWeight: 600 }}>P R O F I L</div>
-      <NeuroIconBtn size={40} onClick={() => window.toast?.("Edit profil — fitur akan datang", { kind: "info" })}>
+      <NeuroIconBtn size={40} onClick={() => window.toast?.("Edit profil, fitur akan datang", { kind: "info" })}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4z"/></svg>
       </NeuroIconBtn>
     </div>
@@ -107,7 +107,7 @@ const WorkerProfile = () => {
     <div className="neu-surface-sm" style={{ margin: "14px 24px 0", padding: "12px 16px" }}>
       <div className="nt-eyebrow" style={{ fontSize: 9 }}>🔒 Privasi</div>
       <div style={{ fontSize: 11.5, color: "var(--nt-text-2)", marginTop: 6, lineHeight: 1.5 }}>
-        Data EEG mentah Anda hanya tersimpan di perangkat. Supervisor & manajemen hanya melihat indeks ringkas (FI/CLI/HRV) — bukan sinyal mentah. Data tidak digunakan untuk sanksi.
+        Data EEG mentah Anda hanya tersimpan di perangkat. Supervisor & manajemen hanya melihat indeks ringkas (FI/CLI/HRV), bukan sinyal mentah. Data tidak digunakan untuk sanksi.
       </div>
     </div>
 

@@ -1,4 +1,4 @@
-// Worker app — mobile screens (360x780). Neumorphism style matching reference.
+// Worker app, mobile screens (360x780). Neumorphism style matching reference.
 
 // ── SCREEN 1: PRA-SHIFT / READINESS ─────────────────────────────────────────
 const WorkerReadiness = () => {
@@ -101,7 +101,7 @@ const WorkerReadiness = () => {
         <div style={{ fontSize: 11, color: "var(--nt-text-3)", letterSpacing: "0.18em", textTransform: "uppercase" }}>2 / 3</div>
       </div>
       {[
-        { label: "Muse S — tidur tersinkron", done: true },
+        { label: "Muse S, tidur tersinkron", done: true },
         { label: "Kalibrasi baseline tersimpan", done: true },
         { label: "Pasang headband sebelum 07:00", done: false },
       ].map((c, i) => (
@@ -162,7 +162,7 @@ const WorkerLive = () => {
       <div style={{ fontSize: 12, letterSpacing: "0.42em", color: "var(--nt-text-2)", fontWeight: 600 }}>
         L I V E &nbsp; M O N I T O R
       </div>
-      <NeuroIconBtn size={40} active onClick={() => window.toast?.("Status alert: AKTIF — supervisor menerima notifikasi", { kind: "warn" })}>
+      <NeuroIconBtn size={40} active onClick={() => window.toast?.("Status alert: AKTIF, supervisor menerima notifikasi", { kind: "warn" })}>
         <span style={{
           width: 8, height: 8, borderRadius: "50%",
           background: "#ff7a7a",
@@ -231,7 +231,7 @@ const WorkerLive = () => {
       </div>
     </div>
 
-    {/* EEG band power bars (live) — like Relax/Cardio/Strength/Stretch */}
+    {/* EEG band power bars (live), like Relax/Cardio/Strength/Stretch */}
     <div className="neu-surface" style={{ margin: "16px 24px 0", padding: "16px 14px 12px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, padding: "0 4px" }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: "var(--nt-text)" }}>EEG Band Power</div>
@@ -316,7 +316,7 @@ const WorkerSleep = () => {
       open={infoOpen}
       onClose={() => setInfoOpen(false)}
       title="Tentang Sleep Stages"
-      subtitle="Tahap tidur dideteksi via Muse S — kombinasi EEG, gerakan, dan HRV. Skor tidur (Sleep Score) menggabungkan durasi, efisiensi, dan komposisi REM/Deep. Data hanya bisa dilihat oleh Anda sendiri."
+      subtitle="Tahap tidur dideteksi via Muse S, kombinasi EEG, gerakan, dan HRV. Skor tidur (Sleep Score) menggabungkan durasi, efisiensi, dan komposisi REM/Deep. Data hanya bisa dilihat oleh Anda sendiri."
       actions={<NeuroBtn tone="primary" onClick={() => setInfoOpen(false)}>Mengerti</NeuroBtn>}
     />
 
@@ -332,7 +332,7 @@ const WorkerSleep = () => {
     <div className="neu-surface" style={{ margin: "18px 24px 0", padding: "16px 16px 14px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: "var(--nt-text)" }}>Sleep Stages</div>
-        <div style={{ fontSize: 11, color: "var(--nt-text-3)" }}>22:48 — 06:00</div>
+        <div style={{ fontSize: 11, color: "var(--nt-text-3)" }}>22:48, 06:00</div>
       </div>
       {/* hypnogram-ish stacked bars */}
       <div style={{ display: "flex", height: 78, gap: 2, borderRadius: 12, overflow: "hidden", boxShadow: "var(--nt-shadow-in)" }}>
@@ -434,7 +434,7 @@ const WorkerStats = () => {
         </NeuroIconBtn>
       </Link>
       <div style={{ fontSize: 12, letterSpacing: "0.42em", color: "var(--nt-text-2)", fontWeight: 600 }}>S T A T I S T I K</div>
-      <NeuroIconBtn size={40} onClick={() => window.toast?.("Pencarian belum tersedia — fitur akan datang", { kind: "info" })}>
+      <NeuroIconBtn size={40} onClick={() => window.toast?.("Pencarian belum tersedia, fitur akan datang", { kind: "info" })}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
       </NeuroIconBtn>
     </div>
@@ -486,7 +486,7 @@ const WorkerStats = () => {
       <NeuroGauge value={78} size={180} label="78" sublabel="K3 score" gradient={["#9c8bf0", "#6cb6f0"]} thickness={20} />
     </div>
 
-    {/* 4 vertical bars: Fatigue / Load / Sleep / HRV — Relax/Cardio/Strength/Stretch analog */}
+    {/* 4 vertical bars: Fatigue / Load / Sleep / HRV, Relax/Cardio/Strength/Stretch analog */}
     <div className="neu-surface" style={{ margin: "20px 24px 0", padding: "18px 14px 14px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, padding: "0 4px" }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: "var(--nt-text)" }}>Rerata Indeks</div>

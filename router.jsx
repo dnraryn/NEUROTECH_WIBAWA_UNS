@@ -1,4 +1,4 @@
-// Hash-based router + Modal + Toast — exposed as window globals to fit the
+// Hash-based router + Modal + Toast, exposed as window globals to fit the
 // script-tag style. Paths look like #/s/workers/rizky-a → parts = ["s","workers","rizky-a"].
 
 // ── Route parsing ─────────────────────────────────────────────────────────
@@ -31,7 +31,7 @@ const navigate = (to) => {
   }
 };
 
-// Link — renders an <a> with hash href so browser back/forward works.
+// Link, renders an <a> with hash href so browser back/forward works.
 const Link = ({ to, children, style, className, onClick }) => (
   <a
     href={"#" + to}

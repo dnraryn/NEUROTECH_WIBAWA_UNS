@@ -1,7 +1,7 @@
-// Ask AI — floating chat assistant available on every page.
+// Ask AI, floating chat assistant available on every page.
 // Talks to Gemini via window.ntGemini (set up by ai-gemini.js / Firebase AI Logic).
 
-// Typewriter — reveals text character by character (used for AI replies).
+// Typewriter, reveals text character by character (used for AI replies).
 const Typewriter = ({ text, speed = 14, onTick }) => {
   const [n, setN] = React.useState(0);
   React.useEffect(() => {

@@ -44,7 +44,7 @@ const NeuroLogo = ({ size = 28, withText = true, color }) => {
   );
 };
 
-// Circular gauge — like the 73% donut from reference
+// Circular gauge, like the 73% donut from reference
 const NeuroGauge = ({ value = 73, size = 180, label, sublabel, gradient, thickness = 18 }) => {
   const r = (size - thickness) / 2;
   const c = 2 * Math.PI * r;
@@ -96,7 +96,7 @@ const NeuroGauge = ({ value = 73, size = 180, label, sublabel, gradient, thickne
   );
 };
 
-// Vertical pill bars — like Relax/Cardio/Strength/Stretch from reference
+// Vertical pill bars, like Relax/Cardio/Strength/Stretch from reference
 const NeuroBar = ({ value = 50, color = ["#6cb6f0", "#8cc6f5"], label, sub, height = 100, width = 26 }) => {
   const fillH = Math.max(8, (value / 100) * height);
   return (
@@ -240,7 +240,7 @@ const NeuroStatusBar = ({ time = "07:24" }) => (
   </div>
 );
 
-// Tab bar at bottom of phone screens — each icon navigates to its route.
+// Tab bar at bottom of phone screens, each icon navigates to its route.
 const NeuroTabBar = ({ active = "home" }) => {
   const tabs = [
     { k: "home",  to: "/w/readiness", icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 11l9-7 9 7v9a2 2 0 0 1-2 2h-4v-7h-6v7H5a2 2 0 0 1-2-2z"/></svg> },

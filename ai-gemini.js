@@ -1,4 +1,4 @@
-// Firebase AI Logic (Gemini) — modular ES module.
+// Firebase AI Logic (Gemini), modular ES module.
 // Kept separate from the compat SDK (firebase-init.js) used by the rest of the
 // app. Exposes window.ntGemini(history) so the Ask AI chat (ask-ai.jsx) can
 // call Gemini without any API key in the page source.
@@ -21,7 +21,7 @@ const firebaseConfig = {
 };
 
 const SYSTEM_INSTRUCTION =
-  "Kamu adalah asisten NeuroTech — sistem monitoring kelelahan mental (fatigue), " +
+  "Kamu adalah asisten NeuroTech, sistem monitoring kelelahan mental (fatigue), " +
   "beban kognitif (cognitive load), dan keselamatan & kesehatan kerja (K3) berbasis " +
   "headband EEG Muse. Jawab dalam Bahasa Indonesia yang ringkas, jelas, dan ramah. " +
   "Bantu pengguna soal fatigue, microsleep, cognitive load, kesiapan kerja pra-shift, " +

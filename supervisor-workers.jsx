@@ -1,4 +1,4 @@
-// Supervisor — Pekerja list (/s/workers) + detail (/s/workers/:id)
+// Supervisor, Pekerja list (/s/workers) + detail (/s/workers/:id)
 
 const SHIFT_TABS = ["Semua", "Pagi", "Sore", "Malam"];
 
@@ -24,7 +24,7 @@ const SupervisorWorkersList = () => {
             <NeuroBtn tone="default" size="sm" onClick={() => window.toast?.("Export pekerja → CSV (mock)", { kind: "info" })}>
               Export CSV
             </NeuroBtn>
-            <NeuroBtn tone="primary" size="sm" onClick={() => window.toast?.("Tambah pekerja — fitur akan datang", { kind: "info" })}>
+            <NeuroBtn tone="primary" size="sm" onClick={() => window.toast?.("Tambah pekerja, fitur akan datang", { kind: "info" })}>
               + Tambah Pekerja
             </NeuroBtn>
           </div>

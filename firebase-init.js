@@ -1,4 +1,4 @@
-// Firebase init + helpers — compat build to fit the no-bundler script-tag setup.
+// Firebase init + helpers, compat build to fit the no-bundler script-tag setup.
 // Web API keys are public by design; security lives in Firestore/Auth rules.
 
 const firebaseConfig = {
@@ -17,7 +17,7 @@ const auth = firebase.auth();
 
 window.NT_FIREBASE = { app: firebase.app(), db, auth };
 
-// ── Auth helpers — every method returns a Promise ─────────────────────────
+// ── Auth helpers, every method returns a Promise ─────────────────────────
 // The Auth record only holds email/password. A user's profile (name, role)
 // lives in Firestore at users/{uid}; sign-up writes both.
 const ntAuth = {
@@ -67,7 +67,7 @@ const ntWorkers = {
     );
   },
 
-  // One-time bulk upload — used to seed the collection from mock data.
+  // One-time bulk upload, used to seed the collection from mock data.
   async seed(list) {
     const batch = db.batch();
     list.forEach((w) => batch.set(db.collection("workers").doc(w.id), w));

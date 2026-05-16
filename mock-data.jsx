@@ -1,4 +1,4 @@
-// Shared mock data — used by both list and detail pages so drill-downs find
+// Shared mock data, used by both list and detail pages so drill-downs find
 // the record they navigated to. Keyed by URL-safe slug.
 
 const slugify = (s) => s.toLowerCase().replace(/[.\s]+/g, "-").replace(/[^a-z0-9-]/g, "");
@@ -22,7 +22,7 @@ const WORKERS = WORKERS_RAW.map((w) => ({ ...w, id: slugify(w.name) }));
 
 const WORKERS_BY_ID = Object.fromEntries(WORKERS.map((w) => [w.id, w]));
 
-// Recent alerts — used by Supervisor live feed AND Alert list/detail pages.
+// Recent alerts, used by Supervisor live feed AND Alert list/detail pages.
 const ALERTS = [
   { id: "a-1142", t: "11:42", date: "14 Mei 2026", title: "Microsleep terdeteksi",      worker: "rizky-a",   workerName: "Rizky A.",   detail: "Anggukan kepala 2.3 s + EI drop 41% selama 8 detik.", status: "kritis",   action: null },
   { id: "a-1128", t: "11:28", date: "14 Mei 2026", title: "CLI tinggi 18 menit",         worker: "bagas-s",   workerName: "Bagas S.",   detail: "Cognitive Load Index di atas ambang berisiko selama 18 menit.", status: "berisiko", action: null },
@@ -34,7 +34,7 @@ const ALERTS = [
 
 const ALERTS_BY_ID = Object.fromEntries(ALERTS.map((a) => [a.id, a]));
 
-// Shift schedule — week grid
+// Shift schedule, week grid
 const SCHEDULE = {
   weekLabel: "Minggu, 11–17 Mei 2026",
   days: ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"],
@@ -45,7 +45,7 @@ const SCHEDULE = {
   ],
 };
 
-// SMK3 reports — list with downloadable PDFs (mock)
+// SMK3 reports, list with downloadable PDFs (mock)
 const REPORTS = [
   { id: "rpt-2026-04", period: "April 2026",   workers: 142, incidents: 11, score: 84, status: "Final",  date: "01 Mei 2026" },
   { id: "rpt-2026-03", period: "Maret 2026",   workers: 138, incidents: 18, score: 78, status: "Final",  date: "01 Apr 2026" },
@@ -72,7 +72,7 @@ Object.assign(window, {
 // The rows above are the offline fallback. Once a user is signed in, App.jsx
 // calls ntStartWorkerSync(): we subscribe to the `workers` collection and
 // replace the rows IN PLACE (same array/object identities) so every screen
-// picks them up on its next render — no per-screen rewrite needed.
+// picks them up on its next render, no per-screen rewrite needed.
 let _workerUnsub = null;
 
 const applyWorkerRows = (rows) => {
@@ -95,7 +95,7 @@ const ntStopWorkerSync = () => {
   if (_workerUnsub) { _workerUnsub(); _workerUnsub = null; }
 };
 
-// One-time seed helper — run once from the browser console while signed in:
+// One-time seed helper, run once from the browser console while signed in:
 //   await ntSeedWorkers()
 const ntSeedWorkers = async () => {
   if (!window.ntWorkers) throw new Error("Firebase belum siap.");

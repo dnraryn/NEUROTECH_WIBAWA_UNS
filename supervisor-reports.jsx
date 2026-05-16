@@ -1,4 +1,4 @@
-// Supervisor — Laporan SMK3 (/s/reports) + detail (/s/reports/:id)
+// Supervisor, Laporan SMK3 (/s/reports) + detail (/s/reports/:id)
 
 const SupervisorReports = () => (
   <div className="nt-screen" style={{ padding: 0, display: "grid", gridTemplateColumns: "228px 1fr" }}>
@@ -9,7 +9,7 @@ const SupervisorReports = () => (
         eyebrow="Sesuai PP No. 50/2012 SMK3"
         title="Laporan SMK3"
         right={
-          <NeuroBtn tone="primary" size="sm" onClick={() => window.toast?.("Generate laporan baru — fitur akan datang", { kind: "info" })}>
+          <NeuroBtn tone="primary" size="sm" onClick={() => window.toast?.("Generate laporan baru, fitur akan datang", { kind: "info" })}>
             + Generate Laporan
           </NeuroBtn>
         }

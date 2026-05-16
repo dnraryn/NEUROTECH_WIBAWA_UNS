@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>NeuroTech — Monitoring Fatigue, Cognitive Load & K3</title>
+  <title>NeuroTech, Monitoring Fatigue, Cognitive Load & K3</title>
   <meta name="description" content="Sistem pemantauan kelelahan mental, beban kognitif, dan K3 berbasis Muse 2 / Muse S." />
 
   <link rel="icon" type="image/png" href="assets/neurotech-logo.png" />
@@ -14,12 +14,12 @@
 
   <link rel="stylesheet" href="styles.css" />
 
-  <!-- React + Babel via CDN — matches the prototype's plain-script style -->
+  <!-- React + Babel via CDN, matches the prototype's plain-script style -->
   <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
 
-  <!-- Firebase (compat build to fit plain-script setup) — init + auth/data helpers -->
+  <!-- Firebase (compat build to fit plain-script setup), init + auth/data helpers -->
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
@@ -33,7 +33,7 @@
     its primitives/screens. Later files reference them as bare identifiers,
     which resolve via the global scope. Babel runs type="text/babel" scripts
     in order, in the global scope (no module wrapper). Do NOT add
-    data-type="module" — that would isolate scopes and break the sharing.
+    data-type="module", that would isolate scopes and break the sharing.
   -->
   <!-- Foundations first: router/modal/toast → primitives → shared mock data -->
   <script type="text/babel" src="router.jsx"></script>
@@ -57,7 +57,7 @@
   <!-- App shell + router mount LAST -->
   <script type="text/babel" src="app.jsx"></script>
 
-  <!-- Firebase AI Logic (Gemini) — ES module, isolated from the compat SDK -->
+  <!-- Firebase AI Logic (Gemini), ES module, isolated from the compat SDK -->
   <script type="module" src="ai-gemini.js"></script>
 </body>
 </html>

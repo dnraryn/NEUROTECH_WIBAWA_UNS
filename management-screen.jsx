@@ -1,4 +1,4 @@
-// Management / SMK3 desktop dashboard — aggregate analytics. 1280x800.
+// Management / SMK3 desktop dashboard, aggregate analytics. 1280x800.
 
 const ManagementDashboard = () => {
   const [period, setPeriod] = React.useState(1);
@@ -68,13 +68,13 @@ const ManagementDashboard = () => {
     {/* Page title */}
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
       <div>
-        <div className="nt-eyebrow" style={{ fontSize: 10 }}>1 — 30 April 2026 · 4 lini · 142 pekerja</div>
+        <div className="nt-eyebrow" style={{ fontSize: 10 }}>1, 30 April 2026 · 4 lini · 142 pekerja</div>
         <div style={{ fontSize: 28, fontWeight: 700, color: "var(--nt-text)", marginTop: 6, letterSpacing: "-0.01em" }}>
           Fatigue Risk Management
         </div>
       </div>
       <div style={{ fontSize: 11, color: "var(--nt-text-3)", textAlign: "right", lineHeight: 1.5 }}>
-        Data agregat & anonim — sesuai PP No. 50/2012 SMK3<br/>
+        Data agregat & anonim, sesuai PP No. 50/2012 SMK3<br/>
         Pemantauan · Evaluasi · Tindak lanjut
       </div>
     </div>
@@ -126,7 +126,7 @@ const ManagementDashboard = () => {
 
     {/* Main grid: 2 cols */}
     <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 18, flex: 1, minHeight: 0 }}>
-      {/* LEFT — heatmap shift x hour */}
+      {/* LEFT, heatmap shift x hour */}
       <div className="neu-surface" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14, minHeight: 0 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
@@ -224,7 +224,7 @@ const ManagementDashboard = () => {
               {
                 c: "#ff8aa1",
                 icon: "⚠",
-                t: "Shift malam jam +5/+6 — fatigue puncak",
+                t: "Shift malam jam +5/+6, fatigue puncak",
                 d: "Pertimbangkan istirahat wajib 15 menit pada +4j; rotasi tugas di +6j.",
               },
               {
@@ -242,7 +242,7 @@ const ManagementDashboard = () => {
               {
                 c: "#7dd1a1",
                 icon: "✓",
-                t: "Lini Lab — risiko rendah berkelanjutan",
+                t: "Lini Lab, risiko rendah berkelanjutan",
                 d: "Pola istirahat eksisting bisa jadi referensi internal.",
               },
             ].map((r, i) => (
@@ -290,7 +290,7 @@ const ManagementDashboard = () => {
         open={!!heatCell}
         onClose={() => setHeatCell(null)}
         title={heatCell ? `${heatCell.shift} · ${heatCell.hour} setelah mulai` : ""}
-        subtitle={heatCell ? `Rata-rata Fatigue Index pada slot ini: ${heatCell.fi}. ${heatCell.fi > 70 ? "Slot puncak fatigue — pertimbangkan istirahat wajib." : heatCell.fi > 50 ? "Slot dengan fatigue meningkat — pantau lebih ketat." : "Slot relatif aman — pola istirahat eksisting cukup."}` : ""}
+        subtitle={heatCell ? `Rata-rata Fatigue Index pada slot ini: ${heatCell.fi}. ${heatCell.fi > 70 ? "Slot puncak fatigue, pertimbangkan istirahat wajib." : heatCell.fi > 50 ? "Slot dengan fatigue meningkat, pantau lebih ketat." : "Slot relatif aman, pola istirahat eksisting cukup."}` : ""}
         tone={heatCell?.fi > 70 ? "danger" : heatCell?.fi > 50 ? "warn" : "success"}
         actions={
           <>

@@ -1,4 +1,4 @@
-// Supervisor (K3) desktop dashboard — 1280x800. Neumorphism light.
+// Supervisor (K3) desktop dashboard, 1280x800. Neumorphism light.
 // Uses shared mock data (WORKERS, ALERTS) so detail pages find the same records.
 
 // ── Shared sidebar (reused by every Supervisor page) ──────────────────────

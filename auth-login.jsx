@@ -1,4 +1,4 @@
-// Login & registration page (/login) — full-bleed, no frame chrome.
+// Login & registration page (/login), full-bleed, no frame chrome.
 // Real Firebase Auth: sign-in, sign-up (writes a profile to Firestore), or a
 // no-auth demo bypass. App.jsx's auth listener handles post-auth routing.
 
@@ -64,11 +64,11 @@ const AuthLogin = () => {
 
   const onDemo = () => {
     sessionStorage.setItem("nt-demo", "1");
-    window.toast?.("Mode demo aktif — tanpa login", { kind: "info" });
+    window.toast?.("Mode demo aktif, tanpa login", { kind: "info" });
     navigate("/w/readiness");
   };
 
-  // Shared input styling — used by the name/email/password fields.
+  // Shared input styling, used by the name/email/password fields.
   const fieldInput = {
     padding: "12px 16px", borderRadius: 14,
     background: "var(--nt-surface)", boxShadow: "var(--nt-shadow-in)",
@@ -96,7 +96,7 @@ const AuthLogin = () => {
       }} />
 
       <div className="nt-auth-grid">
-        {/* Left: brand — hidden on mobile so the form takes the screen */}
+        {/* Left: brand, hidden on mobile so the form takes the screen */}
         <div className="nt-auth-brand" style={{ padding: "20px 24px" }}>
           <NeuroLogo size={32} />
           <div style={{ marginTop: 56 }}>
@@ -126,7 +126,7 @@ const AuthLogin = () => {
               : "Masuk dengan email dan password akun Anda."}
           </div>
 
-          {/* Role pills — only when registering (login reads role from Firestore) */}
+          {/* Role pills, only when registering (login reads role from Firestore) */}
           {isRegister && (
             <>
               <div style={{ ...fieldLabel, marginTop: 20 }}>Daftar sebagai</div>
@@ -177,7 +177,7 @@ const AuthLogin = () => {
                   <input type="checkbox" defaultChecked />
                   Ingat saya
                 </label>
-                <a onClick={() => window.toast?.("Reset password — fitur akan datang", { kind: "info" })} style={{ color: "var(--nt-brand-mid)", cursor: "pointer", fontWeight: 600 }}>Lupa password?</a>
+                <a onClick={() => window.toast?.("Reset password, fitur akan datang", { kind: "info" })} style={{ color: "var(--nt-brand-mid)", cursor: "pointer", fontWeight: 600 }}>Lupa password?</a>
               </div>
             )}
 

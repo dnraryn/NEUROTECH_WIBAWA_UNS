@@ -1,4 +1,4 @@
-// Supervisor — Alert list (/s/alerts) + detail (/s/alerts/:id)
+// Supervisor, Alert list (/s/alerts) + detail (/s/alerts/:id)
 
 const SupervisorAlertsList = () => {
   const [statusFilter, setStatusFilter] = React.useState(null);

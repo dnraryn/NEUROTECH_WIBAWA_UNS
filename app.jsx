@@ -1,4 +1,4 @@
-// NeuroTech root — hash router dispatches to per-persona screens inside their
+// NeuroTech root, hash router dispatches to per-persona screens inside their
 // native frame (mobile 360×780 or desktop 1280×800). Persona switcher in the
 // header is a glorified shortcut to the persona's home route.
 //
@@ -23,7 +23,7 @@ const ROUTES = {
   // Management SMK3 desktop (app prefix: m)
   "m/overview":  { c: () => <ManagementDashboard />, frame: "desktop", label: "Analitik" },
 
-  // Public — no auth required
+  // Public, no auth required
   "landing":     { c: () => <LandingPage />, frame: "landing", label: "Beranda" },
   "login":       { c: () => <AuthLogin />, frame: "auth", label: "Masuk" },
 };
@@ -40,12 +40,12 @@ const ROLE_LABEL = { worker: "Pekerja", supervisor: "Supervisor K3", manager: "M
 // Which route prefix (persona) each role is allowed to enter.
 const ROLE_APP   = { worker: "w", supervisor: "s", manager: "m" };
 
-// Resolve a route — supports dynamic 3-segment routes (s/workers/:id, s/alerts/:id).
+// Resolve a route, supports dynamic 3-segment routes (s/workers/:id, s/alerts/:id).
 // Always returns objects with the same shape as ROUTES entries (c, frame, label).
 const resolveRoute = (route) => {
   const direct = ROUTES[`${route.app}/${route.page}`];
   if (direct && !route.id) return direct;
-  // Content/marketing pages — /p/<slug>
+  // Content/marketing pages, /p/<slug>
   if (route.app === "p" && route.page) {
     return { c: () => <ContentPage slug={route.page} />, frame: "landing", label: "Halaman" };
   }
@@ -109,11 +109,19 @@ const App = () => {
     return () => window.removeEventListener("nt-data", onData);
   }, []);
 
-  // Default landing + auth guard — runs once the session state is known.
+  // Jump to the top of the page on every route change (so clicking a link
+  // never leaves the visitor scrolled down where they were).
+  React.useLayoutEffect(() => {
+    window.scrollTo(0, 0);
+    const stage = document.querySelector(".app-stage");
+    if (stage) stage.scrollTop = 0;
+  }, [route.path]);
+
+  // Default landing + auth guard, runs once the session state is known.
   React.useEffect(() => {
     if (authUser === undefined) return;            // still checking the session
     const publicPage = route.app === "login" || route.app === "landing";
-    const contentPage = route.app === "p";   // /p/<slug> — open to everyone
+    const contentPage = route.app === "p";   // /p/<slug>, open to everyone
     const authed = !!authUser || demo;
     if (!authed && !publicPage && !contentPage) { navigate("/landing"); return; }
     if (authed && publicPage) {
@@ -125,7 +133,7 @@ const App = () => {
       navigate(ROLE_HOME[profile && profile.role] || "/w/readiness");
       return;
     }
-    // Role lock — a signed-in user may only enter their own persona's screens.
+    // Role lock, a signed-in user may only enter their own persona's screens.
     // Demo mode stays unrestricted (can browse every persona).
     if (authUser && !demo && profile && ["w", "s", "m"].includes(route.app)) {
       const allowed = ROLE_APP[profile.role];
