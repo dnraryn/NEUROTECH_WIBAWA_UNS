@@ -279,11 +279,78 @@ const CONTACT = {
   address: "Prodi Teknik Industri, Fakultas Teknik, Universitas Sebelas Maret — Jl. Ir. Sutami No. 36A, Kentingan, Jebres, Surakarta 57126, Jawa Tengah",
   phone: "0812-3456-7859",
   phoneIntl: "6281234567859",
-  email: "konsultasi@neurotech.id",
+  email: "neurotech.id@gmail.com",
+  ig: "@neurotech.id",
+  igUrl: "https://instagram.com/neurotech.id",
 };
 
 // Bar heights for the decorative EEG strip (cycled across all bars).
 const EEG_HEIGHTS = [38, 62, 28, 82, 50, 70, 34, 90, 46, 66, 30, 74];
+
+// ── Contact form — posts to the team inbox via FormSubmit (no backend) ──────
+const ContactForm = () => {
+  const [form, setForm] = React.useState({ name: "", email: "", subject: "", message: "" });
+  const [busy, setBusy] = React.useState(false);
+  const [sent, setSent] = React.useState(false);
+
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    try {
+      const res = await fetch("https://formsubmit.co/ajax/" + CONTACT.email, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({
+          Nama: form.name,
+          Email: form.email,
+          Subjek: form.subject,
+          Pesan: form.message,
+          _subject: "Konsultasi NeuroTech — " + (form.subject || "tanpa subjek"),
+        }),
+      });
+      if (!res.ok) throw new Error("Gagal mengirim pesan. Coba lagi nanti.");
+      setSent(true);
+      setForm({ name: "", email: "", subject: "", message: "" });
+      window.toast?.("Pesan terkirim. Terima kasih!", { kind: "success" });
+    } catch (err) {
+      window.toast?.(err.message || "Gagal mengirim pesan.", { kind: "danger" });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (sent) {
+    return (
+      <div className="nt-cform-done">
+        <div style={{ fontSize: 30 }}>✓</div>
+        <div className="nt-landing-card-title" style={{ marginTop: 6 }}>Pesan terkirim</div>
+        <p className="nt-landing-card-text" style={{ marginBottom: 14 }}>
+          Terima kasih — pesan Anda sudah kami terima dan akan dibalas lewat email.
+        </p>
+        <NeuroBtn tone="default" size="sm" onClick={() => setSent(false)}>Kirim pesan lain</NeuroBtn>
+      </div>
+    );
+  }
+
+  return (
+    <form className="nt-cform" onSubmit={submit}>
+      <input className="nt-cform-input" name="name" placeholder="Nama Lengkap" required
+        value={form.name} onChange={set("name")} />
+      <input className="nt-cform-input" name="email" type="email" placeholder="Alamat Email" required
+        value={form.email} onChange={set("email")} />
+      <input className="nt-cform-input" name="subject" placeholder="Subjek" required
+        value={form.subject} onChange={set("subject")} />
+      <textarea className="nt-cform-input nt-cform-textarea" name="message" placeholder="Pesan Anda"
+        required rows={4} value={form.message} onChange={set("message")} />
+      <NeuroBtn tone="primary" size="lg" style={{ width: "100%" }}>
+        {busy ? "Mengirim…" : "Kirim Pesan"}
+      </NeuroBtn>
+    </form>
+  );
+};
 
 const LandingPage = () => (
   <div className="nt-landing">
@@ -361,17 +428,17 @@ const LandingPage = () => (
         <div className="nt-eyebrow" style={{ textAlign: "center" }}>Kenapa ini penting</div>
         <h2 className="nt-landing-h2">Kecelakaan kerja masih tinggi — dan terus naik</h2>
       </Reveal>
-      <div className="nt-hook-stat-grid">
-        {HOOK_STATS.map((s, i) => (
-          <Reveal key={i} delay={i * 110}>
-            <div className="nt-hook-stat">
+      <Reveal delay={100}>
+        <div className="nt-hook-stat-grid">
+          {HOOK_STATS.map((s, i) => (
+            <div className="nt-hook-stat" key={i}>
               <div className="nt-hook-stat-v">{s.v}</div>
               <div className="nt-hook-stat-l">{s.l}</div>
             </div>
-          </Reveal>
-        ))}
-      </div>
-      <Reveal delay={140}>
+          ))}
+        </div>
+      </Reveal>
+      <Reveal delay={160}>
         <p className="nt-hook-note">
           Banyak insiden ini dipicu <strong>kelelahan dan microsleep</strong> — kondisi
           yang tidak terlihat mata, tapi <strong>bisa dideteksi lebih awal lewat sinyal
@@ -522,24 +589,31 @@ const LandingPage = () => (
                   </div>
                 </div>
               </div>
+              <div className="nt-contact-row">
+                <span className="nt-contact-ico">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="5" />
+                    <circle cx="12" cy="12" r="4" />
+                    <circle cx="17.6" cy="6.4" r="1.1" fill="currentColor" stroke="none" />
+                  </svg>
+                </span>
+                <div>
+                  <div className="nt-contact-row-label">Instagram</div>
+                  <div className="nt-contact-row-value">
+                    <a href={CONTACT.igUrl} target="_blank" rel="noopener noreferrer">{CONTACT.ig}</a>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
           <div className="nt-contact-side">
-            <div className="nt-landing-card-title" style={{ marginTop: 0 }}>Butuh konsultasi?</div>
+            <div className="nt-landing-card-title" style={{ marginTop: 0 }}>Kirim pesan</div>
             <p className="nt-landing-card-text">
-              Punya pertanyaan tentang penerapan NeuroTech di perusahaan Anda, atau ingin
-              berdiskusi soal pemantauan fatigue &amp; K3? Tim kami siap membantu.
+              Isi formulir di bawah — pesan Anda akan kami terima langsung melalui email.
             </p>
-            <div style={{ marginTop: 18 }}>
-              <NeuroBtn tone="primary" size="lg"
-                onClick={() => window.open("https://wa.me/" + CONTACT.phoneIntl, "_blank")}>
-                Chat via WhatsApp
-              </NeuroBtn>
-            </div>
-            <div style={{ fontSize: 11.5, color: "var(--nt-text-3)", marginTop: 12 }}>
-              Jam operasional: Senin–Jumat, 08.00–16.00 WIB
-            </div>
+            <ContactForm />
           </div>
         </div>
       </Reveal>

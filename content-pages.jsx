@@ -151,7 +151,7 @@ const CONTENT = {
     cat: "Dukungan", title: "Hubungi Kami",
     intro: "Tim NeuroTech siap membantu pertanyaan dan kebutuhan Anda.",
     sections: [
-      { h: "Email", p: "Kirim pertanyaan ke support@neurotech.id dan tim kami akan membalas pada hari kerja." },
+      { h: "Email & media sosial", p: "Kirim pertanyaan ke neurotech.id@gmail.com, atau hubungi kami lewat Instagram @neurotech.id. Tim kami akan membalas pada hari kerja." },
       { h: "Dukungan teknis", p: "Untuk kendala perangkat atau aplikasi, sertakan detail perangkat dan tangkapan layar agar penanganan lebih cepat." },
       { h: "Kerja sama", p: "Untuk kemitraan atau implementasi skala perusahaan, hubungi kami lewat email yang sama dengan subjek \"Kerja sama\"." },
     ],
@@ -207,7 +207,7 @@ const CONTENT = {
     sections: [
       { h: "Mengapa NeuroTech", p: "Anda akan mengerjakan produk yang berdampak langsung pada keselamatan dan kesehatan pekerja." },
       { h: "Bidang yang kami cari", p: "Kami terbuka untuk talenta di bidang teknik perangkat lunak, pemrosesan sinyal, desain produk, dan kesehatan kerja." },
-      { h: "Cara melamar", p: "Kirim CV dan portofolio ke karir@neurotech.id dengan menyebutkan posisi yang Anda minati." },
+      { h: "Cara melamar", p: "Kirim CV dan portofolio ke neurotech.id@gmail.com dengan menyebutkan posisi yang Anda minati." },
     ],
   },
   "education-space": {
