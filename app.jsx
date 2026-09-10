@@ -9,7 +9,8 @@ const ROUTES = {
   // Worker mobile (app prefix: w)
   "w/readiness": { c: () => <WorkerReadiness />, frame: "mobile", label: "Readiness" },
   "w/live":      { c: () => <WorkerLive />,      frame: "mobile", label: "Live" },
-  "w/sleep":     { c: () => <WorkerSleep />,     frame: "mobile", label: "Sleep" },
+  "w/wellness":  { c: () => <WorkerWellness />,  frame: "mobile", label: "Kondisi" },
+  "w/audio":     { c: () => <WorkerAudio />,     frame: "mobile", label: "Neurofeedback" },
   "w/stats":     { c: () => <WorkerStats />,     frame: "mobile", label: "Statistik" },
   "w/profile":   { c: () => <WorkerProfile />,   frame: "mobile", label: "Profil" },
 
@@ -97,6 +98,199 @@ const Splash = ({ text }) => (
   </div>
 );
 
+// Error boundary — one failing screen must never blank the whole app. The
+// chrome (topbar, persona tabs, back button) stays usable so navigation works.
+class ScreenBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { failed: false }; }
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch(err) { console.error("[NeuroTech] layar gagal dirender:", err); }
+  componentDidUpdate(prev) {
+    if (prev.routeKey !== this.props.routeKey && this.state.failed) this.setState({ failed: false });
+  }
+  render() {
+    if (this.state.failed) {
+      return (
+        <div style={{ padding: 48, textAlign: "center" }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--nt-text)" }}>Layar ini gagal dimuat</div>
+          <div style={{ fontSize: 13, color: "var(--nt-text-2)", marginTop: 8, lineHeight: 1.5 }}>
+            Muat ulang halaman dengan Ctrl+Shift+R, atau buka layar lain lewat menu.
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// Back button — kembali ke halaman sebelumnya; nonaktif saat di landing page.
+const BackButton = ({ disabled, floating }) => (
+  <button
+    onClick={() => { if (!disabled) window.history.back(); }}
+    disabled={disabled}
+    aria-label="Kembali"
+    title={disabled ? "Sudah di halaman utama" : "Kembali ke halaman sebelumnya"}
+    style={{
+      width: 40, height: 40, borderRadius: 12, border: "none", padding: 0,
+      background: "var(--nt-surface)",
+      boxShadow: disabled ? "var(--nt-shadow-in)" : "var(--nt-shadow-out-sm)",
+      color: disabled ? "var(--nt-text-3)" : "var(--nt-text-2)",
+      cursor: disabled ? "not-allowed" : "pointer",
+      opacity: disabled ? 0.55 : 1,
+      display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+      ...(floating ? { position: "fixed", top: 16, left: 16, zIndex: 90 } : {}),
+    }}>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+  </button>
+);
+
+// ── Light/Dark theme toggle ──────────────────────────────────────────────
+// Persists the choice in localStorage and toggles a body class.
+// ── Device connect button — real Muse via Web Bluetooth, or demo mode ────
+// "Hubungkan Muse" opens the OS pairing dialog (Chrome/Edge desktop, Bluefy
+// on iOS). Right-click / hold also offers a "Mode demo" path that skips BLE
+// entirely. Once paired, battery % from telemetry is shown live.
+const DeviceButton = () => {
+  const init = (window.ntDeviceStatus && window.ntDeviceStatus()) || {};
+  const [connected, setConnected] = React.useState(!!init.connected);
+  const [real,      setReal]      = React.useState(!!init.real);
+  const [battery,   setBattery]   = React.useState(init.battery || null);
+  const [name,      setName]      = React.useState(init.name || null);
+  const [busy,      setBusy]      = React.useState(false);
+  const [menuOpen,  setMenuOpen]  = React.useState(false);
+
+  React.useEffect(() => {
+    const onDev = (e) => {
+      const d = (e && e.detail) || {};
+      setConnected(!!d.connected);
+      setReal(!!d.real);
+      if (d.name) setName(d.name);
+      if (typeof d.battery === "number") setBattery(d.battery);
+      if (!d.connected) { setBattery(null); setName(null); }
+    };
+    const onTel = (e) => { if (e && e.detail && typeof e.detail.battery === "number") setBattery(e.detail.battery); };
+    window.addEventListener("nt-device", onDev);
+    window.addEventListener("nt-muse-telemetry", onTel);
+    return () => {
+      window.removeEventListener("nt-device", onDev);
+      window.removeEventListener("nt-muse-telemetry", onTel);
+    };
+  }, []);
+
+  const pair = async (mode) => {
+    setMenuOpen(false);
+    if (busy) return;
+    if (connected) {
+      window.ntDeviceDisconnect && window.ntDeviceDisconnect();
+      window.toast && window.toast("Muse terputus.", { kind: "info" });
+      return;
+    }
+    setBusy(true);
+    window.toast && window.toast(
+      mode === "demo" ? "Memuat data demo…" : "Membuka dialog pairing Muse…",
+      { kind: "info" });
+    try {
+      const info = await window.ntDeviceConnect(mode);
+      window.toast && window.toast(
+        info && info.real
+          ? "Muse tersambung · " + (info.name || "Muse S")
+          : "Mode demo aktif — data simulasi.",
+        { kind: "success" });
+    } catch (e) {
+      const msg = (e && e.message) || "Pairing dibatalkan";
+      window.toast && window.toast(msg, { kind: "warn" });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const supportsBle = !!(window.ntMuse && window.ntMuse.supported());
+  const dotColor = connected ? "rgba(255,255,255,0.95)" : busy ? "#ffc56a" : "#ff7a7a";
+  const label = busy
+    ? "Menghubungkan…"
+    : connected
+      ? (real ? "Muse" + (typeof battery === "number" ? " · " + Math.round(battery) + "%" : "") : "Mode Demo")
+      : "Hubungkan Muse";
+
+  return (
+    <div style={{ position: "relative", display: "inline-flex" }}>
+      <button
+        onClick={() => {
+          if (connected) return pair();
+          // Not connected: if BLE available, default action = real pair.
+          // If not available, default = demo. Right-click always opens menu.
+          if (supportsBle) pair("auto"); else pair("demo");
+        }}
+        onContextMenu={(e) => { e.preventDefault(); if (!busy && !connected) setMenuOpen((o) => !o); }}
+        disabled={busy}
+        title={supportsBle ? "Klik kanan untuk opsi" : "Browser tidak mendukung BLE, klik untuk mode demo"}
+        style={{
+          display: "flex", alignItems: "center", gap: 9,
+          padding: "8px 14px", borderRadius: 999, border: "none",
+          cursor: busy ? "wait" : "pointer", fontFamily: "inherit",
+          background: connected ? "linear-gradient(135deg,#7dd1a1,#a8e0c0)" : "var(--nt-surface)",
+          boxShadow: connected ? "0 6px 14px rgba(125,209,161,0.32)" : "var(--nt-shadow-out-sm)",
+          color: connected ? "white" : "var(--nt-text-2)",
+          fontSize: 12, fontWeight: 700,
+        }}>
+        <span style={{
+          width: 8, height: 8, borderRadius: "50%",
+          background: dotColor,
+          boxShadow: connected ? "0 0 8px rgba(255,255,255,0.6)" : "0 0 6px " + dotColor,
+          animation: busy ? "ntPulseDot 1s ease-in-out infinite" : "none",
+        }} />
+        {label}
+      </button>
+
+      {/* Caret to open mode menu (real vs demo) when not connected */}
+      {!connected && !busy && (
+        <button
+          onClick={() => setMenuOpen((o) => !o)}
+          aria-label="Opsi koneksi"
+          style={{
+            marginLeft: 4, padding: "8px 8px", borderRadius: 999, border: "none",
+            background: "var(--nt-surface)", boxShadow: "var(--nt-shadow-out-sm)",
+            cursor: "pointer", color: "var(--nt-text-2)", fontFamily: "inherit",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
+      )}
+
+      {menuOpen && !connected && (
+        <div onClick={() => setMenuOpen(false)} style={{
+          position: "absolute", top: "calc(100% + 6px)", right: 0,
+          background: "var(--nt-surface)",
+          border: "var(--nt-hairline)",
+          borderRadius: 12,
+          boxShadow: "var(--nt-shadow-out-lg)",
+          padding: 4, zIndex: 50, minWidth: 200,
+        }}>
+          {[
+            { k: "auto", l: "Hubungkan Muse (BLE)", d: supportsBle ? "Buka dialog pairing OS" : "Tidak didukung browser ini", disabled: !supportsBle },
+            { k: "demo", l: "Mode Demo",            d: "Pakai data simulasi" },
+          ].map((it) => (
+            <button key={it.k} type="button" disabled={it.disabled}
+              onClick={(e) => { e.stopPropagation(); pair(it.k); }}
+              style={{
+                display: "block", width: "100%", textAlign: "left",
+                padding: "8px 12px", borderRadius: 8, border: "none",
+                background: "transparent", cursor: it.disabled ? "not-allowed" : "pointer",
+                color: it.disabled ? "var(--nt-text-3)" : "var(--nt-text)",
+                fontFamily: "inherit", fontSize: 12, fontWeight: 700,
+              }}>
+              {it.l}
+              <div style={{ fontSize: 10.5, fontWeight: 500, color: "var(--nt-text-3)", marginTop: 2 }}>{it.d}</div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const App = () => {
   const route = useHashRoute();
   const [, bump] = React.useReducer((n) => n + 1, 0);
@@ -114,19 +308,44 @@ const App = () => {
     return fb.auth.onAuthStateChanged((u) => { if (u) window.ntStartWorkerSync?.(); });
   }, []);
 
-  // Re-render when Firestore pushes fresh worker data.
+  // Re-render when the live engine / Firestore pushes fresh worker data.
+  // Gated on the current route — re-rendering the whole tree every 1.5 s on
+  // landing/auth/about would cause visible jank for zero benefit (no consumer
+  // of fi/cli there). The engine itself keeps running so the ring-buffer is
+  // already warm when the user navigates into the app.
+  const _routeRef = React.useRef(route);
+  _routeRef.current = route;
   React.useEffect(() => {
-    const onData = () => bump();
+    const onData = () => {
+      const r = _routeRef.current;
+      if (r && ["w", "s", "m"].includes(r.app)) bump();
+    };
     window.addEventListener("nt-data", onData);
     return () => window.removeEventListener("nt-data", onData);
   }, []);
 
-  // Jump to the top of the page on every route change.
+  // On route change: reset the inner stage scroll so each screen starts at
+  // its own top. We deliberately DO NOT call window.scrollTo or animate the
+  // .nt-screen — page-level slides looked like a refresh. The smooth
+  // movement is handled by the sidebar's active-indicator instead.
   React.useLayoutEffect(() => {
-    window.scrollTo(0, 0);
     const stage = document.querySelector(".app-stage");
     if (stage) stage.scrollTop = 0;
   }, [route.path]);
+
+  // Sync body class with the sidebar collapsed flag so CSS can shrink the
+  // grid template (228px → 64px) for every screen at once.
+  React.useEffect(() => {
+    const apply = () => {
+      try {
+        const c = localStorage.getItem("nt-sidebar-collapsed") === "1";
+        document.body.classList.toggle("nt-sidebar-collapsed", c);
+      } catch (e) { /* ignore */ }
+    };
+    apply();
+    window.addEventListener("nt-sidebar-toggle", apply);
+    return () => window.removeEventListener("nt-sidebar-toggle", apply);
+  }, []);
 
   // Routing guard.
   React.useEffect(() => {
@@ -143,6 +362,25 @@ const App = () => {
       const allowed = allowedApps(session);
       if (!allowed.includes(route.app)) navigate(homeOf);
     }
+  }, [route.path]);
+
+  // Theme is scoped to the in-app pages (w/s/m). Landing, About, Pricing,
+  // Login, Join, and content pages always render in their brand-dark theme.
+  React.useEffect(() => {
+    const apply = () => {
+      const isInApp = ["w", "s", "m"].includes(route.app);
+      let wantLight = false;
+      try {
+        const saved = localStorage.getItem("nt-theme");
+        if (saved === "light") wantLight = true;
+        else if (!saved && window.matchMedia)
+          wantLight = window.matchMedia("(prefers-color-scheme: light)").matches;
+      } catch (e) { /* ignore */ }
+      document.body.classList.toggle("nt-light", isInApp && wantLight);
+    };
+    apply();
+    window.addEventListener("nt-theme", apply);
+    return () => window.removeEventListener("nt-theme", apply);
   }, [route.path]);
 
   const onLogout = () => {
@@ -172,20 +410,20 @@ const App = () => {
       {!chromeless && (
         <>
           <header className="app-topbar">
-            <Link to={homeOf} style={{ display: "flex" }}>
-              <div className="app-brand">
-                <img src="assets/neurotech-logo.png" alt="NeuroTech" width="40" height="40" style={{ borderRadius: 10 }} />
-                <div className="app-brand-name">
-                  <strong>neurotech</strong>
-                  <span>Technology of the Mind</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <BackButton disabled={false} />
+              <Link to={homeOf} style={{ display: "flex" }}>
+                <div className="app-brand">
+                  <img src="assets/logo-topleft.png" alt="NeuroTech" width="40" height="40" style={{ borderRadius: 10, objectFit: "contain" }} />
+                  <div className="app-brand-name">
+                    <strong>neurotech</strong>
+                    <span>better mind, better life</span>
+                  </div>
                 </div>
-              </div>
-            </Link>
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <div className="app-meta">
-                <span className="app-meta-dot" />
-                <span>Monitoring Fatigue · Cognitive Load · K3</span>
-              </div>
+              </Link>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <DeviceButton />
               {session ? (
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ fontSize: 12, color: "var(--nt-text-2)" }}>
@@ -207,22 +445,25 @@ const App = () => {
           </header>
 
           <nav className="app-tabs" role="tablist" aria-label="Pilih persona">
-            {visiblePersonas.map((p) => (
-              <div className="app-tab-group" key={p.id}>
-                <span className="app-tab-group-label">{p.icon}&nbsp;{p.label}</span>
-                <Link to={p.home}>
+            {visiblePersonas.map((p) => {
+              const on = activePersona?.id === p.id;
+              return (
+                <Link key={p.id} to={p.home}>
                   <button
                     role="tab"
-                    aria-selected={activePersona?.id === p.id}
-                    className={"app-tab" + (activePersona?.id === p.id ? " is-active" : "")}>
-                    {p.id === "w" ? "Buka App" : p.id === "s" ? "Buka Dashboard" : "Buka Analitik"}
+                    aria-selected={on}
+                    className={"app-tab-pill" + (on ? " is-active" : "")}>
+                    <span className="app-tab-pill-icon">{p.icon}</span>
+                    <span>{p.label}</span>
                   </button>
                 </Link>
-              </div>
-            ))}
+              );
+            })}
           </nav>
         </>
       )}
+
+      {chromeless && <BackButton floating disabled={route.app === "landing"} />}
 
       <main className="app-stage" style={chromeless ? { padding: 0 } : undefined}>
         <div className={"app-frame app-frame--" + resolved.frame}>
@@ -232,12 +473,19 @@ const App = () => {
               {route.id ? ` · ${route.id}` : ""}
             </span>
           )}
-          <ScreenComponent />
+          <ScreenBoundary routeKey={route.path}>
+            <ScreenComponent />
+          </ScreenBoundary>
         </div>
       </main>
 
+      {/* ThemeToggle sekarang dirender INSIDE app-frame:
+          - Sidebar supervisor & manajemen (bottom)
+          - Menu overlay pekerja mobile (hamburger)
+          Tidak ada floating fixed toggle di luar frame. */}
+
       <ToastProvider />
-      <AskAI />
+      <AskAI route={route.app} />
     </div>
   );
 };

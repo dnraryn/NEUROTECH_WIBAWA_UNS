@@ -17,6 +17,7 @@ const JoinFlow = () => {
   const [busy, setBusy] = React.useState(false);
   const [code, setCode] = React.useState("");
   const [paid, setPaid] = React.useState(false); // payment-success pop-up
+  const [createdMembers, setCreatedMembers] = React.useState([]);
 
   const [payName, setPayName] = React.useState("");
   const [payEmail, setPayEmail] = React.useState("");
@@ -87,6 +88,7 @@ const JoinFlow = () => {
           password: w.password.trim() || "123456",
         })),
       ];
+      setCreatedMembers(members);
       const newCode = await window.ntCompany.create({
         pkg: pkg.name.toLowerCase(), companyName: companyName.trim(), members,
       });
@@ -102,8 +104,10 @@ const JoinFlow = () => {
   const enterDashboard = () => {
     window.ntSession.set({
       code, companyName: companyName.trim(), package: pkg.name.toLowerCase(),
-      memberName: ownerName.trim(), role: ownerRole, roleDesc: ownerDesc.trim() || "Manajemen",
+      memberName: ownerName.trim(), memberId: "owner", role: ownerRole,
+      roleDesc: ownerDesc.trim() || "Manajemen", members: createdMembers,
     });
+    window.ntApplyCompanyMembers?.(createdMembers, "owner");
     window.toast?.("Selamat datang, " + ownerName.trim() + "!", { kind: "success" });
     navigate(ownerRole === "pekerja" ? "/w/readiness" : "/m/overview");
   };
@@ -120,33 +124,47 @@ const JoinFlow = () => {
       </div>
 
       <div className="nt-join-body">
-        {/* ── Step 1: choose package ─────────────────────────────── */}
+        {/* ── Step 1: choose package — glassmorphic Forma-AI style ─── */}
         {step === "package" && (
-          <div className="nt-join-card nt-join-card--wide">
+          <div className="nt-pricing-hero" style={{ width: "100%", maxWidth: 1180 }}>
             <div className="nt-eyebrow">Langkah 1 dari 3</div>
             <h1 className="nt-join-h1">Pilih paket NeuroTech</h1>
             <p className="nt-join-sub">Pilih paket yang sesuai dengan skala usaha Anda.</p>
-            <div className="nt-price-grid" style={{ marginTop: 26 }}>
+            <div className="nt-price-grid">
               {PACKAGES.map((p) => (
                 <div
                   key={p.name}
-                  className={"nt-price-card nt-join-pick" + (pkg && pkg.name === p.name ? " is-sel" : "")}
+                  className={"nt-price-card"
+                    + (p.popular ? " nt-price-card--popular" : "")
+                    + (pkg && pkg.name === p.name ? " is-sel" : "")}
                   onClick={() => setPkg(p)}
                 >
-                  <span className="nt-price-name">{p.name}</span>
+                  <div>
+                    <span className="nt-price-name">{p.name}</span>
+                    {p.popular && <span className="nt-price-badge">Populer</span>}
+                  </div>
                   <div className="nt-price-amount">
                     {p.price}{p.unit && <span className="nt-price-unit"> {p.unit}</span>}
                   </div>
                   <div className="nt-price-seg">{p.seg}</div>
                   <span className="nt-price-users">{p.users}</span>
+                  <ul className="nt-price-feats">
+                    {p.features.map((f, j) => (
+                      <li className="nt-price-feat" key={j}>
+                        <svg viewBox="0 0 24 24" fill="none"
+                          stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M5 12l5 5L20 6" />
+                        </svg>
+                        <span>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <button type="button" className="nt-price-cta"
+                    onClick={(e) => { e.stopPropagation(); setPkg(p); setStep("pay"); }}>
+                    Pilih Paket
+                  </button>
                 </div>
               ))}
-            </div>
-            <div style={{ marginTop: 26 }}>
-              <NeuroBtn tone="primary" size="lg"
-                onClick={() => (pkg ? setStep("pay") : window.toast?.("Pilih satu paket dulu.", { kind: "warn" }))}>
-                Lanjut ke pembayaran →
-              </NeuroBtn>
             </div>
           </div>
         )}

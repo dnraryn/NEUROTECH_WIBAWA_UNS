@@ -35,7 +35,7 @@ const CONTENT = {
     cat: "Solusi", title: "Deteksi Microsleep",
     intro: "Microsleep, tertidur 1–10 detik tanpa sadar, adalah salah satu penyebab kecelakaan kerja paling berbahaya.",
     sections: [
-      { h: "Tanda yang ditangkap", p: "NeuroTech mendeteksi microsleep dari kombinasi anggukan kepala, penurunan tajam Engagement Index, dan pola EEG khas mengantuk." },
+      { h: "Tanda yang ditangkap", p: "NeuroTech mendeteksi microsleep dari pola gelombang theta yang dominan, runtuhnya gelombang beta, dan penurunan tajam Engagement Index — murni dari sinyal EEG, bukan gerakan kepala fisik." },
       { h: "Peringatan seketika", p: "Saat microsleep terdeteksi, alert kritis langsung dikirim ke pekerja dan supervisor agar tindakan cepat bisa diambil." },
       { h: "Mencegah pengulangan", p: "Setiap kejadian dicatat sehingga pola berulang, misalnya selalu pada jam tertentu, bisa dikenali dan dicegah." },
     ],
@@ -165,7 +165,7 @@ const CONTENT = {
       { h: "Apa itu EEG?", p: "Electroencephalography (EEG) adalah metode merekam aktivitas listrik otak melalui sensor di permukaan kepala. Setiap kali sel saraf bekerja, ia menghasilkan sinyal listrik kecil, EEG menangkap pola sinyal itu secara real-time, tanpa prosedur yang menyakitkan." },
       { h: "Gelombang otak dan artinya", p: "Sinyal EEG terdiri dari beberapa pita gelombang, alpha, beta, theta, dan delta. Komposisinya berubah sesuai kondisi: gelombang beta dominan saat fokus, sedangkan theta dan alpha meningkat saat mengantuk dan lelah. Pergeseran inilah yang menjadi penanda kelelahan." },
       { h: "Apa fungsi NeuroTech?", p: "NeuroTech mengubah sinyal EEG mentah menjadi indikator yang mudah dipahami, Fatigue Index, Cognitive Load Index, dan Engagement Index. Dengan begitu, kondisi otak pekerja bisa dipantau semudah membaca angka, bukan grafik rumit." },
-      { h: "Bagaimana mendeteksi kelelahan & microsleep", p: "NeuroTech membandingkan sinyal otak pekerja saat ini dengan baseline pribadinya. Ketika pola gelombang bergeser ke arah mengantuk, atau muncul anggukan kepala dan penurunan engagement mendadak, sistem mengenalinya sebagai tanda fatigue atau microsleep." },
+      { h: "Bagaimana mendeteksi kelelahan & microsleep", p: "NeuroTech membandingkan sinyal otak pekerja saat ini dengan baseline pribadinya. Ketika pola gelombang bergeser ke arah mengantuk, gelombang theta naik dominan, atau engagement mendadak turun, sistem mengenalinya sebagai tanda fatigue atau microsleep. Gerakan fisik / artefak otomatis difilter agar tidak terhitung sebagai microsleep." },
       { h: "Bagaimana ini mengurangi kecelakaan kerja", p: "Sebagian besar kecelakaan akibat kelelahan terjadi karena tidak ada peringatan sebelum pekerja kehilangan kewaspadaan. NeuroTech memberi alert dini sehingga pekerja bisa beristirahat dan supervisor bisa bertindak, memutus rantai sebelum berubah menjadi insiden." },
     ],
   },
@@ -224,6 +224,275 @@ const AccordionItem = ({ h, p }) => {
   );
 };
 
+// ── Live app mockups ───────────────────────────────────────────────────────
+// The Fitur pages show a carousel of the REAL app screens, rendered live and
+// non-interactive, so visitors can preview each persona's UI without assets.
+const DEVICE_DIM = {
+  mobile:  { w: 360,  h: 780, s: 0.82 },
+  desktop: { w: 1280, h: 800, s: 0.6 },
+};
+
+const FEATURE_MOCKUPS = {
+  "app-pekerja": {
+    device: "mobile",
+    screens: [
+      { label: "Readiness Pra-Shift", c: () => <WorkerReadiness /> },
+      { label: "Live Monitoring",     c: () => <WorkerLive /> },
+      { label: "Kondisi & Stres",     c: () => <WorkerWellness /> },
+      { label: "Neurofeedback Audio", c: () => <WorkerAudio /> },
+      { label: "Statistik Mingguan",  c: () => <WorkerStats /> },
+      { label: "Profil & Pengaturan", c: () => <WorkerProfile /> },
+    ],
+  },
+  "dashboard-supervisor": {
+    device: "desktop",
+    screens: [
+      { label: "Overview Tim",   c: () => <SupervisorDashboard /> },
+      { label: "Daftar Pekerja", c: () => <SupervisorWorkersList /> },
+      { label: "Alert K3",       c: () => <SupervisorAlertsList /> },
+      { label: "Jadwal Shift",   c: () => <SupervisorSchedule /> },
+      { label: "Laporan SMK3",   c: () => <SupervisorReports /> },
+    ],
+  },
+  "analitik-manajemen": {
+    device: "desktop",
+    screens: [
+      { label: "Analitik Manajemen SMK3", c: () => <ManagementDashboard /> },
+    ],
+  },
+};
+
+const MOCK_ARROW = {
+  width: 48, height: 48, borderRadius: "50%", flexShrink: 0, padding: 0,
+  border: "1px solid rgba(255,255,255,0.16)",
+  background: "rgba(255,255,255,0.05)",
+  color: "var(--nt-text)", cursor: "pointer",
+  display: "flex", alignItems: "center", justifyContent: "center",
+};
+
+// Per-slide error boundary — a screen that fails to load shows a tidy
+// placeholder instead of crashing the whole feature page.
+class MockupBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { failed: false }; }
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch(err) { console.error("[NeuroTech] mockup gagal dimuat:", err); }
+  render() {
+    if (this.state.failed) {
+      return (
+        <div style={{
+          width: "100%", height: "100%", padding: 28, textAlign: "center",
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8,
+          background: "var(--nt-bg)",
+        }}>
+          <div style={{ fontSize: 30 }}>📱</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--nt-text-2)" }}>Layar belum tersedia</div>
+          <div style={{ fontSize: 11, color: "var(--nt-text-3)", lineHeight: 1.5 }}>
+            Muat ulang halaman dengan Ctrl+Shift+R untuk memuat layar terbaru.
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// Carousel of live, non-interactive app screens inside a device frame.
+const MockupCarousel = ({ device, screens }) => {
+  const [i, setI] = React.useState(0);
+  const dim = DEVICE_DIM[device];
+  const n = screens.length;
+  const idx = Math.min(i, n - 1);
+  const cur = screens[idx];
+  const go = (d) => setI((x) => (x + d + n) % n);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}>
+      <div style={{ width: "100%", overflowX: "auto" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 18, width: "max-content", margin: "0 auto", padding: "6px 2px" }}>
+          {n > 1 && (
+            <button onClick={() => go(-1)} aria-label="Layar sebelumnya" style={MOCK_ARROW}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+            </button>
+          )}
+          <div style={{ width: dim.w * dim.s, height: dim.h * dim.s, flexShrink: 0 }}>
+            <div style={{
+              width: dim.w, height: dim.h,
+              transform: `scale(${dim.s})`, transformOrigin: "top left",
+              pointerEvents: "none", userSelect: "none",
+            }} aria-hidden="true">
+              <div className={"app-frame app-frame--" + device}>
+                <MockupBoundary key={idx}>
+                  {cur.c()}
+                </MockupBoundary>
+              </div>
+            </div>
+          </div>
+          {n > 1 && (
+            <button onClick={() => go(1)} aria-label="Layar berikutnya" style={MOCK_ARROW}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "var(--nt-text)" }}>{cur.label}</div>
+        {n > 1 && (
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {screens.map((s, k) => (
+              <button key={k} onClick={() => setI(k)} aria-label={s.label} style={{
+                width: k === idx ? 24 : 8, height: 8, borderRadius: 999, border: "none", padding: 0,
+                cursor: "pointer", transition: "width .2s, background .2s",
+                background: k === idx ? "var(--nt-brand-gradient)" : "rgba(255,255,255,0.22)",
+              }} />
+            ))}
+          </div>
+        )}
+        {n > 1 && (
+          <div style={{ fontSize: 12, color: "var(--nt-text-3)", letterSpacing: "0.08em" }}>
+            {idx + 1} / {n}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ── Team profile (About NeuroTech) ─────────────────────────────────────────
+// ?v=2 → cache-buster; naikkan versinya tiap kali foto tim diperbarui.
+const TEAM = {
+  ceo: { name: "Danial Ghazi Arsyad",       role: "Chief Executive Officer",    img: "assets/team-ceo.png?v=2" },
+  coo: { name: "Yamilla Kirana Paramita",   role: "Chief Operating Officer",    img: "assets/team-coo.png?v=2" },
+  cro: { name: "Dinnar Ary Nastiti",        role: "Chief Relationship Officer", img: "assets/team-cro.png?v=2" },
+  cmo: { name: "Nada Nadhifah",             role: "Chief Marketing Officer",    img: "assets/team-cmo.png?v=2" },
+  cbo: { name: "Elviana Faza Al Fatah",     role: "Chief Business Officer",     img: "assets/team-cbo.png?v=2" },
+  cto: { name: "Novan Gading Krisniawidhi", role: "Chief Technology Officer",   img: "assets/team-cto.png?v=2" },
+  cfo: { name: "Emanuela Cherry",           role: "Chief Financial Officer",    img: "assets/team-cfo.png?v=2" },
+};
+
+const TEAM_CSS = `
+.nt-team-row { display: flex; justify-content: center; gap: 22px; flex-wrap: wrap; }
+
+.nt-team-card {
+  width: 250px; max-width: 78vw;
+  perspective: 1300px;
+  cursor: pointer;
+  transition: transform .25s cubic-bezier(.2,.7,.3,1);
+}
+.nt-team-card:hover { transform: translateY(-8px); }
+
+.nt-team-inner {
+  position: relative; width: 100%;
+  aspect-ratio: 4 / 5;
+  transform-style: preserve-3d;
+  transition: transform .65s cubic-bezier(.2,.7,.3,1);
+}
+.nt-team-inner.is-flipped { transform: rotateY(180deg); }
+
+.nt-team-face {
+  position: absolute; inset: 0;
+  border-radius: 20px; overflow: hidden;
+  -webkit-backface-visibility: hidden; backface-visibility: hidden;
+  box-shadow: 0 16px 40px rgba(6,12,34,0.55), 0 0 0 1px rgba(255,255,255,0.07);
+}
+.nt-team-front img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.nt-team-flip-ico {
+  position: absolute; bottom: 12px; right: 12px;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: rgba(10,18,42,0.7);
+  display: flex; align-items: center; justify-content: center;
+  color: #cfe3ff; box-shadow: 0 0 0 1px rgba(255,255,255,0.14);
+}
+
+.nt-team-back {
+  transform: rotateY(180deg);
+  background:
+    radial-gradient(75% 55% at 50% 0%, rgba(78,195,224,0.20), transparent 70%),
+    linear-gradient(165deg, #1a4a8e 0%, #0a1531 78%);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: 26px 20px;
+}
+.nt-team-badge {
+  width: 66px; height: 66px; border-radius: 50%;
+  background: linear-gradient(135deg, #6cb6f0, #9c8bf0);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 21px; font-weight: 800;
+  box-shadow: 0 10px 24px rgba(108,182,240,0.5);
+  margin-bottom: 16px;
+}
+.nt-team-name { font-size: 18px; font-weight: 800; color: #fff; letter-spacing: -0.01em; line-height: 1.3; }
+.nt-team-divider { width: 34px; height: 3px; border-radius: 999px; background: linear-gradient(90deg,#4ec3e0,#9c8bf0); margin: 11px 0; }
+.nt-team-role { font-size: 12.5px; font-weight: 600; color: #9fb6d8; letter-spacing: 0.03em; }
+.nt-team-hint { margin-top: 16px; font-size: 9px; letter-spacing: 0.24em; text-transform: uppercase; color: rgba(255,255,255,0.42); }
+
+@media (prefers-reduced-motion: reduce) { .nt-team-inner { transition: none; } }
+`;
+
+// Flip card — front shows the photo; click flips it to reveal name + position.
+const TeamCard = ({ m }) => {
+  const [flipped, setFlipped] = React.useState(false);
+  const initials = m.name.split(" ").map((x) => x[0]).slice(0, 2).join("").toUpperCase();
+  return (
+    <div
+      className="nt-team-card"
+      onClick={() => setFlipped((f) => !f)}
+      title={flipped ? "Klik untuk lihat foto" : "Klik untuk lihat nama & posisi"}
+    >
+      <div className={"nt-team-inner" + (flipped ? " is-flipped" : "")}>
+        <div className="nt-team-face nt-team-front">
+          <img
+            src={m.img}
+            alt={`${m.name} — ${m.role}`}
+            loading="lazy"
+          />
+          <span className="nt-team-flip-ico">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5" />
+            </svg>
+          </span>
+        </div>
+        <div className="nt-team-face nt-team-back">
+          <div className="nt-team-badge">{initials}</div>
+          <div className="nt-team-name">{m.name}</div>
+          <div className="nt-team-divider" />
+          <div className="nt-team-role">{m.role}</div>
+          <div className="nt-team-hint">NeuroTech</div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const TeamSection = () => (
+  <section className="nt-landing-section">
+    <style>{TEAM_CSS}</style>
+    <Reveal>
+      <div className="nt-eyebrow" style={{ textAlign: "center" }}>Profil Tim</div>
+      <h2 className="nt-landing-h2">Tim di Balik NeuroTech</h2>
+      <p className="nt-landing-sub" style={{ textAlign: "center", marginTop: 8 }}>
+        Tim yang membangun dan menjalankan NeuroTech.
+      </p>
+    </Reveal>
+    <Reveal delay={120} style={{ marginTop: 32, display: "flex", flexDirection: "column", gap: 22 }}>
+      <div className="nt-team-row">
+        <TeamCard m={TEAM.ceo} />
+      </div>
+      <div className="nt-team-row">
+        <TeamCard m={TEAM.coo} />
+        <TeamCard m={TEAM.cro} />
+        <TeamCard m={TEAM.cmo} />
+      </div>
+      <div className="nt-team-row">
+        <TeamCard m={TEAM.cbo} />
+        <TeamCard m={TEAM.cto} />
+        <TeamCard m={TEAM.cfo} />
+      </div>
+    </Reveal>
+  </section>
+);
+
 const ContentPage = ({ slug }) => {
   const page = CONTENT[slug];
 
@@ -259,6 +528,23 @@ const ContentPage = ({ slug }) => {
         </div>
       </section>
 
+      {FEATURE_MOCKUPS[slug] && (
+        <section className="nt-landing-section">
+          <Reveal>
+            <div className="nt-eyebrow" style={{ textAlign: "center" }}>Mockup Aplikasi</div>
+            <h2 className="nt-landing-h2">Pratinjau {page.title}</h2>
+            <p className="nt-landing-sub" style={{ textAlign: "center", marginTop: 8 }}>
+              Klik panah untuk menelusuri tiap layar aplikasi.
+            </p>
+          </Reveal>
+          <Reveal delay={120} style={{ marginTop: 30 }}>
+            <MockupCarousel device={FEATURE_MOCKUPS[slug].device} screens={FEATURE_MOCKUPS[slug].screens} />
+          </Reveal>
+        </section>
+      )}
+
+      {slug === "about-neurotech" && <TeamSection />}
+
       {slug === "about-neurotech" && (
         <section className="nt-landing-section">
           <Reveal>
@@ -268,6 +554,8 @@ const ContentPage = ({ slug }) => {
           <Reveal delay={100}><VisiMisi /></Reveal>
         </section>
       )}
+
+      {slug === "about-neurotech" && <CaraKerja />}
 
       <div className="nt-page-body">
         <Reveal>

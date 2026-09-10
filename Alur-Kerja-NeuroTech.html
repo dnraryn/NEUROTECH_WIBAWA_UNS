@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Alur Kerja Sistem NeuroTech</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Manrope', 'Segoe UI', Arial, sans-serif;
+    color: #28354a; font-size: 11pt; line-height: 1.62; background: #fff;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .page { max-width: 780px; margin: 0 auto; padding: 26px 30px 70px; }
+
+  @page { size: A4; margin: 15mm 13mm; }
+
+  .cover {
+    background: linear-gradient(135deg, #0a1531 0%, #16407e 58%, #1f6fae 100%);
+    color: #fff; padding: 40px 36px; border-radius: 16px; margin-bottom: 30px;
+  }
+  .cover .brand { font-size: 25pt; font-weight: 800; letter-spacing: -0.01em; }
+  .cover .brand-sub { font-size: 8pt; letter-spacing: 0.34em; text-transform: uppercase; color: #9fc6e8; margin-top: 3px; }
+  .cover h1 { font-size: 21pt; margin: 24px 0 7px; font-weight: 800; line-height: 1.2; }
+  .cover .lead { font-size: 10.5pt; color: #cfe0f3; margin: 0; }
+  .cover .rule { width: 64px; height: 4px; border-radius: 999px; background: linear-gradient(90deg,#4ec3e0,#9c8bf0); margin: 18px 0 0; }
+
+  h2 {
+    font-size: 14pt; color: #16407e; font-weight: 800;
+    margin: 32px 0 12px; padding-bottom: 7px; border-bottom: 2px solid #d6e1f2;
+    page-break-after: avoid;
+  }
+  h2 .num {
+    display: inline-block; width: 27px; height: 27px; line-height: 27px;
+    text-align: center; background: linear-gradient(135deg,#2a5fe0,#4ec3e0);
+    color: #fff; border-radius: 8px; font-size: 11pt; margin-right: 10px;
+  }
+  h3 { font-size: 11.5pt; color: #1f3a66; font-weight: 800; margin: 16px 0 3px; }
+  p { margin: 6px 0; }
+  strong { color: #16407e; }
+
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 10pt; page-break-inside: avoid; }
+  th { background: #16407e; color: #fff; text-align: left; padding: 8px 11px; font-weight: 700; }
+  td { padding: 7px 11px; border-bottom: 1px solid #e3eaf5; vertical-align: top; }
+  tr:nth-child(even) td { background: #f4f7fc; }
+
+  .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin: 14px 0; page-break-inside: avoid; }
+  .flow .box {
+    background: #eef3fb; border: 1px solid #cfdcef; color: #1f3a66;
+    font-weight: 700; font-size: 8.7pt; padding: 8px 12px; border-radius: 8px;
+  }
+  .flow .box.accent { background: linear-gradient(135deg,#2a5fe0,#4ec3e0); border: none; color: #fff; }
+  .flow .arrow { color: #2a5fe0; font-weight: 800; font-size: 11pt; }
+
+  .stage { background: #f6f9fd; border-left: 4px solid #2a5fe0; border-radius: 0 8px 8px 0; padding: 9px 15px; margin: 9px 0; page-break-inside: avoid; }
+  .stage .t { font-weight: 800; color: #16407e; }
+
+  ul, ol { margin: 6px 0; padding-left: 22px; }
+  li { margin: 4px 0; }
+
+  .note { background: #eef3fb; border-radius: 10px; padding: 13px 17px; font-size: 9.6pt; color: #44557a; margin-top: 18px; page-break-inside: avoid; }
+  .footer { margin-top: 30px; padding-top: 12px; border-top: 1px solid #e3eaf5; text-align: center; font-size: 8.4pt; color: #8a9aae; }
+  .section { page-break-inside: avoid; }
+
+  @media print { .page { max-width: none; padding: 0; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="cover">
+    <div class="brand">neurotech</div>
+    <div class="brand-sub">Technology of the Mind</div>
+    <h1>Alur Kerja Sistem NeuroTech</h1>
+    <p class="lead">Konteks Teknis &amp; Operasional — Dokumen Pendukung Proposal Bisnis</p>
+    <div class="rule"></div>
+  </header>
+
+  <section class="section">
+    <h2><span class="num">1</span>Ringkasan Sistem</h2>
+    <p>
+      NeuroTech adalah sistem pemantauan kelelahan mental, beban kognitif, dan keselamatan
+      &amp; kesehatan kerja (K3) berbasis sinyal otak (EEG). Sistem menerjemahkan aktivitas
+      otak pekerja menjadi indikator risiko yang mudah dipahami, lalu memberikan
+      <strong>peringatan dini sebelum kelelahan berubah menjadi insiden kerja</strong>.
+    </p>
+    <p>
+      NeuroTech terdiri dari tiga komponen yang saling terhubung: perangkat headband EEG,
+      mesin pemrosesan sinyal, dan platform aplikasi multi-peran (web &amp; mobile).
+    </p>
+    <div class="flow">
+      <span class="box">Headband EEG Muse</span>
+      <span class="arrow">&rarr;</span>
+      <span class="box">Bluetooth</span>
+      <span class="arrow">&rarr;</span>
+      <span class="box accent">Aplikasi NeuroTech</span>
+      <span class="arrow">&rarr;</span>
+      <span class="box">Perhitungan Indeks K3</span>
+      <span class="arrow">&rarr;</span>
+      <span class="box">Tampilan &amp; Alert</span>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2><span class="num">2</span>Arsitektur Tiga Lapisan</h2>
+    <table>
+      <tr><th style="width:34%">Lapisan</th><th>Fungsi</th></tr>
+      <tr>
+        <td><strong>1. Perangkat (Input)</strong></td>
+        <td>Headband EEG Muse (mendukung semua model) merekam aktivitas listrik otak melalui
+        sensor di dahi &amp; belakang telinga, serta detak jantung melalui PPG. Data dikirim
+        nirkabel via Bluetooth ke aplikasi NeuroTech.</td>
+      </tr>
+      <tr>
+        <td><strong>2. Pemrosesan (Algoritma)</strong></td>
+        <td>Sinyal EEG mentah diolah menjadi indeks K3 terukur, dibandingkan terhadap
+        baseline personal tiap pekerja agar skor benar-benar bermakna per individu.</td>
+      </tr>
+      <tr>
+        <td><strong>3. Aplikasi (Output)</strong></td>
+        <td>Platform web &amp; mobile menampilkan indeks secara real-time, memicu alert
+        otomatis, dan menyajikan data sesuai peran pengguna (pekerja, supervisor, manajemen).</td>
+      </tr>
+    </table>
+  </section>
+
+  <section class="section">
+    <h2><span class="num">3</span>Alur Kerja Teknis: Dari Sinyal Otak ke Pencegahan</h2>
+
+    <div class="stage"><span class="t">Tahap 1 · Kalibrasi Baseline.</span>
+      Di awal shift, sistem merekam baseline singkat aktivitas otak pekerja dalam kondisi
+      tenang. Karena setiap otak berbeda, baseline ini membuat indeks akurat per individu.</div>
+
+    <div class="stage"><span class="t">Tahap 2 · Perekaman &amp; Ekstraksi Gelombang.</span>
+      Headband merekam EEG tiap detik. Sinyal diuraikan menjadi pita gelombang otak: delta,
+      theta, alpha, beta, dan gamma. Beta dominan saat fokus; theta &amp; alpha meningkat
+      saat lelah dan mengantuk.</div>
+
+    <div class="stage"><span class="t">Tahap 3 · Perhitungan Indeks K3 (skor 0&ndash;100).</span>
+      <ul>
+        <li><strong>Fatigue Index (FI)</strong> &mdash; kelelahan mental, dari rasio theta+alpha terhadap beta.</li>
+        <li><strong>Cognitive Load Index (CLI)</strong> &mdash; beban kerja otak, dari aktivitas gelombang area frontal.</li>
+        <li><strong>Engagement Index (EI)</strong> &mdash; kewaspadaan, rasio beta terhadap (alpha+theta).</li>
+        <li><strong>HRV</strong> &mdash; variabilitas detak jantung dari PPG, indikator pemulihan &amp; stres.</li>
+        <li><strong>Readiness</strong> &mdash; skor kesiapan pra-shift, gabungan data tidur dan baseline.</li>
+        <li><strong>Tingkat Stres</strong> &mdash; kombinasi beban kognitif tinggi dan HRV rendah.</li>
+      </ul>
+    </div>
+
+    <div class="stage"><span class="t">Tahap 4 · Deteksi Microsleep.</span>
+      Microsleep (tertidur 1&ndash;10 detik tanpa sadar) dideteksi dari kombinasi anggukan
+      kepala, penurunan tajam Engagement Index, dan pola EEG khas kantuk.</div>
+
+    <div class="stage"><span class="t">Tahap 5 · Klasifikasi Status.</span>
+      Tiap pekerja diberi status real-time berdasarkan ambang indeks:
+      <strong>Normal</strong> (dalam baseline) &rarr; <strong>Waspada</strong> (mendekati ambang)
+      &rarr; <strong>Berisiko</strong> (melewati ambang) &rarr; <strong>Kritis</strong>
+      (berbahaya / microsleep terdeteksi).</div>
+
+    <div class="stage"><span class="t">Tahap 6 · Alert &amp; Tindakan.</span>
+      Saat ambang terlewati, alert otomatis dikirim ke pekerja <strong>dan</strong>
+      supervisornya. Pekerja mendapat saran (istirahat mikro, neurofeedback audio);
+      supervisor dapat merotasi tugas atau menjadwalkan istirahat.</div>
+  </section>
+
+  <section class="section">
+    <h2><span class="num">4</span>Alur Kerja Pengguna (User Journey)</h2>
+
+    <h3>A. Onboarding Perusahaan (via Web)</h3>
+    <ol>
+      <li>Pemilik usaha membuka website NeuroTech, lalu klik &ldquo;Bergabung dengan Kami&rdquo;.</li>
+      <li>Memilih paket sesuai skala usaha, lalu melakukan pembayaran (nama &amp; email).</li>
+      <li>Set-Up Profile: mengisi data perusahaan dan anggota tim (nama, peran, password).</li>
+      <li>Sistem menerbitkan <strong>kode perusahaan</strong> unik.</li>
+    </ol>
+
+    <h3>B. Login Anggota</h3>
+    <p>Anggota memasukkan kode perusahaan &rarr; memilih namanya dari daftar &rarr; memasukkan
+      password &rarr; sistem mengarahkan otomatis ke area sesuai perannya.</p>
+
+    <h3>C. Penggunaan Harian</h3>
+    <p>Awal shift: pekerja melakukan kalibrasi &rarr; bekerja dengan pemantauan live &rarr;
+      supervisor dan manajemen memantau kondisi tim dari dashboard masing-masing.</p>
+  </section>
+
+  <section class="section">
+    <h2><span class="num">5</span>Alur Per Peran</h2>
+    <table>
+      <tr><th style="width:26%">Peran</th><th>Fungsi pada Aplikasi</th></tr>
+      <tr>
+        <td><strong>Pekerja</strong><br/>(aplikasi mobile)</td>
+        <td>Readiness pra-shift, monitoring live fatigue &amp; cognitive load, deteksi stres
+        dan microsleep, neurofeedback audio (suara relaksasi penurun stres), statistik
+        mingguan. Data mentah bersifat privat, hanya milik pekerja sendiri.</td>
+      </tr>
+      <tr>
+        <td><strong>Supervisor K3</strong><br/>(dashboard desktop)</td>
+        <td>Status seluruh tim real-time, daftar &amp; detail pekerja, pengelolaan alert,
+        pengaturan jadwal shift, dan laporan K3.</td>
+      </tr>
+      <tr>
+        <td><strong>Manajemen SMK3</strong><br/>(dashboard desktop)</td>
+        <td>Analitik agregat: tren fatigue dan insiden tingkat departemen maupun perusahaan,
+        skor K3, sebagai dasar pengambilan keputusan kebijakan.</td>
+      </tr>
+    </table>
+  </section>
+
+  <section class="section">
+    <h2><span class="num">6</span>Model Bisnis (Paket Berjenjang)</h2>
+    <table>
+      <tr><th>Paket</th><th>Harga</th><th>Segmen</th><th>Kapasitas</th></tr>
+      <tr><td><strong>Free</strong></td><td>Gratis</td><td>Pengguna individu</td><td>1 pengguna</td></tr>
+      <tr><td><strong>Bronze</strong></td><td>Rp 49.999/bln</td><td>UMKM &amp; usaha kecil</td><td>s.d. 10 pengguna</td></tr>
+      <tr><td><strong>Silver</strong></td><td>Rp 99.000/bln</td><td>Industri skala menengah</td><td>s.d. 25 pengguna</td></tr>
+      <tr><td><strong>Gold</strong></td><td>Rp 199.000/bln</td><td>Company &amp; industri</td><td>s.d. 50 pengguna</td></tr>
+      <tr><td><strong>Platinum</strong></td><td>Rp 379.000/bln</td><td>Company skala besar</td><td>50&ndash;100 pengguna</td></tr>
+    </table>
+  </section>
+
+  <section class="section">
+    <h2><span class="num">7</span>Nilai Pembeda</h2>
+    <ul>
+      <li><strong>Pencegahan, bukan pelaporan pasca-insiden</strong> &mdash; alert dini memutus rantai sebelum berubah menjadi kecelakaan.</li>
+      <li><strong>Objektif</strong> &mdash; berbasis data sinyal otak, bukan asumsi atau laporan manual.</li>
+      <li><strong>Non-punitif</strong> &mdash; data individu bersifat privat, dipakai untuk melindungi pekerja, bukan untuk sanksi.</li>
+      <li><strong>Mendukung penerapan SMK3</strong> dengan indikator dan laporan yang siap pakai.</li>
+    </ul>
+    <div class="note">
+      Dokumen ini menjelaskan alur kerja dan rancangan sistem NeuroTech sebagai konteks
+      pendukung proposal bisnis. Angka indeks dan ambang dapat dikalibrasi lebih lanjut
+      sesuai hasil uji lapangan dan standar K3 yang berlaku.
+    </div>
+  </section>
+
+  <div class="footer">NeuroTech &middot; Technology of the Mind &mdash; Dokumen Pendukung Proposal Bisnis</div>
+
+</div>
+</body>
+</html>

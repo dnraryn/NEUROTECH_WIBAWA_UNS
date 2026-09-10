@@ -44,7 +44,7 @@ const Link = ({ to, children, style, className, onClick }) => (
 );
 
 // ── Modal ────────────────────────────────────────────────────────────────
-const Modal = ({ open, onClose, title, subtitle, children, actions, width = 420, tone = "default" }) => {
+const Modal = ({ open, onClose, title, subtitle, children, actions, width = 420, tone = "default", popDir }) => {
   React.useEffect(() => {
     if (!open) return;
     const onKey = (e) => { if (e.key === "Escape") onClose?.(); };
@@ -80,7 +80,8 @@ const Modal = ({ open, onClose, title, subtitle, children, actions, width = 420,
           borderRadius: 24,
           boxShadow: "var(--nt-shadow-out-lg)",
           padding: 0, overflow: "hidden",
-          animation: "nt-pop .18s cubic-bezier(.2,.7,.3,1)",
+          animation: (popDir === "down" ? "nt-pop-down" : popDir === "up" ? "nt-pop-up" : "nt-pop") +
+            " .22s cubic-bezier(.2,.7,.3,1)",
           position: "relative",
         }}
       >

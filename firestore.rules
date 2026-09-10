@@ -24,17 +24,20 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Worker monitoring data. Any signed-in user may read.
-    // Writes are open to any signed-in user for now so the one-time seed
-    // works from the browser. For production, tighten this to:
-    //   allow write: if roleOf() in ['supervisor', 'manager'];
+    // Worker monitoring data.
+    // Read: any signed-in user (supervisor & management dashboards consume it).
+    // Write: restricted to supervisor / manager profiles. Plain workers cannot
+    // overwrite each other's indices from the browser.
     match /workers/{id} {
       allow read:  if request.auth != null;
-      allow write: if request.auth != null;
+      allow write: if request.auth != null
+                   && roleOf() in ['supervisor', 'manager', 'management'];
     }
 
-    // Company directory (code, package, owner). Any signed-in user may read;
-    // writes are open for the one-time test-account seed.
+    // Company directory (code, package, members). Any signed-in user may read;
+    // writes are still open so the join-flow can create a new company doc and
+    // the supervisor can persist member edits. Tighten further when ownership
+    // metadata is added per company doc.
     match /companies/{code} {
       allow read:  if request.auth != null;
       allow write: if request.auth != null;
@@ -43,3 +46,34 @@ service cloud.firestore {
     // Everything else is denied by default.
   }
 }
+
+// ── Hardening sebelum live ────────────────────────────────────────────────
+// Selain rules di atas, AKTIFKAN Firebase App Check sebelum membuka akses
+// publik agar permintaan Firestore & Gemini hanya datang dari app yang sah:
+//
+//   1. Firebase Console → Build → App Check → Get started.
+//      Pilih provider reCAPTCHA Enterprise (web) atau reCAPTCHA v3.
+//      Daftarkan situs (neurotech-id.web.app) dan salin SITE KEY-nya.
+//
+//   2. Di firebase-init.js, sebelum panggilan Firestore/Auth pertama,
+//      tambahkan satu blok inisialisasi App Check:
+//
+//        firebase.appCheck().activate(
+//          new firebase.appCheck.ReCaptchaEnterpriseProvider("<SITE_KEY>"),
+//          true                          // auto-refresh token
+//        );
+//
+//   3. Di Console App Check, tab "APIs":
+//        - Firestore  → Enforce
+//        - Authentication → Enforce (opsional, tapi dianjurkan)
+//        - Firebase AI Logic / Vertex AI in Firebase → Enforce
+//      (Mode "Unenforced" dulu 24 jam untuk memantau false-positive,
+//       baru naikkan ke Enforce.)
+//
+//   4. Untuk debug lokal, jalankan
+//        self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+//      di console DevTools sebelum reload, lalu tambahkan token yang
+//      tercetak ke Console → App Check → Debug tokens.
+//
+// Catatan: API key Web di firebase-init.js memang public by design —
+// pengamanan sebenarnya ada di (a) rules di atas dan (b) App Check.

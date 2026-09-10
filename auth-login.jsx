@@ -38,8 +38,11 @@ const MemberLogin = () => {
     }
     window.ntSession.set({
       code: company.code, companyName: company.companyName, package: company.package,
-      memberName: m.name, role: m.role, roleDesc: m.roleDesc,
+      memberName: m.name, memberId: m.id, role: m.role, roleDesc: m.roleDesc,
+      members: company.members || [],
     });
+    // Build the worker list (and CURRENT_WORKER) from this company's members.
+    window.ntApplyCompanyMembers?.(company.members || [], m.id);
     window.toast?.("Selamat datang, " + m.name + "!", { kind: "success" });
     navigate(ROLE_LANDING[m.role] || "/w/readiness");
   };

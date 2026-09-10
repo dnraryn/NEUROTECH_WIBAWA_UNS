@@ -2,14 +2,62 @@
 
 const SHIFT_TABS = ["Semua", "Pagi", "Sore", "Malam"];
 
+// Job-title suggestions for the "Deskripsi role" field (autocomplete).
+const WORKER_ROLE_DESCS = [
+  "Operator CCR", "Operator Mesin", "Driver Truk", "Driver Forklift",
+  "Dispatcher", "Lab Analyst", "Security CCTV", "Teknisi", "Admin Logistik",
+];
+const ROLE_OPTIONS = [
+  { v: "pekerja",    l: "Pekerja" },
+  { v: "supervisor", l: "Supervisor" },
+  { v: "management", l: "Manajemen" },
+];
+
 const SupervisorWorkersList = () => {
   const [shiftFilter, setShiftFilter] = React.useState("Semua");
   const [statusFilter, setStatusFilter] = React.useState(null);
+  const [addOpen, setAddOpen] = React.useState(false);
+  const [removeTarget, setRemoveTarget] = React.useState(null);
+  const [form, setForm] = React.useState({ name: "", role: "pekerja", roleDesc: "", shift: "Pagi" });
 
   const filtered = WORKERS.filter((w) =>
     (shiftFilter === "Semua" || w.shift === shiftFilter) &&
     (!statusFilter || w.status === statusFilter)
   );
+
+  // Build a fresh worker record and hand it to the shared store.
+  const submitAdd = () => {
+    const name = form.name.trim();
+    if (!name) { window.toast?.("Nama pekerja wajib diisi.", { kind: "warn" }); return; }
+    if (!ROLE_OPTIONS.some((r) => r.v === form.role)) {
+      window.toast?.("Pilih role pekerja.", { kind: "warn" }); return;
+    }
+    const ok = window.ntAddWorker({
+      name, role: form.role, roleDesc: form.roleDesc, shift: form.shift,
+    });
+    if (!ok) { window.toast?.("Gagal menambah pekerja.", { kind: "warn" }); return; }
+    window.toast?.(`${name} ditambahkan ke daftar pekerja.`, { kind: "success" });
+    setForm({ name: "", role: "pekerja", roleDesc: "", shift: "Pagi" });
+    setAddOpen(false);
+  };
+
+  const confirmRemove = () => {
+    if (!removeTarget) return;
+    const nm = removeTarget.name;
+    window.ntRemoveWorker(removeTarget.id);
+    window.toast?.(`${nm} dihapus dari daftar pekerja.`, { kind: "success" });
+    setRemoveTarget(null);
+  };
+
+  const fieldStyle = {
+    width: "100%", padding: "11px 14px", borderRadius: 12, border: "none",
+    background: "var(--nt-surface)", boxShadow: "var(--nt-shadow-in)",
+    fontSize: 13, color: "var(--nt-text)", fontFamily: "inherit", outline: "none",
+  };
+  const labelStyle = {
+    display: "block", fontSize: 10.5, fontWeight: 700, color: "var(--nt-text-3)",
+    letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6,
+  };
 
   return (
   <div className="nt-screen" style={{ padding: 0, display: "grid", gridTemplateColumns: "228px 1fr" }}>
@@ -24,7 +72,7 @@ const SupervisorWorkersList = () => {
             <NeuroBtn tone="default" size="sm" onClick={() => window.toast?.("Export pekerja → CSV (mock)", { kind: "info" })}>
               Export CSV
             </NeuroBtn>
-            <NeuroBtn tone="primary" size="sm" onClick={() => window.toast?.("Tambah pekerja, fitur akan datang", { kind: "info" })}>
+            <NeuroBtn tone="primary" size="sm" onClick={() => setAddOpen(true)}>
               + Tambah Pekerja
             </NeuroBtn>
           </div>
@@ -73,7 +121,7 @@ const SupervisorWorkersList = () => {
       <div className="neu-surface" style={{ padding: 0, overflow: "hidden", flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
         <div style={{
           display: "grid",
-          gridTemplateColumns: "2fr 1.2fr 1fr 0.8fr 0.8fr 0.8fr 0.8fr 1fr",
+          gridTemplateColumns: "1.9fr 1.05fr 0.85fr 0.58fr 0.58fr 0.58fr 0.68fr 0.95fr 44px",
           padding: "14px 22px", gap: 12,
           fontSize: 10, color: "var(--nt-text-3)", letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 700,
           borderBottom: "1px solid var(--nt-bg-deep)"
@@ -82,8 +130,9 @@ const SupervisorWorkersList = () => {
           <span style={{ textAlign: "right" }}>FI</span>
           <span style={{ textAlign: "right" }}>CLI</span>
           <span style={{ textAlign: "right" }}>HRV</span>
-          <span style={{ textAlign: "right" }}>Sleep</span>
+          <span style={{ textAlign: "right" }}>Ready</span>
           <span style={{ textAlign: "right" }}>Status</span>
+          <span />
         </div>
 
         <div style={{ overflowY: "auto", flex: 1 }}>
@@ -93,7 +142,7 @@ const SupervisorWorkersList = () => {
               <Link key={w.id} to={`/s/workers/${w.id}`}>
                 <div className="nt-card-click" style={{
                   display: "grid",
-                  gridTemplateColumns: "2fr 1.2fr 1fr 0.8fr 0.8fr 0.8fr 0.8fr 1fr",
+                  gridTemplateColumns: "1.9fr 1.05fr 0.85fr 0.58fr 0.58fr 0.58fr 0.68fr 0.95fr 44px",
                   padding: "14px 22px", gap: 12,
                   alignItems: "center",
                   borderBottom: "1px solid var(--nt-bg-deep)",
@@ -105,16 +154,33 @@ const SupervisorWorkersList = () => {
                       color: "white", fontSize: 12, fontWeight: 700,
                       display: "flex", alignItems: "center", justifyContent: "center"
                     }}>{w.name.split(" ").map((x) => x[0]).slice(0, 2).join("")}</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "var(--nt-text)" }}>{w.name}</div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--nt-text)" }}>{w.name}</div>
+                      {w.roleDesc && (
+                        <div style={{ fontSize: 10.5, color: "var(--nt-text-3)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{w.roleDesc}</div>
+                      )}
+                    </div>
                   </div>
                   <div style={{ fontSize: 12, color: "var(--nt-text-2)" }}>{w.role}</div>
                   <div style={{ fontSize: 12, color: "var(--nt-text-2)" }}>{w.shift}</div>
                   <div style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 13, fontWeight: 700, color: w.fi > 65 ? "#ff7a7a" : "var(--nt-text)" }}>{w.fi}</div>
                   <div style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 13, fontWeight: 700, color: w.cli > 65 ? "#ff7a7a" : "var(--nt-text)" }}>{w.cli}</div>
                   <div style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 13, fontWeight: 700, color: w.hrv < 50 ? "#ff7a7a" : "var(--nt-text)" }}>{w.hrv}</div>
-                  <div style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 13, color: "var(--nt-text-2)" }}>{w.sleep.toFixed(1)} j</div>
+                  <div style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 13, fontWeight: 700, color: w.readiness < 60 ? "#ff7a7a" : "var(--nt-text)" }}>{w.readiness}</div>
                   <div style={{ display: "flex", justifyContent: "flex-end" }}>
                     <StatusPill status={w.status} size="sm" />
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "center" }}>
+                    <button
+                      title={`Hapus ${w.name}`}
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setRemoveTarget(w); }}
+                      style={{
+                        width: 30, height: 30, borderRadius: 9, border: "none", cursor: "pointer",
+                        background: "var(--nt-surface)", boxShadow: "var(--nt-shadow-out-sm)",
+                        color: "#ff7a7a", display: "flex", alignItems: "center", justifyContent: "center",
+                      }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/></svg>
+                    </button>
                   </div>
                 </div>
               </Link>
@@ -127,6 +193,92 @@ const SupervisorWorkersList = () => {
           )}
         </div>
       </div>
+
+      {/* Tambah pekerja */}
+      <Modal
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        title="Tambah Pekerja"
+        subtitle="Pekerja baru muncul di daftar dengan status awal Normal. Headband Muse dikalibrasi pada shift pertamanya."
+        actions={
+          <>
+            <NeuroBtn tone="ghost" onClick={() => setAddOpen(false)}>Batal</NeuroBtn>
+            <NeuroBtn tone="primary" onClick={submitAdd}>Tambah Pekerja</NeuroBtn>
+          </>
+        }
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div>
+            <label style={labelStyle}>Nama lengkap</label>
+            <input
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              onKeyDown={(e) => { if (e.key === "Enter") submitAdd(); }}
+              placeholder="cth. Andi Saputra"
+              style={fieldStyle}
+              autoFocus
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>Role</label>
+            <select
+              value={form.role}
+              onChange={(e) => setForm({ ...form, role: e.target.value })}
+              style={fieldStyle}
+            >
+              {ROLE_OPTIONS.map((r) => (
+                <option key={r.v} value={r.v}>{r.l}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label style={labelStyle}>Deskripsi role</label>
+            <input
+              value={form.roleDesc}
+              onChange={(e) => setForm({ ...form, roleDesc: e.target.value })}
+              onKeyDown={(e) => { if (e.key === "Enter") submitAdd(); }}
+              placeholder="cth. Operator CCR"
+              list="nt-role-desc-list"
+              style={fieldStyle}
+            />
+            <datalist id="nt-role-desc-list">
+              {WORKER_ROLE_DESCS.map((r) => <option key={r} value={r} />)}
+            </datalist>
+          </div>
+          <div>
+            <label style={labelStyle}>Shift</label>
+            <div style={{ display: "flex", gap: 8 }}>
+              {["Pagi", "Sore", "Malam"].map((s) => {
+                const on = form.shift === s;
+                return (
+                  <button key={s} onClick={() => setForm({ ...form, shift: s })} style={{
+                    flex: 1, padding: "10px 0", borderRadius: 12, border: "none",
+                    background: on ? "linear-gradient(135deg, #9c8bf0, #6cb6f0)" : "var(--nt-surface)",
+                    boxShadow: on ? "0 6px 14px rgba(108,182,240,0.32)" : "var(--nt-shadow-out-sm)",
+                    color: on ? "white" : "var(--nt-text-2)",
+                    fontSize: 12.5, fontWeight: 700, fontFamily: "inherit", cursor: "pointer",
+                  }}>{s}</button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Hapus pekerja */}
+      <Modal
+        open={!!removeTarget}
+        onClose={() => setRemoveTarget(null)}
+        tone="danger"
+        title={removeTarget ? `Hapus ${removeTarget.name}?` : ""}
+        subtitle="Pekerja akan dihapus dari daftar pemantauan. Anda dapat menambahkannya kembali kapan saja lewat tombol Tambah Pekerja."
+        actions={
+          <>
+            <NeuroBtn tone="ghost" onClick={() => setRemoveTarget(null)}>Batal</NeuroBtn>
+            <NeuroBtn tone="danger" onClick={confirmRemove}>Hapus</NeuroBtn>
+          </>
+        }
+      />
     </main>
   </div>
   );

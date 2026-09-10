@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<title>NeuroTech — Mockup Composite</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.development.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
+
+<style>
+  html, body { margin: 0; padding: 0; }
+  body {
+    width: 1120px; height: 1080px; overflow: hidden;
+    background:
+      radial-gradient(60% 45% at 12% -5%, rgba(42,95,224,0.32), transparent 70%),
+      radial-gradient(55% 45% at 96% 106%, rgba(47,212,238,0.18), transparent 70%),
+      linear-gradient(165deg, #050b1a 0%, #0a1531 38%, #102a5c 74%, #16407e 100%);
+    font-family: 'Manrope', 'Segoe UI', sans-serif;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .shot { display: flex; flex-direction: column; align-items: center; gap: 22px; }
+  .shot-head { text-align: center; }
+  .shot-head .brand { font-size: 30px; font-weight: 800; color: #fff; letter-spacing: -0.01em; }
+  .shot-head .brand .accent {
+    background: linear-gradient(90deg, #4ec3e0, #9c8bf0);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .shot-head .sub {
+    font-size: 11px; letter-spacing: 0.30em; text-transform: uppercase;
+    color: #8fa8cc; margin-top: 7px;
+  }
+  .shot-body { display: flex; gap: 48px; align-items: center; }
+  .shot-col-right { display: flex; flex-direction: column; gap: 26px; }
+  .shot-cap {
+    font-size: 11px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase;
+    color: #9fc6e8; margin-bottom: 9px; text-align: center;
+  }
+  .frame-wrap { pointer-events: none; }
+  .frame-wrap--mobile { width: 302px; height: 656px; }
+  .frame-wrap--mobile > .app-frame { transform: scale(0.84); transform-origin: top left; }
+  .frame-wrap--desktop { width: 666px; height: 416px; }
+  .frame-wrap--desktop > .app-frame { transform: scale(0.52); transform-origin: top left; }
+</style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" src="router.jsx"></script>
+  <script type="text/babel" src="primitives.jsx"></script>
+  <script type="text/babel" src="mock-data.jsx"></script>
+  <script type="text/babel" src="worker-screens.jsx"></script>
+  <script type="text/babel" src="supervisor-screen.jsx"></script>
+  <script type="text/babel" src="management-screen.jsx"></script>
+
+  <script type="text/babel">
+    // Use a healthy "normal" worker for the worker mockup.
+    const _nice = WORKERS.find((w) => w.status === "normal");
+    if (_nice) Object.assign(CURRENT_WORKER, _nice);
+
+    const Shot = () => (
+      <div className="shot">
+        <div className="shot-head">
+          <div className="brand">neuro<span className="accent">tech</span></div>
+          <div className="sub">Pekerja · Supervisor · Manajemen</div>
+        </div>
+        <div className="shot-body">
+          <div>
+            <div className="shot-cap">App Pekerja · Mobile</div>
+            <div className="frame-wrap frame-wrap--mobile">
+              <div className="app-frame app-frame--mobile"><WorkerReadiness /></div>
+            </div>
+          </div>
+          <div className="shot-col-right">
+            <div>
+              <div className="shot-cap">Dashboard Supervisor K3</div>
+              <div className="frame-wrap frame-wrap--desktop">
+                <div className="app-frame app-frame--desktop"><SupervisorDashboard /></div>
+              </div>
+            </div>
+            <div>
+              <div className="shot-cap">Analitik Manajemen SMK3</div>
+              <div className="frame-wrap frame-wrap--desktop">
+                <div className="app-frame app-frame--desktop"><ManagementDashboard /></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<Shot />);
+  </script>
+</body>
+</html>

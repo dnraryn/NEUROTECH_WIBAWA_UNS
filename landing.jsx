@@ -32,7 +32,12 @@ const Reveal = ({ children, delay = 0, y = 28, style }) => {
 // Brand lockup, SVG mark + gradient wordmark (NeuroLogo's own text is dark).
 const Brand = ({ size = 30 }) => (
   <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-    <NeuroLogo size={size} withText={false} color="#4a93ec" />
+    <img
+      src="assets/logo-topleft.png"
+      alt="NeuroTech"
+      width={size} height={size}
+      style={{ display: "block", objectFit: "contain", borderRadius: size * 0.2 }}
+    />
     <span style={{
       fontSize: size * 0.62, fontWeight: 800, letterSpacing: "-0.01em",
       background: "var(--nt-brand-gradient)",
@@ -60,20 +65,19 @@ const goSection = (id) => {
 
 // ── Navbar menu (Emotiv-style dropdowns, NeuroTech content) ────────────────
 const NAV_MENU = [
+  { label: "Beranda", route: "/landing" },
+  { label: "About NeuroTech", page: "about-neurotech" },
+  { label: "Fitur", links: [
+    { label: "App Pekerja", desc: "Pantau kondisi otak Anda sendiri" },
+    { label: "Dashboard Supervisor", desc: "Overview tim & alert K3" },
+    { label: "Analitik Manajemen", desc: "Tren agregat & skor SMK3" },
+  ]},
   { label: "Solusi", links: [
     { label: "Pemantauan Fatigue", desc: "Deteksi kelelahan mental real-time" },
     { label: "Beban Kognitif", desc: "Ukur cognitive load saat bekerja" },
     { label: "Kesiapan Pra-Shift", desc: "Skor readiness dari data tidur" },
     { label: "Deteksi Microsleep", desc: "Peringatan dini sebelum insiden" },
   ]},
-  { label: "Fitur", links: [
-    { label: "App Pekerja", desc: "Pantau kondisi otak Anda sendiri" },
-    { label: "Dashboard Supervisor", desc: "Overview tim & alert K3" },
-    { label: "Analitik Manajemen", desc: "Tren agregat & skor SMK3" },
-  ]},
-  { label: "Harga", route: "/pricing" },
-  { label: "About NeuroTech", page: "about-neurotech" },
-  { label: "Cara Kerja", section: "cara-kerja" },
   { label: "Dukungan", links: [
     { label: "Panduan Memulai", desc: "Langkah pertama dengan NeuroTech" },
     { label: "Integrasi Muse", desc: "Hubungkan headband EEG Muse" },
@@ -128,7 +132,13 @@ const LandingNav = () => {
                       <a
                         key={l.label}
                         className="nt-nav-drop-link"
-                        onClick={() => { goPage(l.label); setOpenMenu(null); }}
+                        onClick={() => {
+                          if (l.route) navigate(l.route);
+                          else if (l.section) goSection(l.section);
+                          else if (l.page) navigate("/p/" + l.page);
+                          else goPage(l.label);
+                          setOpenMenu(null);
+                        }}
                       >
                         <span className="nt-nav-drop-title">{l.label}</span>
                         <span className="nt-nav-drop-desc">{l.desc}</span>
@@ -229,6 +239,27 @@ const LANDING_STEPS = [
   { n: "02", title: "Analisis real-time", text: "Sinyal EEG diproses menjadi indeks Fatigue, Cognitive Load, dan Engagement setiap saat." },
   { n: "03", title: "Peringatan dini", text: "Sistem memberi alert sebelum kelelahan berubah menjadi microsleep atau insiden kerja." },
 ];
+
+// "Cara Kerja" section — reused on the landing page and the About NeuroTech page.
+const CaraKerja = () => (
+  <section className="nt-landing-section">
+    <Reveal>
+      <div className="nt-eyebrow" style={{ textAlign: "center" }}>Cara kerja</div>
+      <h2 className="nt-landing-h2">Dari sinyal otak ke pencegahan insiden</h2>
+    </Reveal>
+    <div className="nt-landing-grid">
+      {LANDING_STEPS.map((s, i) => (
+        <Reveal key={s.n} delay={i * 130}>
+          <div className="nt-landing-step">
+            <div className="nt-landing-step-n">{s.n}</div>
+            <div className="nt-landing-card-title">{s.title}</div>
+            <p className="nt-landing-card-text">{s.text}</p>
+          </div>
+        </Reveal>
+      ))}
+    </div>
+  </section>
+);
 
 const LANDING_STATS = [
   { v: "142", l: "pekerja terpantau" },
@@ -421,11 +452,17 @@ const LandingPage = () => (
 
       <div className="nt-landing-hero-inner">
         <Reveal delay={0}>
-          <div className="nt-landing-logo-wrap">
-            <span className="nt-landing-ring" />
-            <span className="nt-landing-ring" style={{ animationDelay: "1.4s" }} />
-            <img src="assets/neurotech-logo.png" alt="NeuroTech" width="96" height="96" />
-          </div>
+          <video
+            src="assets/logo-reveal.mp4"
+            autoPlay loop muted playsInline preload="auto"
+            aria-label="NeuroTech"
+            style={{
+              width: "min(88vw, 460px)",
+              height: "auto",
+              display: "block",
+              margin: "0 auto",
+            }}
+          />
         </Reveal>
 
         <Reveal delay={120}>
@@ -529,23 +566,7 @@ const LandingPage = () => (
     </section>
 
     {/* ── How it works ──────────────────────────────────────────── */}
-    <section className="nt-landing-section" id="cara-kerja">
-      <Reveal>
-        <div className="nt-eyebrow" style={{ textAlign: "center" }}>Cara kerja</div>
-        <h2 className="nt-landing-h2">Dari sinyal otak ke pencegahan insiden</h2>
-      </Reveal>
-      <div className="nt-landing-grid">
-        {LANDING_STEPS.map((s, i) => (
-          <Reveal key={s.n} delay={i * 130}>
-            <div className="nt-landing-step">
-              <div className="nt-landing-step-n">{s.n}</div>
-              <div className="nt-landing-card-title">{s.title}</div>
-              <p className="nt-landing-card-text">{s.text}</p>
-            </div>
-          </Reveal>
-        ))}
-      </div>
-    </section>
+    <CaraKerja />
 
     {/* ── Research & journals ───────────────────────────────────── */}
     {/* ── About us: vision & mission ────────────────────────────── */}
@@ -719,39 +740,39 @@ const PlanPricing = () => (
     </section>
 
     <section className="nt-landing-section">
-      <div className="nt-price-grid">
-        {PACKAGES.map((pk, i) => (
-          <Reveal key={pk.name} delay={i * 90}>
-            <div className={"nt-price-card" + (pk.popular ? " nt-price-card--popular" : "")}>
-              <div>
-                <span className="nt-price-name">{pk.name}</span>
-                {pk.popular && <span className="nt-price-badge">Populer</span>}
-              </div>
-              <div className="nt-price-amount">
-                {pk.price}
-                {pk.unit && <span className="nt-price-unit"> {pk.unit}</span>}
-              </div>
-              <div className="nt-price-seg">{pk.seg}</div>
-              <span className="nt-price-users">{pk.users}</span>
-              <ul className="nt-price-feats">
-                {pk.features.map((f, j) => (
-                  <li className="nt-price-feat" key={j}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                      stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M5 12l5 5L20 6" />
-                    </svg>
-                    <span>{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <div className="nt-price-cta">
-                <NeuroBtn tone={pk.tone} size="md" style={{ width: "100%" }} onClick={goRegister}>
+      <div className="nt-pricing-hero">
+        <div className="nt-price-grid">
+          {PACKAGES.map((pk, i) => (
+            <Reveal key={pk.name} delay={i * 90}>
+              <div className={"nt-price-card" + (pk.popular ? " nt-price-card--popular" : "")}>
+                <div>
+                  <span className="nt-price-name">{pk.name}</span>
+                  {pk.popular && <span className="nt-price-badge">Populer</span>}
+                </div>
+                <div className="nt-price-amount">
+                  {pk.price}
+                  {pk.unit && <span className="nt-price-unit"> {pk.unit}</span>}
+                </div>
+                <div className="nt-price-seg">{pk.seg}</div>
+                <span className="nt-price-users">{pk.users}</span>
+                <ul className="nt-price-feats">
+                  {pk.features.map((f, j) => (
+                    <li className="nt-price-feat" key={j}>
+                      <svg viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M5 12l5 5L20 6" />
+                      </svg>
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+                <button type="button" className="nt-price-cta" onClick={goRegister}>
                   {pk.name === "Free" ? "Mulai gratis" : "Pilih " + pk.name}
-                </NeuroBtn>
+                </button>
               </div>
-            </div>
-          </Reveal>
-        ))}
+            </Reveal>
+          ))}
+        </div>
       </div>
     </section>
 
@@ -759,4 +780,4 @@ const PlanPricing = () => (
   </div>
 );
 
-Object.assign(window, { Reveal, Brand, VisiMisi, LandingNav, LandingFooter, LandingPage, PlanPricing, PACKAGES });
+Object.assign(window, { Reveal, Brand, VisiMisi, CaraKerja, LandingNav, LandingFooter, LandingPage, PlanPricing, PACKAGES });

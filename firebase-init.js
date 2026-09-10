@@ -74,6 +74,18 @@ const ntWorkers = {
     await batch.commit();
     return list.length;
   },
+
+  // Add one worker document (supervisor "Tambah Pekerja").
+  async add(worker) {
+    await db.collection("workers").doc(worker.id).set(worker);
+    return worker.id;
+  },
+
+  // Remove one worker document (supervisor "Hapus Pekerja").
+  async remove(id) {
+    await db.collection("workers").doc(id).delete();
+    return id;
+  },
 };
 
 window.ntAuth = ntAuth;
@@ -146,6 +158,10 @@ const ntCompany = {
   async getByCode(code) {
     const snap = await db.collection("companies").doc((code || "").trim().toUpperCase()).get();
     return snap.exists ? snap.data() : null;
+  },
+  // Overwrite the members array (add/remove worker, change shift).
+  async setMembers(code, members) {
+    await db.collection("companies").doc((code || "").trim().toUpperCase()).update({ members });
   },
 };
 

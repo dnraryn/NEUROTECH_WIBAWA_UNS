@@ -2,6 +2,8 @@
 
 const SupervisorSchedule = () => {
   const [assignModal, setAssignModal] = React.useState(null); // { day, shift }
+  const [shiftModal, setShiftModal] = React.useState(false);
+  const groups = ntShiftGroups();   // shift → worker ids, derived live from WORKERS
 
   return (
   <div className="nt-screen" style={{ padding: 0, display: "grid", gridTemplateColumns: "228px 1fr" }}>
@@ -19,7 +21,10 @@ const SupervisorSchedule = () => {
             <NeuroIconBtn size={38} onClick={() => window.toast?.("Minggu berikutnya (mock)", { kind: "info" })}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6"/></svg>
             </NeuroIconBtn>
-            <NeuroBtn tone="primary" size="sm" onClick={() => window.toast?.("Publikasi jadwal, 10 pekerja akan dinotifikasi", { kind: "success" })}>
+            <NeuroBtn tone="default" size="sm" onClick={() => setShiftModal(true)}>
+              Atur Shift Pekerja
+            </NeuroBtn>
+            <NeuroBtn tone="primary" size="sm" onClick={() => window.toast?.(`Publikasi jadwal, ${WORKERS.length} pekerja akan dinotifikasi`, { kind: "success" })}>
               Publikasi Jadwal
             </NeuroBtn>
           </div>
@@ -39,7 +44,7 @@ const SupervisorSchedule = () => {
           ))}
         </div>
 
-        {SCHEDULE.shifts.map((shift) => (
+        {groups.map((shift) => (
           <div key={shift.id} style={{ display: "grid", gridTemplateColumns: "160px repeat(7, 1fr)", gap: 8, marginBottom: 10 }}>
             <div style={{
               padding: "12px 14px",
@@ -107,7 +112,7 @@ const SupervisorSchedule = () => {
           </div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
-          {SCHEDULE.shifts.map((shift) => (
+          {groups.map((shift) => (
             <div key={shift.id} className="neu-surface-sm" style={{ padding: 14 }}>
               <div className="nt-eyebrow" style={{ fontSize: 9 }}>{shift.label.split(" · ")[0]}</div>
               <div style={{ fontSize: 11, color: "var(--nt-text-3)", marginTop: 2 }}>{shift.label.split(" · ")[1]}</div>
@@ -149,12 +154,12 @@ const SupervisorSchedule = () => {
         actions={
           <>
             <NeuroBtn tone="ghost" onClick={() => setAssignModal(null)}>Tutup</NeuroBtn>
-            <NeuroBtn tone="primary" onClick={() => { setAssignModal(null); window.toast?.("Tambah pekerja ke shift, fitur akan datang", { kind: "info" }); }}>+ Tambah pekerja</NeuroBtn>
+            <NeuroBtn tone="primary" onClick={() => { setAssignModal(null); setShiftModal(true); }}>Atur Shift Pekerja</NeuroBtn>
           </>
         }>
         {assignModal && (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {SCHEDULE.shifts.find((s) => s.id === assignModal.shift)?.workers.map((wid) => {
+            {groups.find((s) => s.id === assignModal.shift)?.workers.map((wid) => {
               const w = WORKERS_BY_ID[wid];
               if (!w) return null;
               return (
@@ -178,6 +183,55 @@ const SupervisorSchedule = () => {
             })}
           </div>
         )}
+      </Modal>
+
+      {/* Shift editor — move workers between Pagi / Sore / Malam */}
+      <Modal open={shiftModal} onClose={() => setShiftModal(false)}
+        title="Atur Shift Pekerja"
+        subtitle="Klik Pagi, Sore, atau Malam untuk memindahkan pekerja antar shift. Perubahan langsung tampil di grid jadwal."
+        width={480}
+        actions={<NeuroBtn tone="primary" onClick={() => setShiftModal(false)}>Selesai</NeuroBtn>}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 380, overflowY: "auto" }}>
+          {WORKERS.length === 0 && (
+            <div style={{ fontSize: 12, color: "var(--nt-text-3)", padding: "12px 0" }}>
+              Belum ada pekerja. Tambahkan pekerja di halaman Pekerja.
+            </div>
+          )}
+          {WORKERS.map((w) => (
+            <div key={w.id} style={{
+              display: "flex", alignItems: "center", gap: 10,
+              padding: "10px 12px", borderRadius: 12,
+              background: "var(--nt-surface)", boxShadow: "var(--nt-shadow-out-sm)"
+            }}>
+              <span style={{
+                width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
+                background: `linear-gradient(135deg, ${w.img}, ${w.img}cc)`,
+                color: "white", fontSize: 11, fontWeight: 700,
+                display: "flex", alignItems: "center", justifyContent: "center"
+              }}>{w.name.split(" ").map((x) => x[0]).slice(0, 2).join("")}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--nt-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{w.name}</div>
+                <div style={{ fontSize: 10.5, color: "var(--nt-text-3)" }}>{w.role}</div>
+              </div>
+              <div style={{ display: "flex", gap: 4 }}>
+                {SHIFTS.map((sh) => {
+                  const on = w.shift === sh;
+                  return (
+                    <button key={sh}
+                      onClick={() => { window.ntSetWorkerShift(w.id, sh); window.toast?.(`${w.name} → shift ${sh}`, { kind: "success" }); }}
+                      style={{
+                        padding: "6px 10px", borderRadius: 9, border: "none", cursor: "pointer",
+                        fontSize: 11, fontWeight: 700, fontFamily: "inherit",
+                        background: on ? "linear-gradient(135deg, #9c8bf0, #6cb6f0)" : "var(--nt-surface)",
+                        boxShadow: on ? "0 4px 10px rgba(108,182,240,0.32)" : "var(--nt-shadow-out-sm)",
+                        color: on ? "white" : "var(--nt-text-2)",
+                      }}>{sh}</button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
       </Modal>
     </main>
   </div>

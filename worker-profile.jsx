@@ -42,7 +42,7 @@ const WorkerProfile = () => {
       {[
         { l: "Shift bulan ini", v: "18", c: ["#9c8bf0", "#b9adf5"] },
         { l: "Rerata readiness", v: w.readiness, c: ["#6cb6f0", "#8cc6f5"] },
-        { l: "Sleep score",      v: "84", c: ["#ff8aa1", "#ffaebb"] },
+        { l: "Skor fokus",      v: "84", c: ["#ff8aa1", "#ffaebb"] },
       ].map((s, i) => (
         <div key={i} className="neu-surface-sm" style={{ padding: "12px 10px", textAlign: "center" }}>
           <div style={{ fontSize: 22, fontWeight: 700, color: "var(--nt-text)", letterSpacing: "-0.01em" }}>{s.v}</div>
@@ -57,8 +57,26 @@ const WorkerProfile = () => {
         { l: "Notifikasi istirahat mikro", v: notifications, set: setNotifications, type: "toggle" },
         { l: "Auto-start istirahat saat Waspada", v: autoBreak, set: setAutoBreak, type: "toggle" },
         { l: "Kalibrasi baseline", sub: "Terakhir: kemarin", type: "action", onClick: () => window.toast?.("Mulai sesi kalibrasi singkat (5 menit)", { kind: "info" }) },
-        { l: "Riwayat tidur lengkap", type: "link", to: "/w/sleep" },
-        { l: "Pasangkan ulang Muse S", type: "action", onClick: () => window.toast?.("Mode pasangan dimulai · cari di Bluetooth HP", { kind: "info" }) },
+        { l: "Kondisi & neurofeedback", type: "link", to: "/w/wellness" },
+        { l: "Pasangkan ulang Muse S", type: "action", onClick: async () => {
+            // Disconnect first if already paired, then trigger the OS
+            // pairing dialog via the real BLE driver. Falls back to a
+            // helpful toast when Web Bluetooth isn't supported.
+            if (!window.ntMuse || !window.ntMuse.supported()) {
+              window.toast?.("Browser ini tidak mendukung Web Bluetooth. Buka di Chrome/Edge desktop.", { kind: "warn" });
+              return;
+            }
+            try {
+              if (window.ntDeviceStatus && window.ntDeviceStatus().connected) {
+                await (window.ntDeviceDisconnect && window.ntDeviceDisconnect());
+              }
+              window.toast?.("Buka dialog pairing Muse…", { kind: "info" });
+              const info = await window.ntDeviceConnect("real");
+              window.toast?.("Muse tersambung · " + (info && info.name ? info.name : "Muse"), { kind: "success" });
+            } catch (e) {
+              window.toast?.((e && e.message) || "Pairing dibatalkan.", { kind: "warn" });
+            }
+          } },
       ].map((row, i) => {
         const content = (
           <div style={{

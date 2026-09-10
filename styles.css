@@ -146,11 +146,12 @@ html, body {
 }
 
 .app-brand-name span {
-  font-size: 9px;
-  letter-spacing: 0.32em;
-  color: var(--nt-text-3);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--nt-text);
   margin-top: 3px;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .app-meta {
@@ -380,6 +381,30 @@ html, body {
   from { opacity: 0; transform: scale(0.94) translateY(8px); }
   to   { opacity: 1; transform: scale(1) translateY(0); }
 }
+/* Directional pop variants — used by management dashboard zoom modals
+   to mirror sidebar position (lower item = slide down from above; higher
+   item = slide up from below). */
+@keyframes nt-pop-down {
+  from { opacity: 0; transform: translateY(-46px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes nt-pop-up {
+  from { opacity: 0; transform: translateY(46px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Page-level directional slide — applied on .nt-screen when navigating
+   between sidebar items (replaces the old abrupt scroll-to-top). */
+@keyframes nt-slide-down {
+  from { opacity: 0; transform: translateY(-36px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes nt-slide-up {
+  from { opacity: 0; transform: translateY(36px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.nt-slide-down { animation: nt-slide-down .32s cubic-bezier(.2,.7,.3,1); }
+.nt-slide-up   { animation: nt-slide-up   .32s cubic-bezier(.2,.7,.3,1); }
 @keyframes nt-slide-in {
   from { opacity: 0; transform: translateX(40px); }
   to   { opacity: 1; transform: translateX(0); }
@@ -1396,67 +1421,134 @@ html, body {
 }
 
 /* ──────────────────────────────────────────────────────────────
-   Packages & pricing
+   Packages & pricing — Forma-AI inspired glassmorphic redesign.
+   Frosted-glass cards float over a dark hero with a subtle blue
+   radial orb and a giant blurred wordmark behind. 5 plans laid
+   out responsively; "Populer" plan lifts up.
    ────────────────────────────────────────────────────────────── */
+.nt-pricing-hero {
+  position: relative;
+  isolation: isolate;
+  border-radius: 28px;
+  padding: 60px clamp(20px, 4vw, 56px) 56px;
+  background:
+    radial-gradient(50% 60% at 80% 110%, rgba(58, 130, 246, 0.32), transparent 70%),
+    radial-gradient(40% 50% at 12% 0%, rgba(47, 212, 238, 0.10), transparent 65%),
+    linear-gradient(165deg, #0b1330 0%, #050a1c 100%);
+  overflow: hidden;
+}
+.nt-pricing-hero::before {
+  content: "Pricing";
+  position: absolute;
+  top: 30px;
+  right: -20px;
+  font-size: clamp(140px, 22vw, 280px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: rgba(96, 165, 250, 0.06);
+  pointer-events: none;
+  z-index: 0;
+  white-space: nowrap;
+}
+.nt-pricing-hero::after {
+  content: "";
+  position: absolute;
+  right: -120px; bottom: -120px;
+  width: 480px; height: 480px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(58, 130, 246, 0.55) 0%, rgba(37, 99, 235, 0.18) 35%, transparent 70%);
+  filter: blur(40px);
+  pointer-events: none;
+  z-index: 0;
+}
+.nt-pricing-hero > * { position: relative; z-index: 1; }
+
 .nt-price-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  grid-template-columns: repeat(5, 1fr);
   gap: 16px;
   margin-top: 44px;
 }
+@media (max-width: 1180px) { .nt-price-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 760px)  { .nt-price-grid { grid-template-columns: 1fr; } }
+
 .nt-price-card {
   display: flex;
   flex-direction: column;
-  background: var(--nt-surface);
-  border: var(--nt-hairline);
-  border-radius: 20px;
-  padding: 26px 22px;
-  box-shadow: var(--nt-shadow-out-sm);
+  position: relative;
+  background: linear-gradient(160deg, rgba(15, 23, 42, 0.55) 0%, rgba(10, 17, 36, 0.70) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 22px;
+  padding: 26px 22px 22px;
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  box-shadow:
+    0 18px 40px rgba(2, 6, 23, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition: transform .2s cubic-bezier(.16,1,.3,1), box-shadow .2s, border-color .2s;
+}
+.nt-price-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(96, 165, 250, 0.32);
+  box-shadow:
+    0 26px 56px rgba(2, 6, 23, 0.65),
+    0 0 24px rgba(58, 130, 246, 0.20),
+    inset 0 1px 0 rgba(255, 255, 255, 0.10);
 }
 .nt-price-card--popular {
-  border: 1px solid rgba(47, 212, 238, 0.5);
-  box-shadow: var(--nt-shadow-out), var(--nt-glow);
+  transform: translateY(-12px);
+  border: 1px solid rgba(96, 165, 250, 0.40);
+  box-shadow:
+    0 30px 60px rgba(2, 6, 23, 0.70),
+    0 0 32px rgba(58, 130, 246, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
+.nt-price-card--popular:hover { transform: translateY(-16px); }
+
 .nt-price-name {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--nt-cyan);
+  color: #93C5FD;
 }
 .nt-price-badge {
   display: inline-block;
   font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
+  font-weight: 800;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: #fff;
-  background: var(--nt-brand-gradient);
+  background: linear-gradient(135deg, #3B82F6, #60A5FA);
   border-radius: 999px;
   padding: 3px 9px;
   margin-left: 8px;
+  box-shadow: 0 4px 10px rgba(58, 130, 246, 0.40);
 }
 .nt-price-amount {
-  font-size: 25px;
+  font-size: 26px;
   font-weight: 800;
-  color: var(--nt-text);
+  color: #ffffff;
   letter-spacing: -0.02em;
-  margin-top: 14px;
+  margin-top: 10px;
+  line-height: 1.1;
 }
-.nt-price-unit { font-size: 12px; font-weight: 600; color: var(--nt-text-3); }
+.nt-price-unit { font-size: 13px; font-weight: 600; color: rgba(148, 163, 184, 0.85); }
 .nt-price-seg {
-  font-size: 12px;
-  color: var(--nt-text-2);
-  margin-top: 6px;
+  font-size: 12.5px;
+  color: rgba(203, 213, 225, 0.78);
+  margin-top: 8px;
   min-height: 32px;
+  line-height: 1.5;
 }
 .nt-price-users {
   align-self: flex-start;
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 700;
-  color: var(--nt-text);
-  background: var(--nt-bg-2);
-  box-shadow: var(--nt-shadow-in);
+  color: #DBEAFE;
+  background: rgba(59, 130, 246, 0.18);
+  border: 1px solid rgba(96, 165, 250, 0.25);
   border-radius: 999px;
   padding: 5px 12px;
   margin-top: 12px;
@@ -1467,18 +1559,61 @@ html, body {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: 10px;
   flex: 1;
 }
 .nt-price-feat {
   display: flex;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 10px;
   font-size: 12.5px;
-  color: var(--nt-text-2);
+  color: rgba(226, 232, 240, 0.85);
   line-height: 1.5;
 }
-.nt-price-feat svg { flex-shrink: 0; color: var(--nt-cyan); margin-top: 2px; }
-.nt-price-cta { margin-top: 18px; }
+.nt-price-feat svg {
+  flex-shrink: 0;
+  width: 16px; height: 16px;
+  padding: 3px;
+  border-radius: 50%;
+  background: rgba(59, 130, 246, 0.22);
+  border: 1px solid rgba(96, 165, 250, 0.32);
+  color: #93C5FD;
+  margin-top: 1px;
+}
+.nt-price-cta {
+  margin-top: 20px;
+  width: 100%;
+  padding: 11px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.95);
+  color: #0F172A;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background .18s, transform .15s, box-shadow .18s;
+  box-shadow: 0 6px 14px rgba(2, 6, 23, 0.40);
+}
+.nt-price-cta:hover {
+  background: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(2, 6, 23, 0.50);
+}
+.nt-price-card.is-sel .nt-price-cta {
+  background: linear-gradient(135deg, #3B82F6, #2563EB);
+  color: #ffffff;
+  border-color: rgba(96, 165, 250, 0.5);
+  box-shadow: 0 8px 20px rgba(58, 130, 246, 0.45);
+}
+.nt-price-card.is-sel {
+  border-color: rgba(96, 165, 250, 0.55);
+  box-shadow:
+    0 30px 60px rgba(2, 6, 23, 0.70),
+    0 0 36px rgba(58, 130, 246, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
 
 /* ──────────────────────────────────────────────────────────────
    Join flow (/join)
@@ -1693,4 +1828,505 @@ html, body {
 @media (max-width: 720px) {
   .nt-auth-grid { grid-template-columns: 1fr; max-width: 420px; }
   .nt-auth-brand { display: none; }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   App enhancements — scrollable screens, light theme, device pulse
+   ────────────────────────────────────────────────────────────── */
+
+/* Make the in-app screens scrollable inside their fixed-size frame. */
+.app-frame--mobile .nt-screen,
+.app-frame--desktop .nt-screen {
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(96,150,240,0.35) transparent;
+}
+.app-frame--mobile .nt-screen::-webkit-scrollbar,
+.app-frame--desktop .nt-screen::-webkit-scrollbar { width: 6px; }
+.app-frame--mobile .nt-screen::-webkit-scrollbar-thumb,
+.app-frame--desktop .nt-screen::-webkit-scrollbar-thumb {
+  background: rgba(96,150,240,0.30); border-radius: 3px;
+}
+
+/* Pulse animation for the "connecting…" indicator. */
+@keyframes ntPulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.45; transform: scale(1.6); }
+}
+
+/* ── Light theme — scoped to in-app chrome + screens.
+   Landing/auth/content pages stay on their own dark gradient. */
+body.nt-light .app-topbar,
+body.nt-light .app-tabs,
+body.nt-light .app-stage,
+body.nt-light .app-frame--mobile,
+body.nt-light .app-frame--desktop {
+  --nt-bg:           #edf1f7;
+  --nt-bg-2:         #f6f9fd;
+  --nt-bg-deep:      #d8dfeb;
+  --nt-surface:      #ffffff;
+  --nt-text:         #1a2b4a;
+  --nt-text-2:       #475672;
+  --nt-text-3:       #7d8a9e;
+  --nt-shadow-out:    0 10px 24px rgba(120,140,180,0.22), inset 0 1px 0 rgba(255,255,255,0.95);
+  --nt-shadow-out-sm: 0 4px 10px rgba(120,140,180,0.18), inset 0 1px 0 rgba(255,255,255,0.9);
+  --nt-shadow-out-lg: 0 20px 40px rgba(120,140,180,0.26), inset 0 1px 0 rgba(255,255,255,0.95);
+  --nt-shadow-in:     inset 4px 4px 8px rgba(150,170,200,0.28), inset -4px -4px 8px rgba(255,255,255,0.85);
+  --nt-hairline:      1px solid rgba(60,80,120,0.10);
+}
+body.nt-light .app-stage  { background: #edf1f7; }
+body.nt-light .app-topbar { background: rgba(255,255,255,0.72); }
+body.nt-light .app-tabs   { background: rgba(255,255,255,0.50); }
+body.nt-light .app-frame  { box-shadow: 0 18px 44px rgba(120,140,180,0.22); }
+body.nt-light .nt-screen  {
+  background: linear-gradient(175deg, #f6f9fd 0%, #edf1f7 55%);
+  color: #1a2b4a;
+}
+body.nt-light .nt-screen::before {
+  background: radial-gradient(120% 80% at 20% 0%, rgba(74,147,236,0.08), transparent 60%),
+              radial-gradient(120% 80% at 100% 100%, rgba(47,212,238,0.06), transparent 55%);
+}
+body.nt-light .neu-surface, body.nt-light .neu-surface-sm { background: #ffffff; }
+
+/* Mobile screens use flex-column so the (now sticky) tab bar
+   always sits at the bottom of the frame, whether content is short or long.
+   Override inline padding-bottom: 100 (legacy clearance for the old absolute bar). */
+.app-frame--mobile .nt-screen {
+  display: flex !important;
+  flex-direction: column;
+  padding-bottom: 0 !important;
+}
+
+/* Light-mode fixes — body background + better text contrast.
+   The base html/body has a hardcoded dark gradient (line 60) for the dark
+   theme; light mode needs its own surface, and the muted text variables
+   were too washed-out for 9-12px labels in the topbar/tabs. */
+body.nt-light {
+  background:
+    radial-gradient(60% 45% at 12% -5%, rgba(42, 95, 224, 0.08), transparent 70%),
+    radial-gradient(55% 45% at 90% 108%, rgba(47, 212, 238, 0.06), transparent 70%),
+    linear-gradient(165deg, #f6f9fd 0%, #edf1f7 55%, #dde6f4 100%);
+  /* Propagate the light-theme palette to body so portaled elements
+     (modals, toasts) outside .app-frame--* inherit the right colors. */
+  --nt-bg:           #ffffff;
+  --nt-bg-2:         #eff5ff;
+  --nt-bg-deep:      #d8dfeb;
+  --nt-surface:      #DBEAFE;
+  --nt-text:         #0f1c38;
+  --nt-text-2:       #354a72;
+  --nt-text-3:       #5b6b8c;
+  --nt-shadow-out:    0 10px 24px rgba(120,140,180,0.22), inset 0 1px 0 rgba(255,255,255,0.95);
+  --nt-shadow-out-sm: 0 4px 10px rgba(120,140,180,0.18), inset 0 1px 0 rgba(255,255,255,0.9);
+  --nt-shadow-out-lg: 0 20px 40px rgba(120,140,180,0.26), inset 0 1px 0 rgba(255,255,255,0.95);
+  --nt-shadow-in:     inset 4px 4px 8px rgba(150,170,200,0.28), inset -4px -4px 8px rgba(255,255,255,0.85);
+  --nt-hairline:      1px solid rgba(60,80,120,0.10);
+}
+
+/* Modal in light mode — explicitly use white modal box + light-blue cards
+   (matches the dashboard's blue palette). The modal portals to body, so
+   it relies on the body-level CSS vars above. */
+body.nt-light .frm-report-card {
+  background: #DBEAFE !important;
+  border: 1px solid rgba(59, 130, 246, 0.20);
+}
+body.nt-light .frm-report-card .nt-eyebrow { color: #2563EB; }
+
+/* Worker mobile tab bar in light mode — light-blue pill instead of dark
+   navy. Active circle gradient stays the same so the selected tab still
+   pops; inactive icons get a slightly darker tint for contrast. */
+body.nt-light .nt-tabbar {
+  background: rgba(219, 234, 254, 0.92) !important;
+  border: 1px solid rgba(59, 130, 246, 0.25) !important;
+  box-shadow:
+    0 14px 34px rgba(59, 130, 246, 0.20),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85) !important;
+}
+body.nt-light .app-shell::before {
+  background:
+    radial-gradient(50% 38% at 18% 0%, rgba(74, 147, 236, 0.10), transparent 65%),
+    radial-gradient(45% 36% at 100% 100%, rgba(47, 212, 238, 0.08), transparent 60%);
+}
+/* Bump contrast for muted text inside the in-app chrome. */
+body.nt-light .app-topbar,
+body.nt-light .app-tabs,
+body.nt-light .app-stage,
+body.nt-light .app-frame--mobile,
+body.nt-light .app-frame--desktop {
+  --nt-text:    #0f1c38;
+  --nt-text-2:  #354a72;
+  --nt-text-3:  #5b6b8c;
+  --nt-text-4:  #92a0bb;
+}
+/* Solid (not translucent) topbar & tabs so the dark body radial blooms
+   never leak through and dull the labels. */
+body.nt-light .app-topbar { background: rgba(255,255,255,0.92); border-bottom: 1px solid rgba(60,80,120,0.08); }
+body.nt-light .app-tabs   { background: rgba(255,255,255,0.78); border-bottom: 1px solid rgba(60,80,120,0.06); }
+
+/* ── Background hitam polos (sementara) ──────────────────────────────────
+   User request: "background web nya jadiin item polos dulu".
+   Mengganti gradien navy default di html/body dan mematikan dekorasi blue
+   blooms supaya seluruh halaman publik & app-stage tampil hitam solid.
+   Kartu / frame / topbar tetap memakai surface neumorphic mereka sendiri. */
+html, body                { background: #000 !important; }
+.app-shell::before        { display: none !important; }
+.nt-landing-orb           { display: none !important; }
+
+/* ── Light mode v2 — Dropify-style (cream surface + flat shadows) ────────
+   Overrides the earlier neumorphic light theme. Cards are pure white sitting
+   on a soft cream/grey page, shadows are flat & modern (no inset insets),
+   accent is brighter blue. Applies to in-app screens only — the website
+   surfaces (landing/about/login) keep brand dark. */
+body.nt-light .app-topbar,
+body.nt-light .app-tabs,
+body.nt-light .app-stage,
+body.nt-light .app-frame--mobile,
+body.nt-light .app-frame--desktop {
+  --nt-bg:           #eceff3;
+  --nt-bg-2:         #f4f6f9;
+  --nt-bg-deep:      #dde1e7;
+  --nt-surface:      #ffffff;
+  --nt-text:         #1a2235;
+  --nt-text-2:       #4a5566;
+  --nt-text-3:       #7a8294;
+  --nt-text-4:       #aab2bf;
+  /* Cleaner drop shadows — no more neumorphic outset+inset combo */
+  --nt-shadow-out:    0 8px 22px rgba(15,23,42,0.06), 0 2px 6px rgba(15,23,42,0.04);
+  --nt-shadow-out-sm: 0 3px 10px rgba(15,23,42,0.05), 0 1px 3px rgba(15,23,42,0.03);
+  --nt-shadow-out-lg: 0 18px 44px rgba(15,23,42,0.09), 0 4px 10px rgba(15,23,42,0.04);
+  --nt-shadow-in:     inset 0 0 0 1px rgba(15,23,42,0.06);
+  --nt-hairline:      1px solid rgba(15,23,42,0.07);
+  --nt-glow:          0 0 24px rgba(58,159,255,0.20);
+  --nt-glow-soft:     0 0 14px rgba(58,159,255,0.14);
+}
+body.nt-light .app-stage          { background: #eceff3; }
+body.nt-light .app-frame          { box-shadow: 0 24px 60px rgba(15,23,42,0.10), 0 6px 14px rgba(15,23,42,0.05); }
+body.nt-light .app-frame--mobile,
+body.nt-light .app-frame--desktop { background: #eceff3; }
+body.nt-light .nt-screen          { background: #eceff3; color: #1a2235; }
+body.nt-light .nt-screen::before  { background: none; }
+body.nt-light .neu-surface,
+body.nt-light .neu-surface-sm     { background: #ffffff; }
+
+/* Topbar / tabs jadi solid putih bersih, biar tidak bocor item polos body. */
+body.nt-light .app-topbar { background: #ffffff; border-bottom: 1px solid rgba(15,23,42,0.06); }
+body.nt-light .app-tabs   { background: #ffffff; border-bottom: 1px solid rgba(15,23,42,0.05); }
+
+/* ── Worker mobile (light) — purple accent variant (Dropify v2) ──────────
+   Hanya frame mobile yang dipakai oleh worker app yang di-overridenya.
+   Supervisor/Manajemen (desktop frame) tetap pakai aksen biru.
+   Layout & fitur worker tidak diubah, hanya identitas warnanya. */
+body.nt-light .app-frame--mobile {
+  --nt-bg:             #ecebf4;
+  --nt-bg-2:           #f5f4fa;
+  --nt-bg-deep:        #dedce8;
+  --nt-brand:          #7c5cf5;
+  --nt-brand-deep:     #5e3dc8;
+  --nt-brand-mid:      #9c84ff;
+  --nt-cyan:           #b69cff;
+  --nt-cyan-soft:      #d9caff;
+  --nt-brand-gradient: linear-gradient(120deg, #7c5cf5 0%, #b69cff 100%);
+  --nt-glow:           0 0 24px rgba(124,92,245,0.22);
+  --nt-glow-soft:      0 0 14px rgba(124,92,245,0.14);
+  --nt-purple:         #7c5cf5;
+  --nt-purple-2:       #b69cff;
+  --nt-blue:           #7c5cf5;
+  --nt-blue-2:         #9c84ff;
+}
+body.nt-light .app-frame--mobile,
+body.nt-light .app-frame--mobile .nt-screen { background: #ecebf4; }
+
+/* Recolor inline NeuroGauge stroke (worker readiness) — komponen ini
+   menggunakan gradient yang di-encode via prop, jadi kita override warna
+   defaultnya lewat selektor svg di frame mobile saat light mode. */
+body.nt-light .app-frame--mobile .neu-surface,
+body.nt-light .app-frame--mobile .neu-surface-sm { background: #ffffff; }
+
+/* ── Light mode v3 — topbar tetap dark, desktop in-app pakai biru terang ──
+   User request: "top navigation bar ga berubah warna, yang berubah hanya
+   tampilan desktop in-app". Mengembalikan topbar + persona-tabs ke dark
+   vars + transparent (mereka pakai body bg yang sekarang #000 polos).
+   Sekaligus mempertajam aksen biru untuk frame desktop. */
+body.nt-light .app-topbar,
+body.nt-light .app-tabs {
+  --nt-bg:           #081225;
+  --nt-bg-2:         #0e1d3f;
+  --nt-bg-deep:      #050b1a;
+  --nt-surface:      #13234d;
+  --nt-text:         #e9eefb;
+  --nt-text-2:       #aab9da;
+  --nt-text-3:       #7184ad;
+  --nt-text-4:       #46557d;
+  --nt-shadow-out:   -6px -6px 14px rgba(74,124,226,0.20), 7px 7px 16px rgba(1,4,12,0.80);
+  --nt-shadow-out-sm: -3px -3px 8px rgba(74,124,226,0.20), 4px 4px 9px rgba(1,4,12,0.55);
+  --nt-shadow-in:    inset 3px 3px 7px rgba(1,4,12,0.80), inset -3px -3px 7px rgba(74,124,226,0.20);
+  --nt-hairline:     1px solid rgba(96,150,240,0.16);
+  background: transparent !important;
+  border-bottom: none !important;
+}
+
+/* Desktop in-app (supervisor & manajemen) — biru lebih cerah (vibrant),
+   mengikuti tone Dropify referensi. Worker mobile tetap pakai purple variant. */
+body.nt-light .app-frame--desktop {
+  --nt-brand:          #3aa0ff;
+  --nt-brand-deep:     #1d6ec8;
+  --nt-brand-mid:      #6cb6ff;
+  --nt-cyan:           #3aa0ff;
+  --nt-cyan-soft:      #9bcaff;
+  --nt-brand-gradient: linear-gradient(120deg, #3aa0ff 0%, #6cb6ff 100%);
+  --nt-blue:           #3aa0ff;
+  --nt-blue-2:         #6cb6ff;
+  --nt-glow:           0 0 24px rgba(58,159,255,0.24);
+  --nt-glow-soft:      0 0 14px rgba(58,159,255,0.16);
+}
+
+/* ── Worker mobile (light) — unify ke blue Dropify palette ───────────────
+   Sebelumnya frame mobile diberi varian ungu (purple). Sekarang disamakan
+   dengan supervisor & manajemen yang pakai biru cerah, mengikuti rancangan
+   manajemen yang baru. Override CSS later → menang specificity sama. */
+body.nt-light .app-frame--mobile {
+  --nt-brand:          #3a9fff;
+  --nt-brand-deep:     #1d6ec8;
+  --nt-brand-mid:      #6cb6ff;
+  --nt-cyan:           #3a9fff;
+  --nt-cyan-soft:      #9bcaff;
+  --nt-brand-gradient: linear-gradient(120deg, #3a9fff 0%, #6cb6ff 100%);
+  --nt-blue:           #3a9fff;
+  --nt-blue-2:         #6cb6ff;
+  --nt-purple:         #3a9fff;
+  --nt-purple-2:       #6cb6ff;
+  --nt-glow:           0 0 24px rgba(58,159,255,0.24);
+  --nt-glow-soft:      0 0 14px rgba(58,159,255,0.16);
+}
+body.nt-light .app-frame--mobile,
+body.nt-light .app-frame--mobile .nt-screen { background: #eceff3; }
+
+/* StatusPill — di light mode, beri background blue-soft sesuai status
+   supaya pill makin terbaca pada putih (mengikuti chip style Dropify). */
+body.nt-light .app-frame--mobile .neu-surface,
+body.nt-light .app-frame--desktop .neu-surface,
+body.nt-light .app-frame--mobile .neu-surface-sm,
+body.nt-light .app-frame--desktop .neu-surface-sm {
+  background: #ffffff;
+}
+
+/* ── Persona tab pill (single button per persona) ─────────────────────────
+   Replaces the old "label + Buka App/Dashboard/Analitik" two-row pattern.
+   Each persona is now one clickable pill: icon + persona label. */
+.app-tab-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--nt-text-2);
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: background .15s, color .15s, border-color .15s, box-shadow .15s;
+}
+.app-tab-pill:hover {
+  color: var(--nt-text);
+  background: rgba(96, 150, 240, 0.10);
+}
+.app-tab-pill.is-active {
+  background: linear-gradient(135deg, #3B82F6, #2563EB);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 6px 16px rgba(58, 130, 246, 0.32);
+}
+.app-tab-pill-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.app-tab-pill.is-active .app-tab-pill-icon { color: #ffffff; }
+
+/* ── Topbar + persona tabs follow light theme when active ─────────────── */
+body.nt-light .app-topbar,
+body.nt-light .app-tabs {
+  --nt-bg:           #eceff3;
+  --nt-bg-2:         #f4f6f9;
+  --nt-bg-deep:      #dde1e7;
+  --nt-surface:      #ffffff;
+  --nt-text:         #1a2235;
+  --nt-text-2:       #4a5566;
+  --nt-text-3:       #7a8294;
+  --nt-text-4:       #aab2bf;
+  --nt-hairline:     1px solid rgba(15,23,42,0.07);
+  background: #ffffff !important;
+  border-bottom: 1px solid rgba(15,23,42,0.07);
+}
+body.nt-light .app-tabs   { background: #f8fafc !important; }
+body.nt-light .app-tab-pill:hover { background: rgba(59,130,246,0.10); }
+
+/* ── Light mode v5 — body bg ikut tema, no more black edges ──────────────
+   Override hardcoded "background: #000 !important" pada html/body saat
+   light mode aktif, supaya tidak ada strip hitam di pinggir topbar/tabs. */
+body.nt-light {
+  background: #f5f6f8 !important;
+}
+
+/* ── Highlight pulse on smooth-scrolled target (Management sidebar) ───── */
+.frm-highlight {
+  animation: frmFlash 1.4s ease-out;
+}
+@keyframes frmFlash {
+  0%   { box-shadow: 0 0 0 0 rgba(59,130,246,0.55), var(--nt-shadow-out-sm); }
+  40%  { box-shadow: 0 0 0 8px rgba(59,130,246,0.18), var(--nt-shadow-out-sm); }
+  100% { box-shadow: 0 0 0 0 rgba(59,130,246,0), var(--nt-shadow-out-sm); }
+}
+
+/* ── Device frame mockups ────────────────────────────────────────────────
+   Tambahkan detail "hardware" supaya frame benar-benar terasa seperti
+   perangkat fisik (mengikuti referensi mockup mobile + dashboard). */
+
+/* Mobile (worker app) — dynamic island / notch di tengah-atas frame */
+.app-frame--mobile { position: relative; }
+.app-frame--mobile::after {
+  content: "";
+  position: absolute;
+  top: 10px; left: 50%; transform: translateX(-50%);
+  width: 92px; height: 22px;
+  background: #000000;
+  border-radius: 999px;
+  z-index: 30;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,0.05),
+    0 2px 4px rgba(0,0,0,0.4);
+}
+
+/* (Status bar sudah punya padding-top 30px langsung di komponennya —
+   menyisakan ruang untuk Dynamic Island. CSS lain tidak perlu.) */
+
+/* Desktop frame (supervisor / manajemen). Traffic-light dots dihapus
+   per request user — frame tetap polos. */
+.app-frame--desktop { position: relative; }
+
+/* ── Collapsible sidebar — every desktop screen uses a `<sidebar>px 1fr`
+   grid template (228px supervisor, 204px manajemen). When the body
+   carries .nt-sidebar-collapsed we shrink that to a 64px rail and the
+   sidebar itself hides its text labels. */
+.app-frame--desktop .nt-screen {
+  transition: grid-template-columns .32s cubic-bezier(.16, 1, .3, 1);
+}
+body.nt-sidebar-collapsed .app-frame--desktop .nt-screen {
+  grid-template-columns: 64px 1fr !important;
+}
+body.nt-sidebar-collapsed .nt-sb-label { display: none !important; }
+body.nt-sidebar-collapsed .nt-sb-hide  { display: none !important; }
+/* Center icons inside nav items when collapsed. The `.nt-sb-item` class
+   marks the actual flex container (either a <button> directly or a <div>
+   nested inside <Link>). */
+body.nt-sidebar-collapsed .nt-sb-item {
+  justify-content: center !important;
+  gap: 0 !important;
+  padding-left: 6px !important;
+  padding-right: 6px !important;
+}
+/* The whole aside also tightens up when collapsed (less horizontal pad
+   so icons land on the rail's centerline). */
+body.nt-sidebar-collapsed .nt-sb-aside {
+  padding-left: 8px !important;
+  padding-right: 8px !important;
+}
+
+/* ── Ask AI Pro-card launcher (referensi: sidebar Pro widget) ────────────
+   Rendered inline by each persona — sidebar (supervisor/management) or top
+   of the phone frame (worker). No longer position:fixed. */
+.nt-ai-procard {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid rgba(96,165,250,0.22);
+  border-radius: 14px;
+  background: linear-gradient(160deg, #0F172A 0%, #1E293B 100%);
+  box-shadow: 0 10px 24px rgba(2,6,23,0.45), 0 3px 8px rgba(58,130,246,0.16);
+  cursor: pointer; font-family: inherit;
+  transition: transform .18s, box-shadow .18s, border-color .18s;
+}
+.nt-ai-procard:hover {
+  transform: translateY(-2px);
+  border-color: rgba(96,165,250,0.45);
+  box-shadow: 0 16px 32px rgba(2,6,23,0.55), 0 6px 14px rgba(58,130,246,0.30);
+}
+.nt-ai-procard-icon {
+  width: 34px; height: 34px; flex-shrink: 0;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #3B82F6, #2563EB);
+  color: #ffffff;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 10px rgba(58,130,246,0.45);
+}
+.nt-ai-procard-body {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+  text-align: left;
+  flex: 1; min-width: 0;
+}
+.nt-ai-procard-badge {
+  font-size: 8px; font-weight: 800; letter-spacing: 0.12em;
+  padding: 1.5px 6px; border-radius: 5px;
+  background: linear-gradient(135deg, #60A5FA, #3B82F6);
+  color: #ffffff;
+  margin-bottom: 2px;
+}
+.nt-ai-procard-title {
+  font-size: 12px; font-weight: 800; color: #ffffff;
+  letter-spacing: -0.01em;
+}
+.nt-ai-procard-sub {
+  font-size: 9.5px; color: #94A3B8;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 100%;
+}
+.nt-ai-procard-arrow {
+  margin-left: 2px; font-size: 12px; color: #60A5FA; font-weight: 700;
+}
+
+/* Light-mode varian — ikut tema cream/white */
+body.nt-light .nt-ai-procard {
+  background: linear-gradient(160deg, #ffffff 0%, #f1f5f9 100%);
+  border: 1px solid rgba(15,23,42,0.08);
+  box-shadow: 0 10px 22px rgba(15,23,42,0.10), 0 3px 8px rgba(15,23,42,0.05);
+}
+body.nt-light .nt-ai-procard-title { color: #0F172A; }
+body.nt-light .nt-ai-procard-sub   { color: #475569; }
+body.nt-light .nt-ai-procard-arrow { color: #2563EB; }
+
+/* ── Ask AI Plus button — mobile worker, sits inside the phone frame ──── */
+.nt-ai-plus {
+  width: 40px; height: 40px; border-radius: 50%;
+  border: none; cursor: pointer; padding: 0;
+  background: linear-gradient(135deg, #3B82F6, #2563EB);
+  color: #ffffff;
+  display: inline-flex; align-items: center; justify-content: center;
+  box-shadow: 0 8px 18px rgba(59,130,246,0.45), 0 2px 4px rgba(2,6,23,0.40);
+  transition: transform .15s, box-shadow .15s;
+}
+.nt-ai-plus:hover {
+  transform: scale(1.08);
+  box-shadow: 0 12px 24px rgba(59,130,246,0.55), 0 3px 6px rgba(2,6,23,0.50);
+}
+body.nt-light .nt-ai-plus {
+  box-shadow: 0 8px 18px rgba(37,99,235,0.32), 0 2px 4px rgba(15,23,42,0.12);
+}
+
+/* ── AskAI panel positioning when rendered INSIDE the phone frame.
+   The default .nt-ai is position:fixed at the viewport's bottom-right —
+   on mobile we override it to sit inside .app-frame--mobile. */
+.nt-ai--mobile {
+  position: absolute !important;
+  left: 10px; right: 10px;
+  top: 64px;     /* clear sticky status bar */
+  bottom: 96px;  /* clear bottom tab bar */
+  z-index: 30;
+  pointer-events: none;
+}
+.nt-ai--mobile > * { pointer-events: auto; }
+.nt-ai--mobile .nt-ai-panel {
+  width: 100%; max-width: 100%;
+  height: 100%; max-height: 100%;
 }
