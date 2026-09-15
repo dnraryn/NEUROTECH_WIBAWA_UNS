@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NeuroTech — Monitoring Fatigue, Cognitive Load &amp; SMK3</title>
+  <meta name="description" content="NeuroTech: platform SMK3 (PP 50/2012) dengan pemantauan kelelahan mental, beban kognitif, dan microsleep berbasis headband EEG Muse." />
+  <link rel="icon" href="/assets/favicon.png" type="image/png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <script src="https://code.iconify.design/iconify-icon/2.3.0/iconify-icon.min.js"></script>
+</head>
+<body>
+  <!-- NAVBAR -->
+  <header class="nav">
+    <div class="container nav-inner">
+      <a class="brand" href="/"><img src="/assets/logo-mark.png" alt="" /><span class="brand-word">neurotech</span></a>
+      <nav class="lnav-menu" aria-label="Menu utama">
+        <a class="lnav-link" href="#hero">Beranda</a>
+        <a class="lnav-link" href="#tentang">About NeuroTech</a>
+        <div class="lnav-item">
+          <button class="lnav-link" type="button">Fitur <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg></button>
+          <div class="lnav-dropdown">
+            <a class="lnav-drop-link" href="#solusi"><b>App Pekerja</b><span>Pantau kondisi otak Anda sendiri</span></a>
+            <a class="lnav-drop-link" href="#solusi"><b>Dashboard Supervisor</b><span>Overview tim, alert K3 &amp; tindak lanjut</span></a>
+            <a class="lnav-drop-link" href="#solusi"><b>Analitik Manajemen</b><span>KPI K3, audit &amp; tinjauan manajemen</span></a>
+          </div>
+        </div>
+        <div class="lnav-item">
+          <button class="lnav-link" type="button">Solusi <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg></button>
+          <div class="lnav-dropdown">
+            <a class="lnav-drop-link" href="#cara-kerja"><b>Pemantauan Fatigue</b><span>Deteksi kelelahan mental real-time</span></a>
+            <a class="lnav-drop-link" href="#cara-kerja"><b>Deteksi Microsleep</b><span>Peringatan dini sebelum insiden</span></a>
+            <a class="lnav-drop-link" href="#smk3"><b>Manajemen SMK3</b><span>Kebijakan, risiko, insiden, CAPA, audit</span></a>
+          </div>
+        </div>
+        <div class="lnav-item">
+          <button class="lnav-link" type="button">Dukungan <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg></button>
+          <div class="lnav-dropdown">
+            <a class="lnav-drop-link" href="/docs/Panduan-Penggunaan-NeuroTech-SMK3.pdf" target="_blank" rel="noopener"><b>Panduan Penggunaan</b><span>Panduan lengkap (PDF) untuk semua peran</span></a>
+            <a class="lnav-drop-link" href="#paket"><b>Paket &amp; Harga</b><span>Pilih paket sesuai skala usaha</span></a>
+            <a class="lnav-drop-link" href="#kontak"><b>Hubungi Kami</b><span>Tim dukungan siap membantu</span></a>
+          </div>
+        </div>
+      </nav>
+      <div class="lnav-actions">
+        <a class="lnav-icon" href="/docs/Panduan-Penggunaan-NeuroTech-SMK3.pdf" target="_blank" rel="noopener" title="Panduan penggunaan"><iconify-icon icon="mdi:book-open-variant"></iconify-icon></a>
+        <a class="lnav-icon" href="/login" title="Masuk"><iconify-icon icon="mdi:account-outline"></iconify-icon></a>
+        <a class="btn btn-primary" href="/register" style="padding:.5rem 1rem;font-size:.82rem">Bergabung</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- HERO -->
+  <section class="hero" id="hero">
+    <span class="hero-orb a"></span><span class="hero-orb b"></span>
+    <div class="container">
+      <video class="hero-video reveal" src="/assets/logo-reveal.mp4" autoplay loop muted playsinline preload="auto" aria-label="NeuroTech"></video>
+      <span class="eyebrow reveal" style="margin-top:1.4rem">Sistem Monitoring K3 Berbasis EEG · Platform SMK3</span>
+      <h1 class="reveal">Lihat <span class="grad-text">fatigue &amp; cognitive load</span><br />sebelum jadi insiden.</h1>
+      <p class="lead reveal">NeuroTech memantau otak pekerja secara real-time dari headband Muse, supaya kelelahan mental terdeteksi lebih dulu,
+        lalu setiap peringatan ditindaklanjuti dan tercatat dalam Sistem Manajemen K3 perusahaan sesuai PP No. 50 Tahun 2012.</p>
+      <div class="hero-cta reveal">
+        <a class="btn btn-primary" href="/register" style="padding:.9rem 1.4rem">Bergabung dengan Kami</a>
+        <a class="btn btn-ghost" href="/login" style="padding:.9rem 1.4rem">Masuk →</a>
+      </div>
+      <div class="eeg-strip reveal" id="eeg" aria-hidden="true"></div>
+      <div class="stats reveal">
+        <div class="stat"><b>6</b><span>Indeks kognitif</span></div>
+        <div class="stat"><b>5</b><span>Tahap SMK3</span></div>
+        <div class="stat"><b>166</b><span>Kriteria audit resmi</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- KENAPA PENTING -->
+  <section class="section container" id="penting">
+    <div class="reveal"><span class="eyebrow center">Kenapa ini penting</span>
+      <h2>Kecelakaan kerja masih tinggi, dan terus naik</h2></div>
+    <div class="hook-grid reveal">
+      <div class="hook-stat"><b>462.241</b><span>kasus kecelakaan kerja tercatat di Indonesia sepanjang 2024</span></div>
+      <div class="hook-stat"><b>Rp 3,49 T</b><span>nilai klaim kecelakaan kerja yang dibayarkan selama 2024</span></div>
+      <div class="hook-stat"><b>370.747</b><span>kasus pada 2023, artinya angkanya terus meningkat tiap tahun</span></div>
+    </div>
+    <p class="sub reveal" style="margin-top:1.8rem">Banyak insiden dipicu <b style="color:var(--nt-text)">kelelahan dan microsleep</b>, kondisi yang tidak terlihat mata,
+      tetapi <b style="color:var(--nt-text)">bisa dideteksi lebih awal lewat sinyal otak (EEG)</b>. NeuroTech mengubah kelelahan yang tak terlihat menjadi
+      peringatan dini yang bisa ditindaklanjuti.</p>
+    <p class="tiny center" style="color:var(--nt-text-3)">Sumber: BPJS Ketenagakerjaan, data kecelakaan kerja nasional 2023–2024.</p>
+  </section>
+
+  <!-- SOLUSI -->
+  <section class="section container" id="solusi">
+    <div class="reveal"><span class="eyebrow center">Tiga sudut pandang</span>
+      <h2>Satu sistem untuk seluruh tim K3</h2></div>
+    <div class="grid grid-3" style="margin-top:2.4rem">
+      <div class="card reveal"><div class="icon">👷</div><h3>Pekerja</h3><p>Pantau kondisi otak saat bekerja lewat headband, terima rekomendasi micro-break, laporkan near miss, dan kerjakan tugas perbaikan — data EEG privat untuk Anda.</p></div>
+      <div class="card reveal"><div class="icon">🛡</div><h3>Supervisor &amp; Ahli K3</h3><p>Dashboard tim real-time: siapa berisiko, alert microsleep dengan bunyi &amp; notifikasi, investigasi insiden, inspeksi, dan CAPA dalam satu tempat.</p></div>
+      <div class="card reveal"><div class="icon">📊</div><h3>Manajemen SMK3</h3><p>KPI K3 (LTIFR, severity rate), analitik fatigue agregat &amp; anonim, audit 166 kriteria, dan tinjauan manajemen untuk keputusan kebijakan.</p></div>
+    </div>
+  </section>
+
+  <!-- CARA KERJA -->
+  <section class="section container" id="cara-kerja">
+    <div class="reveal"><span class="eyebrow center">Cara kerja</span>
+      <h2>Dari sinyal otak ke pencegahan insiden</h2></div>
+    <div class="grid grid-3" style="margin-top:2.4rem">
+      <div class="card reveal"><div class="step-n">01</div><h3>Pakai headband</h3><p>Pekerja memakai headband EEG Muse. Kalibrasi baseline otak singkat dilakukan di awal shift.</p></div>
+      <div class="card reveal"><div class="step-n">02</div><h3>Analisis real-time</h3><p>Sinyal EEG diproses menjadi indeks Fatigue, Cognitive Load, Engagement, HRV, dan Stres setiap detik.</p></div>
+      <div class="card reveal"><div class="step-n">03</div><h3>Peringatan &amp; tindak lanjut</h3><p>Alert muncul sebelum kelelahan menjadi microsleep. Kondisi kritis tercatat sebagai near miss dan ditindaklanjuti lewat CAPA.</p></div>
+    </div>
+  </section>
+
+  <!-- MODUL SMK3 -->
+  <section class="section container" id="smk3">
+    <div class="reveal"><span class="eyebrow center">Platform SMK3</span>
+      <h2>Mengikuti 5 tahap penerapan SMK3</h2>
+      <p class="sub">Seluruh modul mengacu PP No. 50 Tahun 2012. Data EEG terhubung ke pelaporan, register risiko, KPI, dan tinjauan manajemen.</p></div>
+    <div class="grid grid-3">
+      <div class="card reveal"><div class="icon"><iconify-icon icon="mdi:shield-check-outline"></iconify-icon></div><h3>1 · Kebijakan &amp; 2 · Perencanaan</h3>
+        <ul class="feature-list"><li>Kebijakan K3 disahkan pimpinan &amp; konfirmasi baca</li><li>Struktur P2K3</li><li>Register risiko HIRADC matriks 5×5</li></ul></div>
+      <div class="card reveal"><div class="icon"><iconify-icon icon="mdi:head-cog-outline"></iconify-icon></div><h3>3 · Pelaksanaan</h3>
+        <ul class="feature-list"><li>Monitoring EEG pribadi &amp; tim</li><li>Pengendalian dokumen &amp; revisi</li><li>Pelatihan &amp; matriks kompetensi</li></ul></div>
+      <div class="card reveal"><div class="icon"><iconify-icon icon="mdi:clipboard-check-outline"></iconify-icon></div><h3>4 · Pemantauan &amp; 5 · Peningkatan</h3>
+        <ul class="feature-list"><li>Insiden, near miss &amp; CAPA</li><li>Inspeksi, KPI &amp; laporan PDF</li><li>Audit 166 kriteria &amp; tinjauan manajemen</li></ul></div>
+    </div>
+  </section>
+
+  <!-- TENTANG -->
+  <section class="section container" id="tentang">
+    <div class="reveal"><span class="eyebrow center">Tentang Kami</span>
+      <h2>Mengapa NeuroTech ada</h2>
+      <p class="sub">NeuroTech dibuat untuk satu tujuan: mencegah kecelakaan kerja akibat kelelahan, dengan teknologi yang melindungi pekerja.</p></div>
+    <div class="vm reveal">
+      <div class="card"><div class="icon"><iconify-icon icon="mdi:eye-outline"></iconify-icon></div><h3>Visi</h3>
+        <p>Menjadi sistem pemantauan kelelahan dan keselamatan kerja berbasis EEG yang membantu menekan angka kecelakaan kerja akibat fatigue di Indonesia.</p></div>
+      <div class="card"><div class="icon"><iconify-icon icon="mdi:bullseye-arrow"></iconify-icon></div><h3>Misi</h3>
+        <ol>
+          <li>Mendeteksi kelelahan mental, beban kognitif, dan microsleep pekerja secara real-time sebelum berubah menjadi insiden.</li>
+          <li>Menyediakan indikator K3 yang objektif dan mudah dipahami bagi pekerja, supervisor, maupun manajemen.</li>
+          <li>Mendorong budaya keselamatan kerja yang non-punitif, tempat teknologi hadir untuk melindungi pekerja.</li>
+        </ol></div>
+    </div>
+  </section>
+
+  <!-- TIM -->
+  <section class="section container" id="tim">
+    <div class="reveal"><span class="eyebrow center">Profil Tim</span>
+      <h2>Tim di Balik NeuroTech</h2>
+      <p class="sub">Mahasiswa Teknik Industri Universitas Sebelas Maret, didampingi Dr. Ir. Rahmaniyah Dwi Astuti, S.T., M.T.</p></div>
+    <div class="team-grid reveal">
+      <div class="member"><div class="photo"><img src="/assets/team-ceo.jpg" alt="Danial Ghazi Arsyad" /></div><b>Danial Ghazi Arsyad</b><span>Chief Executive Officer</span></div>
+      <div class="member"><div class="photo"><img src="/assets/team-coo.jpg" alt="Yamilla Kirana Paramita" /></div><b>Yamilla Kirana Paramita</b><span>Chief Operating Officer</span></div>
+      <div class="member"><div class="photo"><img src="/assets/team-cro.jpg" alt="Dinnar Ary Nastiti" /></div><b>Dinnar Ary Nastiti</b><span>Chief Relationship Officer</span></div>
+      <div class="member"><div class="photo"><img src="/assets/team-cmo.jpg" alt="Nada Nadhifah" /></div><b>Nada Nadhifah</b><span>Chief Marketing Officer</span></div>
+      <div class="member"><div class="photo"><img src="/assets/team-cbo.jpg" alt="Elviana Faza Al Fatah" /></div><b>Elviana Faza Al Fatah</b><span>Chief Business Officer</span></div>
+      <div class="member"><div class="photo"><img src="/assets/team-cto.jpg" alt="Novan Gading Krisniawidhi" /></div><b>Novan Gading Krisniawidhi</b><span>Chief Technology Officer</span></div>
+      <div class="member"><div class="photo"><img src="/assets/team-cfo.jpg" alt="Emanuela Cherry" /></div><b>Emanuela Cherry</b><span>Chief Financial Officer</span></div>
+    </div>
+  </section>
+
+  <!-- RISET -->
+  <section class="section container" id="riset">
+    <div class="reveal"><span class="eyebrow center">Riset &amp; Jurnal</span>
+      <h2>Didukung bukti ilmiah</h2>
+      <p class="sub">Pemantauan kelelahan berbasis EEG sudah diteliti luas dan terbukti efektif untuk keselamatan kerja. Beberapa rujukan ilmiahnya:</p></div>
+    <div class="grid grid-2 reveal">
+      <a class="research-card" href="https://arxiv.org/abs/2408.12990" target="_blank" rel="noopener noreferrer"><span class="tag-r">Survei</span><b>A Survey on Drowsiness Detection, Modern Applications and Methods</b><small>IEEE Transactions on Intelligent Vehicles · 2024 · Buka sumber →</small></a>
+      <a class="research-card" href="https://www.sciencedirect.com/science/article/abs/pii/S0925231223008329" target="_blank" rel="noopener noreferrer"><span class="tag-r">Survei</span><b>EEG-based neural networks approaches for fatigue and drowsiness detection: A survey</b><small>Neurocomputing (Elsevier) · 2023 · Buka sumber →</small></a>
+      <a class="research-card" href="https://pubmed.ncbi.nlm.nih.gov/27121994/" target="_blank" rel="noopener noreferrer"><span class="tag-r">Jurnal</span><b>An EEG-Based Fatigue Detection and Mitigation System</b><small>International Journal of Neural Systems · 2016 · Buka sumber →</small></a>
+      <a class="research-card" href="https://www.sciencedirect.com/science/article/abs/pii/S016926072100609X" target="_blank" rel="noopener noreferrer"><span class="tag-r">Jurnal</span><b>Drowsiness detection using portable wireless EEG</b><small>Computer Methods and Programs in Biomedicine · 2022 · Buka sumber →</small></a>
+    </div>
+  </section>
+
+  <!-- PAKET -->
+  <section class="section container" id="paket">
+    <div class="reveal"><span class="eyebrow center">Plan &amp; Pricing</span>
+      <h2>Pilih paket NeuroTech</h2>
+      <p class="sub">Pilih paket yang sesuai dengan skala usaha Anda. Hubungi kami untuk aktivasi langganan perusahaan.</p></div>
+    <div class="price-grid reveal">
+      <div class="price-card"><div class="tier">Free</div><div class="amount">Gratis</div><div class="seg">Pengguna individu</div><span class="users">1 pengguna</span>
+        <ul class="feature-list"><li>Monitoring fatigue &amp; cognitive load pribadi</li><li>Skor readiness &amp; riwayat sesi</li></ul></div>
+      <div class="price-card"><div class="tier">Bronze</div><div class="amount">Rp 49.999<small>/bulan</small></div><div class="seg">UMKM &amp; usaha kecil</div><span class="users">Hingga 10 pengguna</span>
+        <ul class="feature-list"><li>Semua fitur Free</li><li>Dashboard supervisor</li><li>Alert microsleep real-time</li></ul></div>
+      <div class="price-card popular"><div class="tier">Silver <em>POPULER</em></div><div class="amount">Rp 99.000<small>/bulan</small></div><div class="seg">Industri skala menengah</div><span class="users">Hingga 25 pengguna</span>
+        <ul class="feature-list"><li>Semua fitur Bronze</li><li>Manajemen SMK3: insiden, CAPA, risiko</li><li>Analitik manajemen agregat</li></ul></div>
+      <div class="price-card"><div class="tier">Gold</div><div class="amount">Rp 199.000<small>/bulan</small></div><div class="seg">Company &amp; industri</div><span class="users">Hingga 50 pengguna</span>
+        <ul class="feature-list"><li>Semua fitur Silver</li><li>Audit SMK3 &amp; laporan K3 lanjutan</li><li>Dukungan prioritas</li></ul></div>
+      <div class="price-card"><div class="tier">Platinum</div><div class="amount">Rp 379.000<small>/bulan</small></div><div class="seg">Company skala besar</div><span class="users">50–100 pengguna</span>
+        <ul class="feature-list"><li>Semua fitur Gold</li><li>Onboarding &amp; pelatihan tim</li><li>Dukungan khusus (dedicated)</li></ul></div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="section container">
+    <div class="final-cta reveal">
+      <h2 style="margin-top:0">Siap mencegah insiden<br />sebelum terjadi?</h2>
+      <p class="sub" style="margin-bottom:1.6rem">Daftarkan perusahaan Anda, dapatkan kode undangan, lalu undang pekerja, supervisor, dan manajemen ke dalam satu sistem.</p>
+      <div class="hero-cta"><a class="btn btn-primary" href="/register" style="padding:.9rem 1.4rem">Bergabung dengan Kami</a>
+        <a class="btn btn-ghost" href="/docs/Panduan-Penggunaan-NeuroTech-SMK3.pdf" target="_blank" rel="noopener" style="padding:.9rem 1.4rem">Baca panduan →</a></div>
+    </div>
+  </section>
+
+  <!-- KONTAK -->
+  <section class="section container" id="kontak">
+    <div class="reveal"><span class="eyebrow center">Konsultasi</span>
+      <h2 style="margin-bottom:2rem">Konsultasi &amp; Hubungi Kami</h2></div>
+    <div class="contact-card reveal">
+      <div>
+        <h3>Informasi kontak</h3>
+        <div class="contact-row"><span class="ico"><iconify-icon icon="mdi:map-marker-outline"></iconify-icon></span><div><small>Alamat</small>Prodi Teknik Industri, Fakultas Teknik, Universitas Sebelas Maret, Jl. Ir. Sutami No. 36A, Kentingan, Jebres, Surakarta 57126, Jawa Tengah</div></div>
+        <div class="contact-row"><span class="ico"><iconify-icon icon="mdi:phone-outline"></iconify-icon></span><div><small>Telepon / WhatsApp</small><a href="tel:+6281234567859">0812-3456-7859</a></div></div>
+        <div class="contact-row"><span class="ico"><iconify-icon icon="mdi:email-outline"></iconify-icon></span><div><small>Email</small><a href="mailto:neurotech.id@gmail.com">neurotech.id@gmail.com</a></div></div>
+        <div class="contact-row"><span class="ico"><iconify-icon icon="mdi:instagram"></iconify-icon></span><div><small>Instagram</small><a href="https://instagram.com/neurotech.id" target="_blank" rel="noopener noreferrer">@neurotech.id</a></div></div>
+      </div>
+      <form id="contactForm">
+        <h3>Kirim pesan</h3>
+        <p class="tiny">Isi formulir di bawah, pesan Anda akan kami terima melalui email.</p>
+        <div class="msg hidden" id="cMsg" role="status"></div>
+        <div class="field"><label for="cName">Nama</label><input id="cName" name="name" required maxlength="120" /></div>
+        <div class="field"><label for="cEmail">Email</label><input id="cEmail" name="email" type="email" required maxlength="160" /></div>
+        <div class="field"><label for="cText">Pesan</label><textarea id="cText" name="message" rows="4" required maxlength="2000"></textarea></div>
+        <button class="btn btn-primary" type="submit" id="cBtn">Kirim pesan</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container foot-top">
+      <div>
+        <a class="brand" href="/"><img src="/assets/logo-mark.png" alt="" /><span class="brand-word">neurotech</span></a>
+        <p style="margin:1rem 0">Pemantauan fatigue, cognitive load, dan microsleep berbasis EEG, terintegrasi dengan Sistem Manajemen K3.</p>
+        <span class="foot-badge"><iconify-icon icon="mdi:shield-check"></iconify-icon> PP No. 50 Tahun 2012</span>
+      </div>
+      <div class="foot-cols">
+        <div><b>Produk</b><a href="#solusi">App Pekerja</a><a href="#solusi">Dashboard Supervisor</a><a href="#smk3">Modul SMK3</a><a href="#paket">Paket &amp; Harga</a></div>
+        <div><b>Perusahaan</b><a href="#tentang">About NeuroTech</a><a href="#tim">Tim</a><a href="#riset">Riset &amp; Jurnal</a><a href="#kontak">Hubungi Kami</a></div>
+        <div><b>Dukungan</b><a href="/docs/Panduan-Penggunaan-NeuroTech-SMK3.pdf" target="_blank" rel="noopener">Panduan penggunaan (PDF)</a><a href="/login">Masuk</a><a href="/register">Bergabung</a></div>
+      </div>
+    </div>
+    <div class="container row">
+      <span>© 2026 NeuroTech · Universitas Sebelas Maret · WIBAWA 2026</span>
+      <span>better mind, better life</span>
+    </div>
+  </footer>
+
+  <script>
+    // Strip EEG animasi
+    (function () {
+      var h = [38, 62, 28, 82, 50, 70, 34, 90, 46, 66, 30, 74], box = document.getElementById("eeg");
+      for (var i = 0; i < 44; i++) { var s = document.createElement("span"); s.style.height = h[i % h.length] + "%"; s.style.animationDelay = ((i % 12) * 0.08) + "s"; box.appendChild(s); }
+    })();
+    // Munculkan elemen saat digulir
+    (function () {
+      var els = document.querySelectorAll(".reveal");
+      if (!("IntersectionObserver" in window)) { els.forEach(function (e) { e.classList.add("shown"); }); return; }
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) { if (en.isIntersecting) { en.target.classList.add("shown"); io.unobserve(en.target); } });
+      }, { threshold: 0.12 });
+      els.forEach(function (e, i) { e.style.transitionDelay = (i % 3) * 90 + "ms"; io.observe(e); });
+    })();
+    // Formulir kontak (FormSubmit, sama seperti situs tim)
+    document.getElementById("contactForm").addEventListener("submit", async function (e) {
+      e.preventDefault();
+      var btn = document.getElementById("cBtn"), msg = document.getElementById("cMsg");
+      btn.disabled = true; btn.textContent = "Mengirim…";
+      try {
+        var res = await fetch("https://formsubmit.co/ajax/neurotech.id@gmail.com", {
+          method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({ name: this.name.value, email: this.email.value, message: this.message.value, _subject: "Pesan dari situs NeuroTech" }),
+        });
+        if (!res.ok) throw new Error();
+        msg.className = "msg ok"; msg.textContent = "Terima kasih, pesan Anda terkirim."; this.reset();
+      } catch (err) {
+        msg.className = "msg err"; msg.textContent = "Pesan belum terkirim. Silakan email langsung ke neurotech.id@gmail.com.";
+      }
+      btn.disabled = false; btn.textContent = "Kirim pesan";
+    });
+  </script>
+</body>
+</html>

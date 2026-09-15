@@ -1,79 +1,422 @@
 rules_version = '2';
 
-// NeuroTech Firestore security rules.
-// Deploy:  firebase deploy --only firestore:rules
-// Or paste the contents into Firebase Console → Firestore Database → Rules.
-
+// NeuroTech SMK3 — Firestore Security Rules (v2)
+// Model: multi-tenant. Peran & status dibaca dari companies/{cid}/members/{uid}.
+// Lihat DESIGN.md §2–§3.
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Returns the signed-in user's role from their profile document.
-    function roleOf() {
-      return request.auth != null
-        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
-        : null;
+    // ---------- helper umum ----------
+    function signedIn() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+
+    function memberPath(cid, u) { return /databases/$(database)/documents/companies/$(cid)/members/$(u); }
+    function companyPath(cid) { return /databases/$(database)/documents/companies/$(cid); }
+    function codePath(code) { return /databases/$(database)/documents/companyCodes/$(code); }
+
+    function isMember(cid) { return signedIn() && exists(memberPath(cid, uid())); }
+    function me(cid) { return get(memberPath(cid, uid())).data; }
+    function isActive(cid) { return isMember(cid) && me(cid).status == 'active'; }
+    function hasRole(cid, roles) { return isActive(cid) && me(cid).role in roles; }
+
+    function data() { return request.resource.data; }
+    function onlyKeys(keys) { return data().keys().hasOnly(keys); }
+    function changedOnly(keys) { return data().diff(resource.data).affectedKeys().hasOnly(keys); }
+    function str(v, max) { return v is string && v.size() <= max; }
+    function optStr(field, max) { return !(field in data()) || data()[field] == null || str(data()[field], max); }
+
+    function validSettings() {
+      return !('settings' in data()) || (
+        data().settings is map
+        && data().settings.keys().hasOnly(['calibrationMin', 'allowSimulation'])
+        && data().settings.calibrationMin is int
+        && data().settings.calibrationMin >= 1 && data().settings.calibrationMin <= 5
+        && data().settings.allowSimulation is bool);
     }
 
-    // User profiles. Any signed-in user can read profiles (supervisor and
-    // manager dashboards need names); a user may only create/update their
-    // own document, and nobody may delete one from the client.
-    match /users/{uid} {
-      allow read:   if request.auth != null;
-      allow create: if request.auth != null && request.auth.uid == uid;
-      allow update: if request.auth != null && request.auth.uid == uid;
+    function isDate(v) { return v is string && v.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'); }
+    function optDate(field) { return !(field in data()) || data()[field] == null || data()[field] == '' || isDate(data()[field]); }
+    function isNum(v, lo, hi) { return (v is int || v is float) && v >= lo && v <= hi; }
+    function optNum(field, lo, hi) { return !(field in data()) || data()[field] == null || isNum(data()[field], lo, hi); }
+    function keepsAuthor() { return data().createdBy == resource.data.createdBy && data().createdAt == resource.data.createdAt; }
+    function newAuthor() { return data().createdBy == uid() && data().createdAt == request.time; }
+
+    function validRole(r) { return r in ['admin', 'ahli_k3', 'supervisor', 'manajemen', 'auditor', 'pekerja']; }
+
+    // ---------- profil pengguna ----------
+    match /users/{u} {
+      allow read: if signedIn() && uid() == u;
+      allow create, update: if signedIn() && uid() == u
+        && onlyKeys(['name', 'email', 'companyId', 'createdAt', 'updatedAt'])
+        && str(data().name, 120)
+        && optStr('companyId', 64);
       allow delete: if false;
     }
 
-    // Worker monitoring data.
-    // Read: any signed-in user (supervisor & management dashboards consume it).
-    // Write: restricted to supervisor / manager profiles. Plain workers cannot
-    // overwrite each other's indices from the browser.
-    match /workers/{id} {
-      allow read:  if request.auth != null;
-      allow write: if request.auth != null
-                   && roleOf() in ['supervisor', 'manager', 'management'];
+    // ---------- lookup kode undangan ----------
+    match /companyCodes/{code} {
+      allow get: if signedIn();
+      allow list: if false;
+      // Hanya admin aktif perusahaan tsb (termasuk pendiri dalam batch yang sama)
+      // yang dapat membuat kode, dan kode harus sama dengan companies/{cid}.code.
+      allow create: if signedIn()
+        && code.matches('^[A-HJ-NP-Z2-9]{8}$')
+        && onlyKeys(['companyId', 'createdAt'])
+        && getAfter(companyPath(data().companyId)).data.code == code
+        && getAfter(memberPath(data().companyId, uid())).data.role == 'admin'
+        && getAfter(memberPath(data().companyId, uid())).data.status == 'active';
+      allow delete: if signedIn() && hasRole(resource.data.companyId, ['admin']);
+      allow update: if false;
     }
 
-    // Company directory (code, package, members). Any signed-in user may read;
-    // writes are still open so the join-flow can create a new company doc and
-    // the supervisor can persist member edits. Tighten further when ownership
-    // metadata is added per company doc.
-    match /companies/{code} {
-      allow read:  if request.auth != null;
-      allow write: if request.auth != null;
-    }
+    // ---------- perusahaan ----------
+    match /companies/{cid} {
+      allow get: if isMember(cid);
+      allow list: if false;
 
-    // Everything else is denied by default.
+      allow create: if signedIn()
+        && onlyKeys(['name', 'sector', 'address', 'code', 'ownerUid', 'settings', 'createdAt', 'updatedAt'])
+        && data().ownerUid == uid()
+        && str(data().name, 160) && data().name.size() > 1
+        && optStr('sector', 80) && optStr('address', 300)
+        && validSettings()
+        && getAfter(codePath(data().code)).data.companyId == cid
+        && getAfter(memberPath(cid, uid())).data.role == 'admin';
+
+      allow update: if hasRole(cid, ['admin'])
+        && onlyKeys(['name', 'sector', 'address', 'code', 'ownerUid', 'settings', 'createdAt', 'updatedAt'])
+        && data().ownerUid == resource.data.ownerUid
+        && data().createdAt == resource.data.createdAt
+        && str(data().name, 160) && data().name.size() > 1
+        && optStr('sector', 80) && optStr('address', 300)
+        && validSettings()
+        && (data().code == resource.data.code
+            || getAfter(codePath(data().code)).data.companyId == cid);
+
+      allow delete: if false;
+
+      // ---------- anggota ----------
+      match /members/{u} {
+        allow get: if signedIn() && (uid() == u || hasRole(cid, ['admin', 'ahli_k3', 'supervisor', 'manajemen', 'auditor']));
+        allow list: if hasRole(cid, ['admin', 'ahli_k3', 'supervisor', 'manajemen', 'auditor']);
+
+        allow create: if signedIn() && uid() == u
+          && onlyKeys(['uid', 'name', 'email', 'role', 'status', 'position', 'department', 'shift',
+                       'joinCode', 'joinedAt', 'updatedAt', 'approvedBy'])
+          && data().uid == u
+          && str(data().name, 120) && optStr('email', 160)
+          && optStr('position', 80) && optStr('department', 80) && optStr('shift', 60)
+          && (
+            // (a) pendiri: perusahaan dibuat dalam batch yang sama
+            (data().role == 'admin' && data().status == 'active'
+              && !exists(companyPath(cid))
+              && getAfter(companyPath(cid)).data.ownerUid == uid())
+            ||
+            // (b) pemohon gabung: wajib tahu kode undangan yang valid
+            (data().role == 'pekerja' && data().status == 'pending'
+              && exists(companyPath(cid))
+              && str(data().joinCode, 8)
+              && get(codePath(data().joinCode)).data.companyId == cid)
+          );
+
+        allow update: if signedIn() && (
+          // pengguna mengubah namanya sendiri
+          (uid() == u && changedOnly(['name', 'updatedAt']) && str(data().name, 120))
+          ||
+          // admin mengubah data jabatan siapa pun (termasuk pemilik & dirinya)
+          (hasRole(cid, ['admin'])
+            && changedOnly(['position', 'department', 'shift', 'updatedAt'])
+            && optStr('position', 80) && optStr('department', 80) && optStr('shift', 60))
+          ||
+          // admin mengubah peran/status anggota lain yang bukan pemilik
+          (hasRole(cid, ['admin']) && uid() != u
+            && u != get(companyPath(cid)).data.ownerUid
+            && changedOnly(['role', 'status', 'position', 'department', 'shift', 'updatedAt', 'approvedBy'])
+            && validRole(data().role)
+            && data().status in ['active', 'disabled'])
+        );
+
+        allow delete: if signedIn() && (
+          (uid() == u && resource.data.status == 'pending')
+          || (hasRole(cid, ['admin']) && uid() != u && u != get(companyPath(cid)).data.ownerUid)
+        );
+      }
+
+      // ---------- log aktivitas (append-only) ----------
+      match /auditLogs/{id} {
+        allow read: if hasRole(cid, ['admin', 'ahli_k3', 'manajemen', 'auditor']);
+        allow create: if signedIn()
+          && (exists(memberPath(cid, uid())) || existsAfter(memberPath(cid, uid())))
+          && onlyKeys(['actorUid', 'actorName', 'action', 'entity', 'entityId', 'summary', 'at'])
+          && data().actorUid == uid()
+          && data().at == request.time
+          && str(data().action, 60) && str(data().entity, 60)
+          && optStr('entityId', 128) && optStr('summary', 500) && optStr('actorName', 120);
+        allow update, delete: if false;
+      }
+
+      // ---------- EEG: sesi monitoring ----------
+      function eegStaff() { return hasRole(cid, ['admin', 'ahli_k3', 'supervisor']); }
+
+      match /eegSessions/{sid} {
+        allow read: if isActive(cid) && (resource.data.uid == uid() || eegStaff());
+
+        allow create: if isActive(cid)
+          && onlyKeys(['uid', 'name', 'position', 'department', 'shift', 'source', 'active', 'baseline',
+                       'latest', 'status', 'microsleepCount', 'startedAt', 'lastSeenAt'])
+          && data().uid == uid()
+          && data().active == true
+          && data().source in ['sim', 'muse']
+          && data().startedAt == request.time;
+
+        allow update: if isActive(cid) && (
+          (resource.data.uid == uid()
+            && changedOnly(['latest', 'status', 'microsleepCount', 'lastSeenAt', 'active', 'endedAt', 'summary']))
+          ||
+          // staf menutup sesi yang terputus (tab crash / koneksi hilang)
+          (eegStaff() && resource.data.active == true && data().active == false
+            && changedOnly(['active', 'endedAt', 'closedBy']) && data().closedBy == uid())
+        );
+
+        allow delete: if false;
+
+        match /minutes/{mid} {
+          function session() { return get(/databases/$(database)/documents/companies/$(cid)/eegSessions/$(sid)).data; }
+          allow read: if isActive(cid) && (session().uid == uid() || eegStaff());
+          allow create: if isActive(cid) && session().uid == uid() && data().uid == uid();
+          allow update, delete: if false;
+        }
+      }
+
+      // ---------- EEG: peringatan ----------
+      match /eegAlerts/{aid} {
+        allow read: if isActive(cid) && (resource.data.uid == uid() || eegStaff());
+
+        allow create: if isActive(cid)
+          && onlyKeys(['uid', 'name', 'position', 'sessionId', 'incidentId', 'type', 'severity', 'message', 'status', 'createdAt'])
+          && data().uid == uid()
+          && data().status == 'open'
+          && data().type in ['microsleep', 'fatigue', 'cognitive', 'stress']
+          && data().severity in ['berisiko', 'kritis']
+          && str(data().message, 300)
+          && data().createdAt == request.time;
+
+        allow update: if eegStaff()
+          && changedOnly(['status', 'handledBy', 'handledByName', 'handledAt', 'note'])
+          && data().status in ['ack', 'closed']
+          && data().handledBy == uid()
+          && optStr('note', 500);
+
+        allow delete: if false;
+      }
+
+      // ================= MODUL SMK3 =================
+      function nonWorker() { return hasRole(cid, ['admin', 'ahli_k3', 'supervisor', 'manajemen', 'auditor']); }
+      function k3Admin() { return hasRole(cid, ['admin', 'ahli_k3']); }
+
+      // ---------- Insiden & near miss (elemen 8) ----------
+      match /incidents/{id} {
+        allow read: if isActive(cid) && (resource.data.reportedBy == uid() || nonWorker());
+        allow create: if isActive(cid)
+          && data().reportedBy == uid() && data().createdAt == request.time
+          && data().status == 'dilaporkan'
+          && data().source in ['manual', 'eeg']
+          && data().type in ['kecelakaan', 'pak', 'near_miss', 'kondisi_tidak_aman', 'tindakan_tidak_aman']
+          && data().severity in ['ringan', 'sedang', 'berat', 'fatal']
+          && str(data().title, 160) && data().title.size() > 2
+          && str(data().description, 4000)
+          && optStr('location', 160) && optStr('involved', 300) && optStr('immediateAction', 2000)
+          && isDate(data().occurredDate)
+          && optNum('lostDays', 0, 100000);
+        allow update: if hasRole(cid, ['admin', 'ahli_k3', 'supervisor'])
+          && data().reportedBy == resource.data.reportedBy && data().createdAt == resource.data.createdAt
+          && data().source == resource.data.source
+          && data().status in ['dilaporkan', 'investigasi', 'selesai']
+          && data().type in ['kecelakaan', 'pak', 'near_miss', 'kondisi_tidak_aman', 'tindakan_tidak_aman']
+          && data().severity in ['ringan', 'sedang', 'berat', 'fatal']
+          && str(data().title, 160) && str(data().description, 4000)
+          && isDate(data().occurredDate) && optNum('lostDays', 0, 100000);
+        allow delete: if false;
+      }
+
+      // ---------- CAPA (elemen 8.4) ----------
+      match /capa/{id} {
+        allow read: if isActive(cid) && (resource.data.assigneeUid == uid() || nonWorker());
+        allow create: if hasRole(cid, ['admin', 'ahli_k3', 'supervisor', 'manajemen', 'auditor'])
+          && newAuthor()
+          && data().status == 'terbuka'
+          && data().type in ['korektif', 'preventif']
+          && data().priority in ['rendah', 'sedang', 'tinggi']
+          && data().sourceType in ['insiden', 'inspeksi', 'audit', 'risiko', 'tinjauan', 'eeg', 'manual']
+          && str(data().title, 160) && data().title.size() > 2
+          && str(data().description, 3000)
+          && str(data().assigneeUid, 128) && isDate(data().dueDate);
+        allow update: if isActive(cid) && keepsAuthor() && (
+          (k3Admin()
+            && data().status in ['terbuka', 'dikerjakan', 'selesai', 'terverifikasi', 'dibatalkan']
+            && str(data().title, 160) && str(data().description, 3000) && isDate(data().dueDate))
+          ||
+          // penanggung jawab memperbarui progres & bukti
+          (resource.data.assigneeUid == uid()
+            && resource.data.status in ['terbuka', 'dikerjakan', 'selesai']
+            && changedOnly(['status', 'progressNote', 'evidence', 'completedAt', 'updatedAt'])
+            && data().status in ['dikerjakan', 'selesai']
+            && optStr('progressNote', 2000) && optStr('evidence', 2000))
+        );
+        allow delete: if false;
+      }
+
+      // ---------- Register risiko / HIRADC (elemen 2) ----------
+      match /risks/{id} {
+        allow read: if isActive(cid);
+        allow create, update: if k3Admin()
+          && (request.method == 'create' ? newAuthor() : keepsAuthor())
+          && str(data().area, 160) && str(data().hazard, 300) && str(data().risk, 500)
+          && data().category in ['fisik', 'kimia', 'biologi', 'ergonomi', 'psikososial', 'kognitif', 'mekanik', 'listrik', 'kebakaran', 'lainnya']
+          && data().status in ['aktif', 'ditinjau', 'ditutup']
+          && data().likelihood is int && data().likelihood >= 1 && data().likelihood <= 5
+          && data().severity is int && data().severity >= 1 && data().severity <= 5
+          && data().residualL is int && data().residualL >= 1 && data().residualL <= 5
+          && data().residualS is int && data().residualS >= 1 && data().residualS <= 5
+          && optDate('reviewDate');
+        allow delete: if k3Admin();
+      }
+
+      // ---------- Inspeksi (elemen 7) ----------
+      match /inspectionTemplates/{id} {
+        allow read: if nonWorker();
+        allow create, update: if k3Admin()
+          && (request.method == 'create' ? newAuthor() : keepsAuthor())
+          && str(data().name, 160) && data().items is list && data().items.size() > 0 && data().items.size() <= 100
+          && data().frequency in ['harian', 'mingguan', 'bulanan', 'triwulan', 'tahunan'];
+        allow delete: if k3Admin();
+      }
+      match /inspections/{id} {
+        allow read: if nonWorker();
+        allow create: if hasRole(cid, ['admin', 'ahli_k3', 'supervisor'])
+          && newAuthor() && data().inspectorUid == uid()
+          && data().status == 'draft' && isDate(data().date)
+          && data().items is list && data().items.size() <= 100;
+        allow update: if keepsAuthor() && data().inspectorUid == resource.data.inspectorUid
+          && data().status in ['draft', 'selesai'] && isDate(data().date)
+          && ((resource.data.inspectorUid == uid() && resource.data.status == 'draft' && isActive(cid)) || k3Admin());
+        allow delete: if resource.data.status == 'draft' && (resource.data.inspectorUid == uid() || k3Admin());
+      }
+
+      // ---------- Jam kerja & statistik (elemen 10) ----------
+      match /manhours/{month} {
+        allow read: if nonWorker();
+        allow write: if k3Admin() && month.matches('^[0-9]{4}-[0-9]{2}$')
+          && onlyKeys(['month', 'hours', 'workers', 'updatedBy', 'updatedAt'])
+          && data().month == month && isNum(data().hours, 0, 100000000) && isNum(data().workers, 0, 10000000)
+          && data().updatedBy == uid();
+      }
+
+      // Agregat EEG anonim per bulan — ditulis klien saat sesi berakhir (hanya bertambah).
+      function grows(f) { return !(f in resource.data) || data()[f] >= resource.data[f]; }
+      match /eegStats/{month} {
+        allow read: if hasRole(cid, ['admin', 'ahli_k3', 'supervisor', 'manajemen', 'auditor']);
+        allow create: if isActive(cid) && month.matches('^[0-9]{4}-[0-9]{2}$')
+          && onlyKeys(['sessions', 'minutes', 'microsleep', 'normalMin', 'waspadaMin', 'berisikoMin', 'kritisMin', 'sumFiMin', 'groups', 'updatedAt']);
+        allow update: if isActive(cid)
+          && onlyKeys(['sessions', 'minutes', 'microsleep', 'normalMin', 'waspadaMin', 'berisikoMin', 'kritisMin', 'sumFiMin', 'groups', 'updatedAt'])
+          && grows('sessions') && grows('minutes') && grows('microsleep') && grows('normalMin')
+          && grows('waspadaMin') && grows('berisikoMin') && grows('kritisMin') && grows('sumFiMin');
+        allow delete: if false;
+      }
+
+      // ---------- Audit SMK3 (elemen 11) ----------
+      match /audits/{id} {
+        allow read: if nonWorker();
+        allow create, update: if hasRole(cid, ['admin', 'ahli_k3', 'auditor'])
+          && (request.method == 'create' ? newAuthor() : keepsAuthor())
+          && str(data().title, 160) && data().level in ['awal', 'transisi', 'lanjutan']
+          && data().status in ['rencana', 'berlangsung', 'selesai']
+          && data().results is map && isDate(data().auditDate)
+          && (request.method == 'create' || resource.data.status != 'selesai' || k3Admin());
+        allow delete: if false;
+      }
+
+      // ---------- Tinjauan manajemen (elemen 1.3) ----------
+      match /reviews/{id} {
+        allow read: if nonWorker();
+        allow create, update: if hasRole(cid, ['admin', 'ahli_k3', 'manajemen'])
+          && (request.method == 'create' ? newAuthor() : keepsAuthor())
+          && str(data().title, 160) && isDate(data().date)
+          && data().status in ['draft', 'final']
+          && (request.method == 'create' || resource.data.status != 'final');
+        allow delete: if false;
+      }
+
+      // ---------- Kebijakan K3 & P2K3 (elemen 1) ----------
+      match /policies/{id} {
+        allow read: if isActive(cid) && (resource.data.status == 'disahkan' || nonWorker());
+        allow create: if hasRole(cid, ['admin', 'ahli_k3', 'manajemen']) && newAuthor()
+          && data().status == 'draft'
+          && data().category in ['kebijakan_k3', 'kebijakan_khusus']
+          && str(data().title, 160) && str(data().content, 20000) && str(data().version, 20);
+        allow update: if hasRole(cid, ['admin', 'ahli_k3', 'manajemen']) && keepsAuthor()
+          && data().category in ['kebijakan_k3', 'kebijakan_khusus']
+          && data().status in ['draft', 'disahkan', 'dicabut']
+          && str(data().title, 160) && str(data().content, 20000)
+          // hanya pengusaha/pengurus (admin/manajemen) yang mengesahkan
+          && (data().status == resource.data.status || data().status != 'disahkan' || hasRole(cid, ['admin', 'manajemen']))
+          && (data().status != 'disahkan' || resource.data.status == 'disahkan' || data().approvedBy == uid())
+          // isi kebijakan yang sudah disahkan tidak boleh diubah (buat versi baru)
+          && (resource.data.status != 'disahkan' || (data().content == resource.data.content && data().title == resource.data.title));
+        allow delete: if hasRole(cid, ['admin', 'ahli_k3', 'manajemen']) && resource.data.status == 'draft';
+
+        match /acks/{u} {
+          function policy() { return get(/databases/$(database)/documents/companies/$(cid)/policies/$(id)).data; }
+          allow read: if isActive(cid) && (u == uid() || nonWorker());
+          allow create: if isActive(cid) && u == uid() && policy().status == 'disahkan'
+            && onlyKeys(['uid', 'name', 'version', 'at']) && data().uid == uid() && data().at == request.time;
+          allow update, delete: if false;
+        }
+      }
+      match /p2k3/{docId} {
+        allow read: if isActive(cid);
+        allow write: if k3Admin() && docId == 'structure' && data().members is list && data().members.size() <= 100;
+      }
+
+      // ---------- Pelatihan & kompetensi (elemen 12) ----------
+      match /trainings/{id} {
+        allow read: if isActive(cid);
+        allow create, update: if k3Admin()
+          && (request.method == 'create' ? newAuthor() : keepsAuthor())
+          && str(data().name, 160)
+          && data().category in ['k3_umum', 'keahlian_khusus', 'manajemen', 'induksi', 'tanggap_darurat']
+          && data().validityMonths is int && data().validityMonths >= 0 && data().validityMonths <= 240
+          && data().requiredFor is list;
+        allow delete: if k3Admin();
+      }
+      match /trainingRecords/{id} {
+        allow read: if isActive(cid) && (resource.data.uid == uid() || nonWorker());
+        allow create, update: if k3Admin()
+          && (request.method == 'create' ? newAuthor() : keepsAuthor())
+          && str(data().uid, 128) && str(data().trainingId, 128)
+          && isDate(data().date) && optDate('expiryDate') && optStr('certificateNo', 80) && optStr('provider', 160);
+        allow delete: if k3Admin();
+      }
+
+      // ---------- Pengendalian dokumen (elemen 4) ----------
+      match /documents/{id} {
+        allow read: if isActive(cid) && (resource.data.status == 'disetujui' || nonWorker());
+        allow create, update: if k3Admin()
+          && (request.method == 'create' ? newAuthor() : keepsAuthor())
+          && str(data().code, 40) && str(data().title, 160) && str(data().version, 20)
+          && data().type in ['sop', 'ik', 'formulir', 'manual', 'tanggap_darurat', 'lainnya']
+          && data().status in ['draft', 'review', 'disetujui', 'kedaluwarsa']
+          && optStr('content', 50000) && optStr('url', 500) && optDate('reviewDate')
+          && (request.method == 'create' || data().status != 'disetujui' || resource.data.status == 'disetujui' || data().approvedBy == uid());
+        allow delete: if k3Admin() && resource.data.status == 'draft';
+
+        match /revisions/{rid} {
+          allow read: if nonWorker();
+          allow create: if k3Admin() && data().by == uid() && data().at == request.time;
+          allow update, delete: if false;
+        }
+      }
+    }
   }
 }
-
-// ── Hardening sebelum live ────────────────────────────────────────────────
-// Selain rules di atas, AKTIFKAN Firebase App Check sebelum membuka akses
-// publik agar permintaan Firestore & Gemini hanya datang dari app yang sah:
-//
-//   1. Firebase Console → Build → App Check → Get started.
-//      Pilih provider reCAPTCHA Enterprise (web) atau reCAPTCHA v3.
-//      Daftarkan situs (neurotech-id.web.app) dan salin SITE KEY-nya.
-//
-//   2. Di firebase-init.js, sebelum panggilan Firestore/Auth pertama,
-//      tambahkan satu blok inisialisasi App Check:
-//
-//        firebase.appCheck().activate(
-//          new firebase.appCheck.ReCaptchaEnterpriseProvider("<SITE_KEY>"),
-//          true                          // auto-refresh token
-//        );
-//
-//   3. Di Console App Check, tab "APIs":
-//        - Firestore  → Enforce
-//        - Authentication → Enforce (opsional, tapi dianjurkan)
-//        - Firebase AI Logic / Vertex AI in Firebase → Enforce
-//      (Mode "Unenforced" dulu 24 jam untuk memantau false-positive,
-//       baru naikkan ke Enforce.)
-//
-//   4. Untuk debug lokal, jalankan
-//        self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
-//      di console DevTools sebelum reload, lalu tambahkan token yang
-//      tercetak ke Console → App Check → Debug tokens.
-//
-// Catatan: API key Web di firebase-init.js memang public by design —
-// pengamanan sebenarnya ada di (a) rules di atas dan (b) App Check.

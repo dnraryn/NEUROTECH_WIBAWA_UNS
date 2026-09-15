@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aktivasi — NeuroTech SMK3</title>
+  <link rel="icon" href="/assets/favicon.png" type="image/png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <script src="https://code.iconify.design/iconify-icon/2.3.0/iconify-icon.min.js"></script>
+</head>
+<body>
+  <div class="auth-wrap">
+    <div class="card auth-card" style="width:min(540px,96vw)">
+      <a class="brand" href="/"><img src="/assets/logo-mark.png" alt="" /><span class="brand-word">neurotech</span></a>
+      <h2 style="text-align:center">Aktivasi akun</h2>
+      <p class="center tiny" id="hello">Memuat…</p>
+
+      <div id="msg" class="msg hidden" role="alert"></div>
+
+      <div class="seg" id="seg">
+        <button data-mode="join" class="active" type="button">Gabung dengan kode</button>
+        <button data-mode="create" type="button">Daftarkan perusahaan</button>
+      </div>
+
+      <form id="form" class="hidden">
+        <div class="field">
+          <label for="fullname">Nama lengkap</label>
+          <input id="fullname" type="text" required maxlength="120" placeholder="Nama Anda" />
+        </div>
+
+        <!-- GABUNG -->
+        <div id="joinFields">
+          <div class="field">
+            <label for="code">Kode undangan perusahaan</label>
+            <input id="code" type="text" maxlength="9" autocomplete="off" class="code-input" placeholder="ABCD2345" />
+            <div class="tiny muted" style="margin-top:.35rem">Minta kode ke Admin atau Ahli K3 perusahaan Anda. Admin akan menyetujui dan menetapkan peran Anda.</div>
+          </div>
+        </div>
+
+        <!-- BUAT -->
+        <div id="createFields" class="hidden">
+          <div class="field">
+            <label for="company">Nama perusahaan</label>
+            <input id="company" type="text" maxlength="160" placeholder="cth. PT Surya Manufaktur" />
+          </div>
+          <div class="field">
+            <label for="sector">Sektor</label>
+            <select id="sector"></select>
+          </div>
+          <div class="field">
+            <label for="address">Alamat (opsional)</label>
+            <input id="address" type="text" maxlength="300" placeholder="Kota / kawasan industri" />
+          </div>
+          <div class="tiny muted" style="margin:-.3rem 0 1rem">Anda akan menjadi <b>Admin Perusahaan</b> dan dapat mengundang anggota lain.</div>
+        </div>
+
+        <div class="field">
+          <label for="position">Jabatan (opsional)</label>
+          <input id="position" type="text" maxlength="80" placeholder="cth. Operator CNC, HSE Officer" />
+        </div>
+
+        <button id="submit" class="btn btn-primary btn-block" type="submit">Kirim permintaan bergabung</button>
+      </form>
+
+      <div class="auth-switch"><a href="#" id="logoutLink">Keluar</a></div>
+    </div>
+  </div>
+  <script type="module" src="/js/pages/onboarding.js"></script>
+</body>
+</html>

@@ -1,21 +1,7 @@
-# Dependencies
 node_modules/
-
-# Firebase
-.firebase/
 firebase-debug.log
-
-# Logs
+firestore-debug.log
 *.log
-npm-debug.log*
-
-# Environment
-.env
-.env.local
-
-# OS files
-Thumbs.db
-.DS_Store
-
-# Editor
-.claude/
+.firebase/
+backup/
+guide-shots/

@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet" />
+<title>Panduan Penggunaan NeuroTech SMK3</title>
+<style>
+  @page { size: A4; margin: 16mm 15mm 18mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Manrope", "Segoe UI", Arial, sans-serif; color: #1b2333; font-size: 10.5pt; line-height: 1.55; margin: 0; }
+  h1, h2, h3, h4 { color: #0b1a3a; line-height: 1.25; }
+  h1 { font-size: 22pt; margin: 0 0 6pt; }
+  h2 { font-size: 16pt; margin: 0 0 8pt; padding-bottom: 5pt; border-bottom: 3px solid #2a5fe0; }
+  h3 { font-size: 12.5pt; margin: 16pt 0 5pt; }
+  h4 { font-size: 10.5pt; margin: 10pt 0 3pt; color: #1f8fb0; text-transform: uppercase; letter-spacing: .04em; }
+  p { margin: 0 0 7pt; }
+  ul, ol { margin: 0 0 8pt 16pt; padding: 0; }
+  li { margin-bottom: 3pt; }
+  .chapter { page-break-before: always; }
+  .keep { page-break-inside: avoid; }
+  table { width: 100%; border-collapse: collapse; margin: 6pt 0 10pt; font-size: 9.3pt; page-break-inside: auto; }
+  tr { page-break-inside: avoid; }
+  th, td { border: 1px solid #d5dce8; padding: 4pt 6pt; vertical-align: top; text-align: left; }
+  th { background: #eef3fb; color: #0b1a3a; }
+  .yes { color: #15803d; font-weight: 700; text-align: center; }
+  .no { color: #9aa3b5; text-align: center; }
+  .ro { color: #b45309; text-align: center; }
+  figure { margin: 8pt 0 12pt; page-break-inside: avoid; text-align: center; }
+  figure img { max-width: 100%; max-height: 118mm; border: 1px solid #c9d3e3; border-radius: 6px; box-shadow: 0 2px 6px rgba(0,0,0,.12); }
+  figure.tall img { max-height: 200mm; }
+  figure.phone img { max-height: 120mm; }
+  figcaption { font-size: 8.8pt; color: #5b6477; margin-top: 4pt; }
+  .figrow { display: flex; gap: 10pt; justify-content: center; page-break-inside: avoid; }
+  .figrow figure { flex: 1; margin: 8pt 0; }
+  .steps { counter-reset: s; list-style: none; margin-left: 0; }
+  .steps > li { counter-increment: s; position: relative; padding-left: 22pt; margin-bottom: 5pt; }
+  .steps > li::before { content: counter(s); position: absolute; left: 0; top: 0; width: 15pt; height: 15pt; border-radius: 50%; background: linear-gradient(135deg, #9c8bf0, #6cb6f0); color: #fff; font-size: 8.5pt; font-weight: 700; display: grid; place-items: center; }
+  .note, .tip, .warn { border-radius: 6px; padding: 7pt 9pt; margin: 7pt 0 10pt; font-size: 9.6pt; page-break-inside: avoid; }
+  .note { background: #eef4ff; border-left: 4px solid #2a5fe0; }
+  .tip { background: #ecfdf3; border-left: 4px solid #16a34a; }
+  .warn { background: #fff7e6; border-left: 4px solid #d97706; }
+  .note b:first-child, .tip b:first-child, .warn b:first-child { display: block; margin-bottom: 2pt; }
+  .pill { display: inline-block; padding: 0 6pt; border-radius: 999px; font-size: 8.5pt; font-weight: 700; }
+  .p-normal { background: #dcfce7; color: #15803d; } .p-waspada { background: #fef9c3; color: #a16207; }
+  .p-berisiko { background: #ffedd5; color: #c2410c; } .p-kritis { background: #fee2e2; color: #b91c1c; }
+  .ui { font-weight: 600; background: #eef1f6; border: 1px solid #d5dce8; border-radius: 4px; padding: 0 4pt; white-space: nowrap; }
+  .cover { height: 262mm; display: flex; flex-direction: column; justify-content: space-between; background: radial-gradient(60% 45% at 12% -5%, rgba(42,95,224,.35), transparent 70%), radial-gradient(55% 45% at 90% 108%, rgba(47,212,238,.22), transparent 70%), linear-gradient(165deg, #050b1a 0%, #0a1531 38%, #102a5c 74%, #16407e 100%); color: #fff; margin: -16mm -15mm 0; padding: 30mm 22mm 20mm; }
+  .cover h1 { color: #fff; font-size: 32pt; margin-top: 14mm; }
+  .cover .sub { font-size: 14pt; color: #bcd3ff; max-width: 150mm; }
+  .cover .logo { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.25); border-radius: 10px; padding: 8pt 12pt; display: inline-block; }
+  .cover .meta { font-size: 10pt; color: #cbd8f5; border-top: 1px solid rgba(255,255,255,.25); padding-top: 10pt; }
+  .cover .badges span { display: inline-block; margin: 0 6pt 6pt 0; padding: 3pt 9pt; border-radius: 999px; background: rgba(255,255,255,.12); font-size: 9.5pt; }
+  .toc { columns: 2; column-gap: 12mm; font-size: 10pt; }
+  .toc div { break-inside: avoid; margin-bottom: 3pt; }
+  .toc .c { font-weight: 700; margin-top: 7pt; color: #0b1a3a; }
+  .toc .s { padding-left: 10pt; color: #394358; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10pt; }
+  .card { border: 1px solid #d5dce8; border-radius: 8px; padding: 8pt 10pt; page-break-inside: avoid; }
+  .card h4 { margin-top: 0; }
+  .lead { font-size: 11.5pt; color: #394358; }
+</style>
+</head>
+<body>
+
+<!-- ======================= SAMPUL ======================= -->
+<section class="cover">
+  <div>
+    <div class="logo"><img src="{{LOGO}}" alt="" style="height:34px;vertical-align:middle" /> <span style="font-size:18pt;font-weight:800;vertical-align:middle;color:#5fd8f0">neurotech</span></div>
+    <h1>Panduan Penggunaan<br />NeuroTech SMK3</h1>
+    <p class="sub">Platform Sistem Manajemen Keselamatan dan Kesehatan Kerja sesuai PP No. 50 Tahun 2012, dengan modul Ergonomi Kognitif berbasis EEG.</p>
+    <div class="badges" style="margin-top:12mm">
+      <span>Admin Perusahaan</span><span>Ahli K3 / P2K3</span><span>Supervisor</span><span>Manajemen</span><span>Auditor Internal</span><span>Pekerja</span>
+    </div>
+  </div>
+  <div class="meta">
+    Versi aplikasi 2.0 · Diterbitkan {{DATE}}<br />
+    Alamat aplikasi: https://neuro-tech.web.app<br />
+    <i>better life, better mind</i> — Tim NeuroTech, Universitas Sebelas Maret
+  </div>
+</section>
+
+<!-- ======================= DAFTAR ISI ======================= -->
+<section class="chapter">
+  <h2>Daftar Isi</h2>
+  <div class="toc">
+    <div class="c">1. Pendahuluan</div>
+    <div class="s">1.1 Tentang NeuroTech SMK3</div><div class="s">1.2 Peta modul terhadap PP 50/2012</div><div class="s">1.3 Peran &amp; hak akses</div><div class="s">1.4 Persyaratan perangkat</div>
+    <div class="c">2. Memulai</div>
+    <div class="s">2.1 Membuat akun &amp; masuk</div><div class="s">2.2 Mendaftarkan perusahaan</div><div class="s">2.3 Kode undangan &amp; pengaturan</div><div class="s">2.4 Bergabung ke perusahaan</div><div class="s">2.5 Menyetujui anggota &amp; menetapkan peran</div><div class="s">2.6 Mengenal tampilan aplikasi</div><div class="s">2.7 Profil &amp; keamanan akun</div>
+    <div class="c">3. Kebijakan K3 &amp; P2K3 (Tahap 1)</div>
+    <div class="s">3.1 Menyusun &amp; mengesahkan kebijakan</div><div class="s">3.2 Sosialisasi &amp; konfirmasi baca</div><div class="s">3.3 Struktur P2K3</div>
+    <div class="c">4. Register Risiko / HIRADC (Tahap 2)</div>
+    <div class="c">5. Pelaksanaan (Tahap 3)</div>
+    <div class="s">5.1 Pengendalian dokumen</div><div class="s">5.2 Pelatihan &amp; kompetensi</div><div class="s">5.3 Monitoring EEG pribadi</div>
+    <div class="c">6. Pemantauan &amp; Evaluasi (Tahap 4)</div>
+    <div class="s">6.1 Monitoring EEG tim &amp; peringatan</div><div class="s">6.2 Insiden &amp; near miss</div><div class="s">6.3 Inspeksi K3</div><div class="s">6.4 KPI &amp; laporan</div>
+    <div class="c">7. Peninjauan &amp; Peningkatan (Tahap 5)</div>
+    <div class="s">7.1 Tindakan perbaikan (CAPA)</div><div class="s">7.2 Audit SMK3</div><div class="s">7.3 Tinjauan manajemen</div>
+    <div class="c">8. Organisasi &amp; jejak audit</div>
+    <div class="c">9. Alur kerja per peran</div>
+    <div class="c">10. Tanya jawab &amp; pemecahan masalah</div>
+    <div class="c">11. Glosarium</div>
+  </div>
+</section>
+
+<!-- ======================= 1. PENDAHULUAN ======================= -->
+<section class="chapter">
+  <h2>1. Pendahuluan</h2>
+  <h3>1.1 Tentang NeuroTech SMK3</h3>
+  <p class="lead">NeuroTech SMK3 membantu perusahaan menerapkan Sistem Manajemen K3 secara digital — dari kebijakan, identifikasi risiko, pelaporan insiden, tindakan perbaikan, hingga audit dan tinjauan manajemen — dalam satu platform.</p>
+  <p>Pembedanya adalah modul <b>Ergonomi Kognitif</b>: headband EEG Muse memantau kelelahan mental (<i>mental fatigue</i>), beban kognitif (<i>cognitive load</i>), dan <i>microsleep</i> pekerja secara real-time. Data ini tidak berhenti di layar — peringatan kritis otomatis tercatat sebagai <b>near miss</b>, statistiknya menjadi masukan <b>register risiko</b>, <b>KPI</b>, dan <b>tinjauan manajemen</b>.</p>
+  <div class="note"><b>Prinsip non-punitif &amp; privasi</b>Data EEG individu hanya dapat dilihat oleh pekerja yang bersangkutan, Supervisor, Ahli K3, dan Admin. Manajemen dan Auditor hanya menerima data <b>agregat tanpa identitas</b>. Aturan ini ditegakkan di sisi server, bukan hanya tampilan.</div>
+
+  <h3>1.2 Peta modul terhadap PP No. 50 Tahun 2012</h3>
+  <table>
+    <tr><th style="width:28%">Tahap SMK3 (Pasal 6)</th><th>Modul di aplikasi</th><th style="width:22%">Elemen audit terkait</th></tr>
+    <tr><td>1. Penetapan kebijakan K3</td><td>Kebijakan K3 &amp; P2K3</td><td>Elemen 1</td></tr>
+    <tr><td>2. Perencanaan K3</td><td>Register Risiko (HIRADC)</td><td>Elemen 2</td></tr>
+    <tr><td>3. Pelaksanaan rencana K3</td><td>Pengendalian Dokumen · Pelatihan &amp; Kompetensi · Monitoring EEG Saya</td><td>Elemen 4, 6, 12</td></tr>
+    <tr><td>4. Pemantauan &amp; evaluasi kinerja K3</td><td>Monitoring EEG Tim · Peringatan EEG · Insiden &amp; Near Miss · Inspeksi K3 · KPI &amp; Laporan</td><td>Elemen 7, 8, 10</td></tr>
+    <tr><td>5. Peninjauan &amp; peningkatan kinerja SMK3</td><td>Tindakan Perbaikan (CAPA) · Audit SMK3 · Tinjauan Manajemen</td><td>Elemen 8, 11, 1.3</td></tr>
+  </table>
+
+  <h3>1.3 Peran &amp; hak akses</h3>
+  <p>Setiap anggota memiliki <b>satu peran</b> yang ditetapkan Admin saat menyetujui permintaan bergabung. Pengguna tidak dapat memilih atau menaikkan perannya sendiri.</p>
+  <table>
+    <tr><th style="width:22%">Peran</th><th>Tugas utama</th></tr>
+    <tr><td><b>Admin Perusahaan</b></td><td>Mengelola anggota, peran, kode undangan, dan pengaturan; akses penuh ke seluruh modul.</td></tr>
+    <tr><td><b>Ahli K3 / P2K3</b></td><td>Pengelola SMK3 harian: kebijakan, risiko, dokumen, pelatihan, inspeksi, verifikasi CAPA, KPI, audit.</td></tr>
+    <tr><td><b>Supervisor</b></td><td>Memantau EEG tim, menangani peringatan, menginvestigasi insiden, melaksanakan inspeksi, membuat CAPA.</td></tr>
+    <tr><td><b>Manajemen</b></td><td>Mengesahkan kebijakan, melihat KPI &amp; laporan agregat, memimpin tinjauan manajemen.</td></tr>
+    <tr><td><b>Auditor Internal</b></td><td>Melaksanakan audit SMK3 dan membaca modul lain (hanya-baca).</td></tr>
+    <tr><td><b>Pekerja</b></td><td>Monitoring EEG pribadi, melapor insiden/near miss, mengerjakan CAPA yang ditugaskan, membaca kebijakan &amp; dokumen.</td></tr>
+  </table>
+  <div class="keep">
+  <table>
+    <tr><th>Modul</th><th>Admin</th><th>Ahli K3</th><th>Supervisor</th><th>Manajemen</th><th>Auditor</th><th>Pekerja</th></tr>
+    <tr><td>Kebijakan K3 — susun draf</td><td class="yes">✔</td><td class="yes">✔</td><td class="ro">baca</td><td class="yes">✔</td><td class="ro">baca</td><td class="ro">baca disahkan</td></tr>
+    <tr><td>Kebijakan K3 — sahkan</td><td class="yes">✔</td><td class="no">–</td><td class="no">–</td><td class="yes">✔</td><td class="no">–</td><td class="no">–</td></tr>
+    <tr><td>Register risiko</td><td class="yes">✔</td><td class="yes">✔</td><td class="ro">baca</td><td class="ro">baca</td><td class="ro">baca</td><td class="ro">baca</td></tr>
+    <tr><td>Dokumen</td><td class="yes">✔</td><td class="yes">✔</td><td class="ro">baca</td><td class="ro">baca</td><td class="ro">baca</td><td class="ro">baca disetujui</td></tr>
+    <tr><td>Pelatihan</td><td class="yes">✔</td><td class="yes">✔</td><td class="ro">baca</td><td class="ro">baca</td><td class="ro">baca</td><td class="ro">milik sendiri</td></tr>
+    <tr><td>Monitoring EEG tim &amp; peringatan</td><td class="yes">✔</td><td class="yes">✔</td><td class="yes">✔</td><td class="no">agregat</td><td class="no">agregat</td><td class="no">–</td></tr>
+    <tr><td>Insiden — lapor</td><td class="yes">✔</td><td class="yes">✔</td><td class="yes">✔</td><td class="yes">✔</td><td class="yes">✔</td><td class="yes">✔</td></tr>
+    <tr><td>Insiden — investigasi &amp; tutup</td><td class="yes">✔</td><td class="yes">✔</td><td class="yes">✔</td><td class="ro">baca</td><td class="ro">baca</td><td class="ro">laporan sendiri</td></tr>
+    <tr><td>Inspeksi — laksanakan</td><td class="yes">✔</td><td class="yes">✔</td><td class="yes">✔</td><td class="ro">baca</td><td class="ro">baca</td><td class="no">–</td></tr>
+    <tr><td>CAPA — buat</td><td class="yes">✔</td><td class="yes">✔</td><td class="yes">✔</td><td class="yes">✔</td><td class="yes">✔</td><td class="no">–</td></tr>
+    <tr><td>CAPA — verifikasi</td><td class="yes">✔</td><td class="yes">✔</td><td class="no">–</td><td class="no">–</td><td class="no">–</td><td class="no">–</td></tr>
+    <tr><td>KPI — isi jam kerja</td><td class="yes">✔</td><td class="yes">✔</td><td class="ro">baca</td><td class="ro">baca</td><td class="ro">baca</td><td class="no">–</td></tr>
+    <tr><td>Audit SMK3 — nilai</td><td class="yes">✔</td><td class="yes">✔</td><td class="ro">baca</td><td class="ro">baca</td><td class="yes">✔</td><td class="no">–</td></tr>
+    <tr><td>Tinjauan manajemen</td><td class="yes">✔</td><td class="yes">✔</td><td class="ro">baca</td><td class="yes">✔</td><td class="ro">baca</td><td class="no">–</td></tr>
+    <tr><td>Anggota &amp; pengaturan</td><td class="yes">✔</td><td class="ro">baca</td><td class="ro">baca</td><td class="ro">baca</td><td class="ro">baca</td><td class="no">–</td></tr>
+    <tr><td>Log aktivitas</td><td class="yes">✔</td><td class="yes">✔</td><td class="no">–</td><td class="yes">✔</td><td class="yes">✔</td><td class="no">–</td></tr>
+  </table>
+  </div>
+
+  <h3>1.4 Persyaratan perangkat</h3>
+  <ul>
+    <li><b>Browser:</b> Google Chrome atau Microsoft Edge versi terbaru (desktop, laptop, tablet, atau ponsel Android). Safari/Firefox dapat membuka aplikasi, tetapi tidak dapat terhubung ke headband.</li>
+    <li><b>Koneksi internet</b> stabil. Data tersinkron real-time antar-pengguna.</li>
+    <li><b>Headband EEG Muse S / Muse 2</b> untuk monitoring kognitif. Koneksi memakai Bluetooth langsung dari browser, tanpa aplikasi tambahan.</li>
+  </ul>
+</section>
+
+<!-- ======================= 2. MEMULAI ======================= -->
+<section class="chapter">
+  <h2>2. Memulai</h2>
+  <h3>2.1 Membuat akun &amp; masuk</h3>
+  <figure><img src="{{01-landing}}" /><figcaption>Gambar 2.1 — Halaman depan https://neuro-tech.web.app</figcaption></figure>
+  <ol class="steps">
+    <li>Buka <b>https://neuro-tech.web.app</b>, klik <span class="ui">Daftarkan perusahaan</span> atau <span class="ui">Masuk</span>.</li>
+    <li>Pada halaman <b>Buat akun</b>, isi nama lengkap, email, dan kata sandi (minimal 8 karakter), lalu klik <span class="ui">Daftar</span>. Anda juga bisa memakai <span class="ui">Daftar dengan Google</span>.</li>
+    <li>Sistem mengirim <b>email verifikasi</b>. Buka email tersebut dan klik tautannya. Selama belum diverifikasi, aplikasi menampilkan pengingat di bagian atas.</li>
+  </ol>
+  <div class="figrow">
+    <figure><img src="{{02-login}}" /><figcaption>Gambar 2.2 — Halaman masuk</figcaption></figure>
+    <figure><img src="{{03-register}}" /><figcaption>Gambar 2.3 — Halaman buat akun</figcaption></figure>
+  </div>
+  <div class="tip"><b>Lupa kata sandi?</b>Di halaman masuk klik <span class="ui">Lupa kata sandi?</span>, masukkan email, lalu ikuti tautan pengaturan ulang yang dikirim ke email Anda.</div>
+
+  <h3>2.2 Mendaftarkan perusahaan (untuk pendiri/Admin)</h3>
+  <p>Setelah akun dibuat, halaman <b>Aktivasi akun</b> muncul. Pilih salah satu: bergabung dengan kode undangan, atau mendaftarkan perusahaan baru.</p>
+  <ol class="steps">
+    <li>Klik tab <span class="ui">Daftarkan perusahaan</span>.</li>
+    <li>Isi nama perusahaan, sektor, alamat, dan jabatan Anda.</li>
+    <li>Klik <span class="ui">Daftarkan perusahaan</span>. Anda otomatis menjadi <b>Admin Perusahaan</b> (pemilik) dan sistem membuat <b>kode undangan</b> 8 karakter.</li>
+  </ol>
+  <figure><img src="{{04-onboarding-buat}}" /><figcaption>Gambar 2.4 — Mendaftarkan perusahaan baru</figcaption></figure>
+
+  <h3>2.3 Kode undangan &amp; pengaturan perusahaan</h3>
+  <p>Menu <span class="ui">Organisasi → Pengaturan Perusahaan</span> (khusus Admin) berisi:</p>
+  <ul>
+    <li><b>Profil perusahaan</b> — nama, sektor, alamat.</li>
+    <li><b>Kode undangan</b> — bagikan kode atau klik <span class="ui">Salin tautan undangan</span> lalu kirim ke karyawan. Klik <span class="ui">Buat kode baru</span> bila kode tersebar ke pihak yang tidak berwenang; kode lama langsung tidak berlaku.</li>
+    <li><b>Modul EEG</b> — durasi kalibrasi baseline (1–5 menit, disarankan 3) dan izin <b>mode simulasi</b> untuk pelatihan tanpa headband.</li>
+  </ul>
+  <figure><img src="{{05-pengaturan-perusahaan}}" /><figcaption>Gambar 2.5 — Pengaturan perusahaan, kode undangan, dan pengaturan EEG</figcaption></figure>
+
+  <h3>2.4 Bergabung ke perusahaan (untuk karyawan)</h3>
+  <ol class="steps">
+    <li>Buat akun (2.1). Pada halaman aktivasi, pilih <span class="ui">Gabung dengan kode</span>.</li>
+    <li>Masukkan <b>kode undangan</b> dari Admin/Ahli K3 dan jabatan Anda, lalu klik <span class="ui">Kirim permintaan bergabung</span>.</li>
+    <li>Layar <b>Menunggu persetujuan</b> muncul. Setelah Admin menyetujui, aplikasi terbuka <b>otomatis</b> tanpa perlu memuat ulang.</li>
+  </ol>
+  <div class="figrow">
+    <figure><img src="{{06-onboarding-gabung}}" /><figcaption>Gambar 2.6 — Bergabung dengan kode undangan</figcaption></figure>
+    <figure><img src="{{07-menunggu-persetujuan}}" /><figcaption>Gambar 2.7 — Menunggu persetujuan Admin</figcaption></figure>
+  </div>
+
+  <h3>2.5 Menyetujui anggota &amp; menetapkan peran (Admin)</h3>
+  <ol class="steps">
+    <li>Buka <span class="ui">Organisasi → Anggota &amp; Peran</span>. Tab <b>Menunggu</b> otomatis terbuka bila ada permintaan baru. Angka permintaan juga tampil di Beranda.</li>
+    <li>Periksa nama dan email pemohon, lalu klik <span class="ui">Setujui</span>. Klik <span class="ui">Tolak</span> bila orang tersebut tidak dikenal.</li>
+    <li>Pada jendela persetujuan, pilih <b>peran</b> serta isi jabatan, departemen/area, dan shift. Klik <span class="ui">Setujui &amp; aktifkan</span>.</li>
+  </ol>
+  <figure><img src="{{08-anggota-menunggu}}" /><figcaption>Gambar 2.8 — Daftar permintaan bergabung</figcaption></figure>
+  <figure><img src="{{09-modal-setujui}}" /><figcaption>Gambar 2.9 — Menetapkan peran, jabatan, departemen, dan shift</figcaption></figure>
+  <p>Pada tab <b>Aktif</b>, Admin dapat mengubah peran/jabatan (ikon pensil), <b>menonaktifkan</b> anggota (akses dicabut, data tetap tersimpan), atau <b>mengeluarkan</b> anggota. Peran pemilik perusahaan tidak dapat diubah atau dinonaktifkan. Jika peran seseorang diubah, aplikasinya memuat ulang otomatis dengan hak akses baru.</p>
+  <figure><img src="{{10-anggota-aktif}}" /><figcaption>Gambar 2.10 — Anggota aktif beserta perannya</figcaption></figure>
+
+  <h3>2.6 Mengenal tampilan aplikasi</h3>
+  <ul>
+    <li><b>Menu samping (kiri)</b> dikelompokkan sesuai 5 tahap SMK3 dan hanya menampilkan modul yang boleh diakses peran Anda. Di ponsel, buka menu dengan tombol <span class="ui">☰</span>.</li>
+    <li><b>Bilah atas</b> menampilkan judul halaman, nama &amp; peran Anda (klik untuk membuka profil), dan tombol keluar.</li>
+    <li><b>Beranda</b> menampilkan ringkasan sesuai peran: permintaan bergabung dan kode undangan (Admin), kondisi EEG tim saat ini (Supervisor/Ahli K3/Admin), kotak <b>Perlu perhatian</b> (tugas CAPA, kebijakan belum dibaca, insiden baru, CAPA terlambat), sesi EEG terakhir Anda, dan <b>Peta Penerapan SMK3</b>.</li>
+  </ul>
+  <figure><img src="{{11-beranda-admin}}" /><figcaption>Gambar 2.11 — Beranda Admin</figcaption></figure>
+  <figure><img src="{{12-beranda-pekerja}}" /><figcaption>Gambar 2.12 — Beranda Pekerja: menu lebih ringkas sesuai perannya</figcaption></figure>
+
+  <h3>2.7 Profil &amp; keamanan akun</h3>
+  <p>Menu <span class="ui">Profil Saya</span> berisi nama (dapat diubah), informasi keanggotaan, status verifikasi email, tombol kirim ulang verifikasi, dan <span class="ui">Ubah kata sandi via email</span>.</p>
+  <figure><img src="{{47-profil}}" /><figcaption>Gambar 2.13 — Profil Saya</figcaption></figure>
+</section>
+
+<!-- ======================= 3. KEBIJAKAN ======================= -->
+<section class="chapter">
+  <h2>3. Kebijakan K3 &amp; P2K3 (Tahap 1)</h2>
+  <p>Menu <span class="ui">Kebijakan &amp; Perencanaan → Kebijakan K3 &amp; P2K3</span> memenuhi kriteria audit elemen 1: kebijakan tertulis yang disahkan pimpinan, dikomunikasikan kepada seluruh tenaga kerja, ditinjau berkala, dan didukung struktur P2K3.</p>
+
+  <h3>3.1 Menyusun &amp; mengesahkan kebijakan</h3>
+  <ol class="steps">
+    <li><b>Ahli K3 / Admin / Manajemen</b> klik <span class="ui">Kebijakan baru</span>. Formulir sudah berisi <b>templat</b> kebijakan K3; sesuaikan isi, tujuan, dan sasaran perusahaan.</li>
+    <li>Pilih kategori (Kebijakan K3 atau kebijakan khusus), isi versi dan tanggal tinjau ulang, lalu klik <span class="ui">Simpan draf</span>.</li>
+    <li><b>Admin atau Manajemen</b> (pengusaha/pengurus) membuka kebijakan draf, lalu klik <span class="ui">Sahkan</span>. Tanggal berlaku dan nama pengesah tercatat.</li>
+  </ol>
+  <figure><img src="{{13-kebijakan-draf}}" /><figcaption>Gambar 3.1 — Menyusun draf kebijakan dengan templat</figcaption></figure>
+  <figure><img src="{{14-kebijakan-sahkan}}" /><figcaption>Gambar 3.2 — Manajemen mengesahkan kebijakan</figcaption></figure>
+  <div class="warn"><b>Isi kebijakan yang sudah disahkan terkunci.</b>Untuk mengubahnya, klik <span class="ui">Buat versi baru</span>. Sistem membuat draf versi berikutnya yang harus disahkan kembali. Kebijakan lama dapat <span class="ui">Dicabut</span>.</div>
+
+  <h3>3.2 Sosialisasi &amp; konfirmasi baca</h3>
+  <p>Setelah disahkan, kebijakan tampil untuk <b>seluruh anggota</b> dengan tanda <span class="pill p-waspada">PERLU DIBACA</span>. Pekerja membuka kebijakan, membaca isinya, lalu klik <span class="ui">Saya telah membaca &amp; memahami</span>. Pengelola melihat <b>persentase sosialisasi</b> dan daftar anggota yang belum membaca. Ini menjadi bukti komunikasi kebijakan (kriteria 1.1.3).</p>
+  <figure><img src="{{15-kebijakan-perlu-dibaca}}" /><figcaption>Gambar 3.3 — Pekerja melihat kebijakan yang perlu dibaca</figcaption></figure>
+
+  <h3>3.3 Struktur P2K3</h3>
+  <p>Pada tab <span class="ui">P2K3</span>, Ahli K3/Admin klik <span class="ui">Ubah struktur</span> untuk mengisi nomor dan tanggal SK pengesahan, jadwal rapat rutin, serta susunan anggota (ketua, wakil, sekretaris/Ahli K3, anggota).</p>
+  <figure><img src="{{16-p2k3}}" /><figcaption>Gambar 3.4 — Struktur P2K3</figcaption></figure>
+</section>
+
+<!-- ======================= 4. RISIKO ======================= -->
+<section class="chapter">
+  <h2>4. Register Risiko / HIRADC (Tahap 2)</h2>
+  <p>HIRADC (<i>Hazard Identification, Risk Assessment and Determining Control</i>) mencatat setiap bahaya, menilai tingkat risikonya, dan menetapkan pengendalian. Semua anggota dapat membaca register (hak pekerja untuk mengetahui bahaya); hanya Ahli K3/Admin yang mengubahnya.</p>
+  <h3>Menambah risiko</h3>
+  <ol class="steps">
+    <li>Klik <span class="ui">Tambah risiko</span>. Isi area/aktivitas, kondisi (rutin, non-rutin, darurat), <b>bahaya</b> (sumber), dan <b>risiko</b> (akibat).</li>
+    <li>Pilih <b>kategori bahaya</b>. Untuk kelelahan mental dan beban kerja, pilih <b>Kognitif</b> dan isi <b>jabatan terkait</b> agar data EEG dapat diterapkan.</li>
+    <li>Tuliskan pengendalian yang sudah ada, lalu nilai <b>kemungkinan</b> (1–5) × <b>keparahan</b> (1–5) awal.</li>
+    <li>Tentukan <b>hierarki pengendalian tambahan</b> (eliminasi → substitusi → rekayasa → administratif → APD), uraikan pengendaliannya, dan nilai <b>risiko sisa</b> setelah pengendalian.</li>
+    <li>Isi penanggung jawab dan tanggal tinjau, lalu klik <span class="ui">Tambahkan</span>. Skor dihitung langsung saat nilai dipilih.</li>
+  </ol>
+  <figure><img src="{{17-risiko-form}}" /><figcaption>Gambar 4.1 — Formulir risiko</figcaption></figure>
+  <table class="keep">
+    <tr><th>Skor (K × P)</th><th>Tingkat</th><th>Makna tindakan</th></tr>
+    <tr><td>1 – 4</td><td><span class="pill p-normal">Rendah</span></td><td>Dikendalikan dengan prosedur rutin.</td></tr>
+    <tr><td>5 – 9</td><td><span class="pill p-waspada">Sedang</span></td><td>Perlu pengendalian dan pemantauan terjadwal.</td></tr>
+    <tr><td>10 – 16</td><td><span class="pill p-berisiko">Tinggi</span></td><td>Perlu tindakan pengendalian segera, pantau oleh manajemen.</td></tr>
+    <tr><td>20 – 25</td><td><span class="pill p-kritis">Ekstrem</span></td><td>Pekerjaan tidak boleh dilanjutkan sebelum risiko diturunkan.</td></tr>
+  </table>
+  <figure><img src="{{18-risiko-register}}" /><figcaption>Gambar 4.2 — Matriks risiko 5×5 (awal/sisa) dan daftar register</figcaption></figure>
+  <h3>Masukan dari data EEG</h3>
+  <p>Panel <b>Masukan dari data EEG</b> merangkum 3 bulan sesi headband secara anonim: jam dipantau, persentase waktu berstatus berisiko/kritis, dan microsleep per 100 jam. Sistem menyarankan nilai kemungkinan untuk setiap risiko berkategori Kognitif (per jabatan bila datanya ada). Ahli K3 menekan <span class="ui">Terapkan</span> untuk memperbaruinya; perubahan tercatat di log.</p>
+  <div class="note"><b>Catatan</b>Sesi mode simulasi tidak dihitung dalam statistik EEG agar register risiko hanya memakai data headband sungguhan.</div>
+  <p>Klik baris risiko untuk mengubah, menghapus, atau <span class="ui">Buat CAPA untuk pengendalian</span> agar pengendalian tambahan benar-benar dikerjakan dan diverifikasi.</p>
+</section>
+
+<!-- ======================= 5. PELAKSANAAN ======================= -->
+<section class="chapter">
+  <h2>5. Pelaksanaan (Tahap 3)</h2>
+  <h3>5.1 Pengendalian dokumen</h3>
+  <p>Menyimpan SOP, instruksi kerja, formulir, manual SMK3, dan rencana tanggap darurat dengan alur persetujuan dan riwayat versi (elemen 4). Pekerja hanya melihat dokumen berstatus <b>Disetujui</b>.</p>
+  <table class="keep">
+    <tr><th>Status</th><th>Arti</th><th>Aksi berikutnya (Ahli K3/Admin)</th></tr>
+    <tr><td>Draf</td><td>Sedang disusun</td><td>Ubah · Ajukan tinjauan · Hapus draf</td></tr>
+    <tr><td>Ditinjau</td><td>Menunggu pemeriksaan</td><td>Setujui · Kembalikan ke draf</td></tr>
+    <tr><td>Disetujui</td><td>Berlaku &amp; terdistribusi</td><td>Revisi (versi baru, wajib alasan) · Tandai kedaluwarsa</td></tr>
+    <tr><td>Kedaluwarsa</td><td>Tidak berlaku lagi</td><td>—</td></tr>
+  </table>
+  <ol class="steps">
+    <li>Klik <span class="ui">Dokumen baru</span>, isi kode, jenis, judul, versi, pemilik, isi dokumen (atau tautan berkas), distribusi, dan tanggal tinjau ulang.</li>
+    <li>Buka dokumen → <span class="ui">Ajukan tinjauan</span> → setelah diperiksa, <span class="ui">Setujui</span>.</li>
+    <li>Untuk perubahan, klik <span class="ui">Revisi (versi baru)</span> dan tuliskan alasan perubahan. Riwayat revisi tersimpan permanen.</li>
+  </ol>
+  <figure><img src="{{19-dokumen-form}}" /><figcaption>Gambar 5.1 — Membuat dokumen</figcaption></figure>
+  <figure><img src="{{20-dokumen-disetujui}}" /><figcaption>Gambar 5.2 — Dokumen disetujui beserta riwayat revisi</figcaption></figure>
+
+  <h3>5.2 Pelatihan &amp; kompetensi</h3>
+  <p>Memastikan setiap pekerja memiliki pelatihan dan lisensi yang wajib untuk jabatannya (elemen 12).</p>
+  <ol class="steps">
+    <li><b>Katalog:</b> klik <span class="ui">Jenis pelatihan</span>. Isi nama, kategori, masa berlaku dalam bulan (0 = tanpa batas), dan jabatan yang wajib mengikutinya, dipisahkan koma. Tulis <b>*</b> untuk semua pekerja.</li>
+    <li><b>Catat pelatihan:</b> klik <span class="ui">Catat pelatihan</span>, pilih peserta dan pelatihan, isi tanggal, penyelenggara, dan nomor sertifikat. Tanggal kedaluwarsa dihitung otomatis dari masa berlaku.</li>
+    <li><b>Matriks kompetensi</b> menunjukkan status setiap pekerja: <span class="pill p-normal">Berlaku</span> <span class="pill p-waspada">Segera habis</span> (≤ 60 hari) <span class="pill p-kritis">Kedaluwarsa</span> / <span class="pill p-kritis">Belum</span>.</li>
+  </ol>
+  <figure><img src="{{21-pelatihan-matriks}}" /><figcaption>Gambar 5.3 — Matriks kompetensi dan indikator kepatuhan</figcaption></figure>
+  <p>Pekerja membuka tab <span class="ui">Pelatihan saya</span> untuk melihat pelatihan wajib dan sertifikat miliknya.</p>
+
+  <h3>5.3 Monitoring EEG pribadi</h3>
+  <p>Menu <span class="ui">Monitoring EEG Saya</span> dipakai setiap pekerja di awal shift. Tersedia untuk semua peran.</p>
+  <h4>Menghubungkan headband Muse</h4>
+  <ol class="steps">
+    <li>Nyalakan headband Muse, pasang dengan sensor dahi dan sensor belakang telinga menempel di kulit.</li>
+    <li>Buka aplikasi di Chrome/Edge, klik <span class="ui">Hubungkan</span>, lalu pilih perangkat "Muse…" pada jendela Bluetooth.</li>
+    <li>Status berubah menjadi <b>Terhubung</b> dan grafik gelombang otak muncul. Tunggu beberapa detik hingga sinyal stabil.</li>
+  </ol>
+  <h4>Menjalankan sesi</h4>
+  <ol class="steps">
+    <li>Klik <span class="ui">Mulai sesi (Muse)</span>. <b>Kalibrasi baseline</b> berjalan sesuai pengaturan (default 3 menit). Duduk tenang, mata terbuka, jangan banyak bergerak.</li>
+    <li>Setelah kalibrasi, monitoring berjalan. Readiness, 6 indeks (Fatigue, Cognitive Load, Engagement, HRV, Stres, Microsleep), status, dan rekomendasi diperbarui setiap detik.</li>
+    <li>Jaga layar tetap menyala (aplikasi mencegah layar mati otomatis). Bila headband terputus, muncul peringatan dan tombol <span class="ui">Sambungkan ulang</span>.</li>
+    <li>Di akhir shift, klik <span class="ui">Akhiri sesi</span>. Ringkasan sesi tersimpan dan tampil di <b>Riwayat sesi saya</b>.</li>
+  </ol>
+  <figure><img src="{{22-eeg-monitoring-saya}}" /><figcaption>Gambar 5.4 — Monitoring EEG Saya saat sesi berjalan (contoh data mode simulasi)</figcaption></figure>
+  <table class="keep">
+    <tr><th>Status</th><th>Arti</th><th>Rekomendasi untuk pekerja</th></tr>
+    <tr><td><span class="pill p-normal">Normal</span></td><td>Sesuai baseline pribadi</td><td>Pertahankan ritme kerja.</td></tr>
+    <tr><td><span class="pill p-waspada">Waspada</span></td><td>Mendekati ambang</td><td>Turunkan tempo, fokus pada satu tugas.</td></tr>
+    <tr><td><span class="pill p-berisiko">Berisiko</span></td><td>Melewati ambang</td><td>Micro-break 5 menit, atur napas. Peringatan terkirim ke Supervisor.</td></tr>
+    <tr><td><span class="pill p-kritis">Kritis</span></td><td>Berbahaya / microsleep</td><td>Hentikan pekerjaan berisiko &amp; istirahat. Bunyi &amp; getar; tercatat sebagai near miss.</td></tr>
+  </table>
+  <figure><img src="{{25-eeg-peringatan-pekerja}}" /><figcaption>Gambar 5.5 — Tampilan pekerja saat status kritis / microsleep (contoh data mode simulasi)</figcaption></figure>
+  <figure><img src="{{28-eeg-detail-sesi}}" /><figcaption>Gambar 5.6 — Detail sesi: ringkasan, tren per menit, waktu per status, dan peringatan</figcaption></figure>
+  <div class="figrow">
+    <figure class="phone"><img src="{{49-mobile-monitoring}}" /><figcaption>Gambar 5.7 — Tampilan di ponsel</figcaption></figure>
+    <figure class="phone"><img src="{{50-mobile-menu}}" /><figcaption>Gambar 5.8 — Menu di ponsel</figcaption></figure>
+  </div>
+  <div class="warn"><b>Mode simulasi</b>Tombol <span class="ui">Mulai sesi simulasi (pelatihan)</span> hanya untuk latihan tanpa headband dan dapat dimatikan Admin. Sesi simulasi diberi label <b>SIMULASI</b> dan tidak dihitung dalam statistik, register risiko, maupun KPI.</div>
+  <div class="note"><b>Batasan penggunaan</b>Indeks EEG adalah <b>alat pendukung keputusan</b>, bukan diagnosis medis. Ambang indeks perlu divalidasi terhadap kondisi lapangan perusahaan sebelum dipakai sebagai dasar keputusan operasional.</div>
+</section>
+
+<!-- ======================= 6. PEMANTAUAN ======================= -->
+<section class="chapter">
+  <h2>6. Pemantauan &amp; Evaluasi (Tahap 4)</h2>
+  <h3>6.1 Monitoring EEG tim &amp; peringatan</h3>
+  <p><b>Supervisor, Ahli K3, dan Admin</b> membuka <span class="ui">Monitoring EEG Tim</span> untuk melihat semua pekerja yang sedang menjalankan sesi secara real-time. Pekerja diurutkan dari status paling berat.</p>
+  <ul>
+    <li>Kartu pekerja menampilkan status, indeks utama, jumlah microsleep, dan rekomendasi untuk supervisor.</li>
+    <li>Pekerja yang tidak mengirim data lebih dari 60 detik ditandai <b>Terputus</b>. Periksa headband atau koneksinya, lalu klik <span class="ui">Tutup sesi</span> bila sesi memang sudah berhenti.</li>
+    <li>Centang <span class="ui">Bunyi</span> dan <span class="ui">Notifikasi desktop</span> agar peringatan baru terdengar dan muncul walau tab tidak sedang dibuka.</li>
+  </ul>
+  <figure><img src="{{23-eeg-monitoring-tim-normal}}" /><figcaption>Gambar 6.1 — Monitoring tim saat kondisi normal</figcaption></figure>
+  <figure><img src="{{24-eeg-monitoring-tim-peringatan}}" /><figcaption>Gambar 6.2 — Pekerja berstatus kritis dan daftar peringatan aktif (contoh data mode simulasi)</figcaption></figure>
+  <h4>Menangani peringatan</h4>
+  <ol class="steps">
+    <li>Pada panel <b>Peringatan aktif</b>, klik <span class="ui">Tangani</span>.</li>
+    <li>Tuliskan tindakan yang dilakukan (misalnya istirahat, rotasi tugas), lalu klik <span class="ui">Tandai ditangani</span>.</li>
+    <li>Setelah kondisi pekerja kembali aman, klik <span class="ui">Tutup</span> dan beri catatan penutupan. Semua catatan tersimpan permanen sebagai bukti tindak lanjut.</li>
+  </ol>
+  <figure><img src="{{26-eeg-tangani-peringatan}}" /><figcaption>Gambar 6.3 — Mencatat tindakan penanganan peringatan</figcaption></figure>
+  <p>Menu <span class="ui">Peringatan EEG</span> berisi seluruh riwayat peringatan dalam tab Terbuka, Ditangani, dan Selesai.</p>
+
+  <h3>6.2 Insiden &amp; near miss</h3>
+  <p>Semua anggota dapat melaporkan <b>kecelakaan kerja, penyakit akibat kerja, near miss, kondisi tidak aman, atau tindakan tidak aman</b>. Pelaporan bersifat non-punitif (elemen 8.1–8.3).</p>
+  <h4>Melapor (semua peran)</h4>
+  <ol class="steps">
+    <li>Buka <span class="ui">Insiden &amp; Near Miss</span> → <span class="ui">Laporkan</span>. Tombol cepat juga tersedia di Beranda.</li>
+    <li>Pilih jenis dan tingkat keparahan, isi judul, waktu, lokasi, orang yang terlibat, kronologi, dan tindakan segera. Untuk kecelakaan yang menyebabkan korban tidak bisa bekerja, isi <b>hari kerja hilang</b> (dihitung sebagai LTI).</li>
+    <li>Klik <span class="ui">Kirim laporan</span>. Pelapor dapat memantau status laporannya di tab <b>Laporan saya</b>.</li>
+  </ol>
+  <figure><img src="{{29-insiden-lapor}}" /><figcaption>Gambar 6.4 — Formulir laporan insiden</figcaption></figure>
+  <div class="note"><b>Near miss otomatis dari EEG</b>Setiap peringatan EEG <b>kritis</b> atau <b>microsleep</b> otomatis tercatat sebagai near miss berlabel <b>EEG</b> dengan pelapor "Sistem EEG". Identitas pekerja tidak dicantumkan pada laporan insiden.</div>
+  <figure><img src="{{27-insiden-daftar}}" /><figcaption>Gambar 6.5 — Daftar insiden termasuk near miss dari sistem EEG</figcaption></figure>
+  <h4>Investigasi &amp; penutupan (Supervisor / Ahli K3 / Admin)</h4>
+  <ol class="steps">
+    <li>Buka laporan. Klik <span class="ui">Ubah klasifikasi</span> bila jenis atau keparahan perlu dikoreksi.</li>
+    <li>Isi analisis <b>5 Mengapa (5 Why)</b>, akar masalah, faktor penyebab lain, dan rekomendasi, lalu klik <span class="ui">Simpan investigasi</span>. Status berubah menjadi <b>Investigasi</b>.</li>
+    <li>Klik <span class="ui">Buat CAPA</span> untuk menugaskan tindakan perbaikan (lihat 7.1).</li>
+    <li>Setelah CAPA berjalan, klik <span class="ui">Tutup insiden</span>. Akar masalah wajib diisi.</li>
+  </ol>
+  <figure><img src="{{30-capa-buat}}" /><figcaption>Gambar 6.6 — Membuat CAPA dari insiden</figcaption></figure>
+  <figure class="tall"><img src="{{31-insiden-investigasi}}" /><figcaption>Gambar 6.7 — Detail insiden: laporan, investigasi 5 Why, dan CAPA terkait</figcaption></figure>
+
+  <h3>6.3 Inspeksi K3</h3>
+  <p>Pemeriksaan bahaya terjadwal berbasis checklist (elemen 7).</p>
+  <ol class="steps">
+    <li><b>Ahli K3/Admin</b> klik <span class="ui">Template checklist</span>. Isi nama, area, frekuensi (harian s.d. tahunan), dan butir pemeriksaan (satu per baris).</li>
+    <li>Tab <b>Jadwal</b> menghitung tanggal inspeksi berikutnya dari frekuensi dan inspeksi terakhir. Inspeksi yang lewat jadwal ditandai <b>JATUH TEMPO</b>.</li>
+    <li><b>Supervisor/Ahli K3</b> klik <span class="ui">Mulai inspeksi</span>, lalu tandai setiap butir <b>Sesuai / Tidak sesuai / N/A</b> dan tulis catatan lokasi temuan. Pekerjaan dapat disimpan sebagai draf.</li>
+    <li>Klik <span class="ui">Selesaikan inspeksi</span>. Untuk setiap temuan tidak sesuai, pilih apakah dibuatkan CAPA, lalu tentukan penanggung jawab dan tenggatnya. Inspeksi terkunci setelah selesai.</li>
+  </ol>
+  <figure><img src="{{35-inspeksi-template}}" /><figcaption>Gambar 6.8 — Membuat template checklist</figcaption></figure>
+  <figure><img src="{{36-inspeksi-jadwal}}" /><figcaption>Gambar 6.9 — Jadwal inspeksi</figcaption></figure>
+  <figure><img src="{{37-inspeksi-checklist}}" /><figcaption>Gambar 6.10 — Mengisi checklist inspeksi</figcaption></figure>
+  <figure><img src="{{38-inspeksi-selesai-capa}}" /><figcaption>Gambar 6.11 — Menyelesaikan inspeksi dan membuat CAPA dari temuan</figcaption></figure>
+
+  <h3>6.4 KPI &amp; laporan</h3>
+  <p>Menu <span class="ui">KPI &amp; Laporan</span> mengolah data seluruh modul menjadi indikator kinerja (elemen 10). Pilih tahun di pojok kanan atas.</p>
+  <h4>Mengisi jam kerja (Ahli K3/Admin)</h4>
+  <p>Buka tab <span class="ui">Jam kerja</span>. Isi jumlah pekerja dan total jam kerja seluruh pekerja (termasuk lembur) setiap bulan, lalu klik <span class="ui">Simpan</span> per baris. Data ini menjadi pembagi LTIFR dan severity rate.</p>
+  <figure><img src="{{39-kpi-jam-kerja}}" /><figcaption>Gambar 6.12 — Input jam kerja bulanan</figcaption></figure>
+  <table class="keep">
+    <tr><th>Indikator</th><th>Rumus / sumber data</th></tr>
+    <tr><td>LTIFR</td><td>Jumlah Lost Time Injury × 1.000.000 ÷ total jam kerja. LTI = kecelakaan/PAK dengan hari kerja hilang &gt; 0.</td></tr>
+    <tr><td>Severity rate</td><td>Jumlah hari kerja hilang × 1.000.000 ÷ total jam kerja.</td></tr>
+    <tr><td>Rasio near miss</td><td>Jumlah near miss ÷ jumlah kecelakaan.</td></tr>
+    <tr><td>Penutupan CAPA</td><td>CAPA terverifikasi ÷ seluruh CAPA (tidak termasuk yang dibatalkan).</td></tr>
+    <tr><td>Kepatuhan inspeksi</td><td>Butir "sesuai" ÷ (butir sesuai + tidak sesuai) pada inspeksi yang selesai.</td></tr>
+    <tr><td>Ergonomi kognitif</td><td>Jam dipantau, % waktu berisiko/kritis, microsleep per 100 jam, rerata fatigue. Agregat anonim per kelompok jabatan, hanya dari sesi headband.</td></tr>
+  </table>
+  <figure class="tall"><img src="{{40-kpi-ringkasan}}" /><figcaption>Gambar 6.13 — Ringkasan KPI</figcaption></figure>
+  <h4>Mencetak laporan tahunan</h4>
+  <p>Klik <span class="ui">Cetak / PDF</span>. Laporan resmi berisi indikator utama, rekap bulanan, kejadian per jenis, ergonomi kognitif, hasil audit, dan kolom tanda tangan. Pada dialog cetak browser, pilih <b>Simpan sebagai PDF</b> untuk menyimpannya sebagai berkas.</p>
+  <figure class="tall"><img src="{{41-kpi-laporan-cetak}}" /><figcaption>Gambar 6.14 — Laporan Kinerja K3 siap cetak</figcaption></figure>
+</section>
+
+<!-- ======================= 7. PENINJAUAN ======================= -->
+<section class="chapter">
+  <h2>7. Peninjauan &amp; Peningkatan (Tahap 5)</h2>
+  <h3>7.1 Tindakan perbaikan (CAPA)</h3>
+  <p>CAPA (<i>Corrective and Preventive Action</i>) memastikan setiap temuan benar-benar diperbaiki. CAPA dapat berasal dari insiden, inspeksi, audit, register risiko, tinjauan manajemen, atau dibuat manual.</p>
+  <table class="keep">
+    <tr><th>Status</th><th>Siapa</th><th>Keterangan</th></tr>
+    <tr><td>Terbuka</td><td>Pembuat</td><td>CAPA dibuat dan ditugaskan kepada penanggung jawab dengan tenggat.</td></tr>
+    <tr><td>Dikerjakan</td><td>Penanggung jawab</td><td>Progres dicatat. Status "Terlambat" muncul otomatis bila melewati tenggat.</td></tr>
+    <tr><td>Menunggu verifikasi</td><td>Penanggung jawab</td><td>Ditandai selesai dengan <b>bukti penyelesaian</b> (wajib).</td></tr>
+    <tr><td>Terverifikasi</td><td>Ahli K3 / Admin</td><td>Diperiksa di lapangan; dinilai efektif atau tidak efektif.</td></tr>
+    <tr><td>Dibatalkan</td><td>Ahli K3 / Admin</td><td>Tidak lagi relevan.</td></tr>
+  </table>
+  <h4>Untuk penanggung jawab (termasuk pekerja)</h4>
+  <ol class="steps">
+    <li>Buka <span class="ui">Tindakan Perbaikan (CAPA)</span> → tab <b>Tugas saya</b>. Jumlah tugas aktif juga tampil di Beranda.</li>
+    <li>Buka CAPA, isi catatan progres, lalu klik <span class="ui">Simpan — sedang dikerjakan</span>.</li>
+    <li>Setelah selesai, isi <b>bukti penyelesaian</b> (uraian, nomor dokumen/WO, atau tautan foto) dan klik <span class="ui">Tandai selesai</span>.</li>
+  </ol>
+  <figure><img src="{{32-capa-tugas-saya}}" /><figcaption>Gambar 7.1 — Daftar tugas CAPA milik pekerja</figcaption></figure>
+  <figure><img src="{{33-capa-progres}}" /><figcaption>Gambar 7.2 — Memperbarui progres dan bukti penyelesaian</figcaption></figure>
+  <h4>Untuk Ahli K3 / Admin</h4>
+  <p>Buka tab <b>Menunggu verifikasi</b>. Periksa hasil di lapangan, tulis hasil verifikasi, tentukan efektif atau tidak, lalu klik <span class="ui">Verifikasi &amp; tutup</span>. Jika belum memadai, klik <span class="ui">Kembalikan ke penanggung jawab</span>. Tombol <span class="ui">Ubah / tugaskan ulang</span> tersedia untuk mengganti penanggung jawab atau tenggat.</p>
+  <figure><img src="{{34-capa-terverifikasi}}" /><figcaption>Gambar 7.3 — CAPA terverifikasi efektif</figcaption></figure>
+  <figure><img src="{{48-capa-daftar-supervisor}}" /><figcaption>Gambar 7.4 — Pemantauan seluruh CAPA: aktif, menunggu verifikasi, terlambat</figcaption></figure>
+
+  <h3>7.2 Audit SMK3</h3>
+  <p>Audit internal memakai <b>12 elemen dan 166 kriteria resmi Lampiran II PP No. 50 Tahun 2012</b>. Pelaksananya Ahli K3, Admin, atau Auditor Internal.</p>
+  <table class="keep">
+    <tr><th>Tingkat</th><th>Jumlah kriteria</th></tr>
+    <tr><td>Awal</td><td>64</td></tr><tr><td>Transisi</td><td>122 (awal + transisi)</td></tr><tr><td>Lanjutan</td><td>166 (seluruh kriteria)</td></tr>
+  </table>
+  <ol class="steps">
+    <li>Klik <span class="ui">Audit baru</span>. Isi judul, tingkat penilaian, tanggal, tim auditor, dan ruang lingkup.</li>
+    <li>Buka setiap elemen. Untuk tiap kriteria, pilih hasil <b>Sesuai / Temuan minor / Temuan mayor / Temuan kritikal</b> dan tulis bukti atau catatan. Penilaian <b>tersimpan otomatis</b>.</li>
+    <li>Pakai filter <span class="ui">Belum dinilai</span> dan <span class="ui">Temuan</span> untuk mempercepat pekerjaan. Pada setiap temuan, klik <span class="ui">+ CAPA</span>.</li>
+    <li>Klik <span class="ui">Selesaikan</span>. Skor terkunci. Klik <span class="ui">Cetak / PDF</span> untuk laporan audit berisi rekap per elemen dan daftar temuan.</li>
+  </ol>
+  <figure><img src="{{42-audit-baru}}" /><figcaption>Gambar 7.5 — Membuat audit baru</figcaption></figure>
+  <figure><img src="{{43-audit-penilaian}}" /><figcaption>Gambar 7.6 — Penilaian kriteria dengan skor otomatis</figcaption></figure>
+  <div class="note"><b>Ketentuan penilaian (Lampiran II bagian C)</b>Tingkat pencapaian = kriteria sesuai ÷ jumlah kriteria tingkat tersebut. 0–59% <b>kurang</b> · 60–84% <b>baik</b> · 85–100% <b>memuaskan</b>. Bila terdapat temuan <b>kritikal</b> (mengakibatkan fatality) atau <b>mayor</b>, perusahaan dinilai <b>belum berhasil menerapkan SMK3</b>. Kriteria yang belum dinilai dihitung tidak terpenuhi.</div>
+  <figure><img src="{{44-audit-daftar}}" /><figcaption>Gambar 7.7 — Daftar audit dengan progres dan pencapaian</figcaption></figure>
+
+  <h3>7.3 Tinjauan manajemen</h3>
+  <p>Sesuai Pasal 15, pengusaha wajib meninjau kesesuaian dan efektivitas penerapan SMK3. Modul ini dipakai Manajemen, Admin, dan Ahli K3.</p>
+  <ol class="steps">
+    <li>Klik <span class="ui">Tinjauan baru</span>. Isi judul rapat, tanggal, pimpinan rapat, dan peserta.</li>
+    <li>Klik <span class="ui">Ambil data terbaru</span>. Jam kerja, LTIFR, insiden, CAPA, inspeksi, audit terakhir, dan data EEG agregat terisi otomatis.</li>
+    <li>Centang <b>pemicu perbaikan</b> yang relevan (Pasal 15 ayat 4 huruf a–h), lalu isi <b>hasil peninjauan</b> untuk kebijakan, perencanaan, pelaksanaan, pemantauan &amp; evaluasi, serta peningkatan. Klik <span class="ui">Simpan</span>.</li>
+    <li>Tambahkan <b>keputusan</b> beserta PIC dan tenggatnya. Klik <span class="ui">+ CAPA</span> agar keputusan terpantau sampai selesai.</li>
+    <li>Klik <span class="ui">Finalkan</span> untuk mengunci notulen, lalu <span class="ui">Cetak notulen</span>.</li>
+  </ol>
+  <figure class="tall"><img src="{{45-tinjauan-manajemen}}" /><figcaption>Gambar 7.8 — Rapat tinjauan manajemen</figcaption></figure>
+</section>
+
+<!-- ======================= 8. ORGANISASI ======================= -->
+<section class="chapter">
+  <h2>8. Organisasi &amp; jejak audit</h2>
+  <p>Menu <span class="ui">Log Aktivitas</span> (Admin, Ahli K3, Manajemen, Auditor) mencatat setiap perubahan penting secara permanen: siapa, kapan, dan apa yang dilakukan. Contohnya persetujuan anggota, perubahan peran, pengesahan kebijakan, penanganan peringatan, verifikasi CAPA, dan penyelesaian audit. Log <b>tidak dapat diubah atau dihapus</b> oleh siapa pun dan dapat diunduh sebagai CSV untuk bukti audit.</p>
+  <figure><img src="{{46-log-aktivitas}}" /><figcaption>Gambar 8.1 — Log aktivitas</figcaption></figure>
+  <div class="note"><b>Keamanan data</b>Setiap perusahaan terisolasi penuh; anggota perusahaan lain tidak dapat membaca data Anda. Hak akses setiap peran diperiksa oleh server untuk setiap permintaan data.</div>
+</section>
+
+<!-- ======================= 9. ALUR PER PERAN ======================= -->
+<section class="chapter">
+  <h2>9. Alur kerja per peran</h2>
+  <div class="grid2">
+    <div class="card"><h4>Pekerja — setiap shift</h4><ol>
+      <li>Pasang headband, buka <b>Monitoring EEG Saya</b>, hubungkan, mulai sesi, kalibrasi.</li>
+      <li>Ikuti rekomendasi. Saat status Berisiko/Kritis, berhenti dan istirahat.</li>
+      <li>Laporkan kondisi/tindakan tidak aman dan near miss di <b>Insiden</b>.</li>
+      <li>Kerjakan <b>Tugas CAPA</b> dan unggah bukti.</li>
+      <li>Baca &amp; konfirmasi kebijakan baru; baca dokumen SOP terkait.</li>
+      <li>Akhiri sesi di akhir shift.</li></ol></div>
+    <div class="card"><h4>Supervisor — setiap shift</h4><ol>
+      <li>Buka <b>Monitoring EEG Tim</b>; aktifkan bunyi &amp; notifikasi.</li>
+      <li>Tangani setiap peringatan: istirahatkan/rotasi, lalu catat tindakannya.</li>
+      <li>Tindak lanjuti insiden baru: klasifikasi, investigasi, buat CAPA.</li>
+      <li>Laksanakan inspeksi yang jatuh tempo.</li>
+      <li>Tutup sesi yang terputus.</li></ol></div>
+    <div class="card"><h4>Ahli K3 — mingguan / bulanan</h4><ol>
+      <li>Verifikasi CAPA yang menunggu; kejar CAPA terlambat.</li>
+      <li>Tinjau register risiko; terapkan masukan data EEG.</li>
+      <li>Kelola template inspeksi, dokumen, dan katalog pelatihan.</li>
+      <li>Isi jam kerja bulanan di <b>KPI</b>.</li>
+      <li>Jalankan audit internal berkala; siapkan bahan tinjauan manajemen.</li></ol></div>
+    <div class="card"><h4>Manajemen — bulanan / semesteran</h4><ol>
+      <li>Sahkan kebijakan K3 dan versi barunya.</li>
+      <li>Pantau <b>KPI &amp; Laporan</b>; cetak laporan tahunan.</li>
+      <li>Pimpin <b>Tinjauan Manajemen</b>; tetapkan keputusan &amp; CAPA.</li>
+      <li>Pastikan sumber daya untuk pengendalian risiko tinggi/ekstrem.</li></ol></div>
+    <div class="card"><h4>Admin Perusahaan</h4><ol>
+      <li>Setujui/tolak permintaan bergabung; tetapkan peran yang tepat.</li>
+      <li>Nonaktifkan anggota yang keluar dari perusahaan.</li>
+      <li>Ganti kode undangan bila tersebar.</li>
+      <li>Atur durasi kalibrasi &amp; izin mode simulasi.</li>
+      <li>Periksa log aktivitas secara berkala.</li></ol></div>
+    <div class="card"><h4>Auditor Internal</h4><ol>
+      <li>Buat audit sesuai tingkat penerapan perusahaan.</li>
+      <li>Nilai kriteria berdasarkan bukti di modul lain dan di lapangan.</li>
+      <li>Buat CAPA untuk setiap temuan; selesaikan dan cetak laporan audit.</li></ol></div>
+  </div>
+</section>
+
+<!-- ======================= 10. FAQ ======================= -->
+<section class="chapter">
+  <h2>10. Tanya jawab &amp; pemecahan masalah</h2>
+  <table>
+    <tr><th style="width:36%">Masalah / pertanyaan</th><th>Solusi</th></tr>
+    <tr><td>Kode undangan dinyatakan tidak valid</td><td>Kode mungkin sudah dibuat ulang. Minta kode terbaru kepada Admin. Kode terdiri dari 8 huruf/angka tanpa huruf I/O dan angka 0/1.</td></tr>
+    <tr><td>Sudah bergabung tetapi tertahan di "Menunggu persetujuan"</td><td>Admin belum menyetujui. Hubungi Admin. Halaman terbuka otomatis setelah disetujui.</td></tr>
+    <tr><td>Menu tertentu tidak muncul</td><td>Menu mengikuti peran Anda. Minta Admin mengubah peran bila tugas Anda memerlukannya.</td></tr>
+    <tr><td>Tombol "Hubungkan" headband tidak berfungsi</td><td>Gunakan Chrome atau Edge (bukan Safari/Firefox), aktifkan Bluetooth perangkat, dan izinkan akses Bluetooth di browser. iPhone/iPad belum didukung.</td></tr>
+    <tr><td>Kalibrasi gagal: sinyal buruk</td><td>Rapikan posisi headband, bersihkan sensor, singkirkan rambut dari sensor dahi, lalu ulangi. Minimal 50% sampel harus valid.</td></tr>
+    <tr><td>Supervisor melihat status "Terputus"</td><td>Layar ponsel pekerja mati, tab ditutup, headband terputus, atau koneksi internet hilang. Minta pekerja membuka kembali aplikasi atau sambungkan ulang. Tutup sesi bila memang sudah berakhir.</td></tr>
+    <tr><td>Data EEG tidak muncul di KPI / register risiko</td><td>Statistik hanya berasal dari sesi headband yang diakhiri dengan tombol <b>Akhiri sesi</b>. Sesi simulasi tidak dihitung.</td></tr>
+    <tr><td>LTIFR tampil "—"</td><td>Jam kerja bulan-bulan tersebut belum diisi di tab <b>Jam kerja</b>.</td></tr>
+    <tr><td>Tidak dapat mengubah kebijakan yang disahkan</td><td>Disengaja agar dokumen resmi tidak berubah diam-diam. Gunakan <b>Buat versi baru</b>.</td></tr>
+    <tr><td>Audit / tinjauan tidak bisa diubah lagi</td><td>Audit berstatus Selesai dan tinjauan berstatus Final dikunci sebagai rekaman resmi.</td></tr>
+    <tr><td>Menyimpan laporan sebagai PDF</td><td>Klik <b>Cetak / PDF</b>, lalu pada dialog cetak pilih tujuan <b>Simpan sebagai PDF</b>.</td></tr>
+    <tr><td>Muncul pesan "Akses ditolak"</td><td>Tindakan tersebut di luar hak peran Anda, atau akun Anda dinonaktifkan. Hubungi Admin.</td></tr>
+  </table>
+</section>
+
+<!-- ======================= 11. GLOSARIUM ======================= -->
+<section class="chapter">
+  <h2>11. Glosarium</h2>
+  <table>
+    <tr><th style="width:26%">Istilah</th><th>Penjelasan</th></tr>
+    <tr><td>SMK3</td><td>Sistem Manajemen Keselamatan dan Kesehatan Kerja; bagian dari manajemen perusahaan untuk mengendalikan risiko kerja (PP No. 50 Tahun 2012).</td></tr>
+    <tr><td>P2K3</td><td>Panitia Pembina Keselamatan dan Kesehatan Kerja; wadah kerja sama pengusaha dan pekerja di bidang K3.</td></tr>
+    <tr><td>HIRADC</td><td>Identifikasi bahaya, penilaian risiko, dan penetapan pengendalian.</td></tr>
+    <tr><td>Near miss</td><td>Kejadian yang hampir menimbulkan cedera atau kerusakan.</td></tr>
+    <tr><td>CAPA</td><td>Tindakan perbaikan (korektif) dan pencegahan (preventif).</td></tr>
+    <tr><td>LTI / LTIFR</td><td>Lost Time Injury / frekuensi LTI per 1.000.000 jam kerja.</td></tr>
+    <tr><td>Severity rate</td><td>Hari kerja hilang per 1.000.000 jam kerja.</td></tr>
+    <tr><td>EEG</td><td>Elektroensefalografi; perekaman aktivitas listrik otak.</td></tr>
+    <tr><td>Baseline</td><td>Kondisi otak pribadi saat tenang, direkam di awal sesi sebagai pembanding.</td></tr>
+    <tr><td>Fatigue Index</td><td>Indeks kelelahan mental dari rasio gelombang (theta + alpha) / beta.</td></tr>
+    <tr><td>Cognitive Load</td><td>Indeks beban kognitif dari aktivitas theta.</td></tr>
+    <tr><td>Engagement Index</td><td>Indeks fokus/keterlibatan dari rasio beta / (alpha + theta).</td></tr>
+    <tr><td>HRV</td><td>Variabilitas detak jantung (dari sensor PPG), indikator stres fisiologis.</td></tr>
+    <tr><td>Microsleep</td><td>Tidur sesaat beberapa detik tanpa disadari; dideteksi dari pola EEG kantuk disertai penurunan fokus tajam atau anggukan kepala.</td></tr>
+    <tr><td>Temuan minor / mayor / kritikal</td><td>Kategori temuan audit SMK3 sesuai Lampiran II PP No. 50 Tahun 2012 bagian C.</td></tr>
+  </table>
+  <p style="margin-top:14pt;font-size:9pt;color:#5b6477">Acuan: Peraturan Pemerintah Republik Indonesia Nomor 50 Tahun 2012 tentang Penerapan Sistem Manajemen Keselamatan dan Kesehatan Kerja, beserta Lampiran I dan II. Screenshot dalam panduan ini diambil dari aplikasi dengan data contoh fiktif.</p>
+</section>
+
+</body>
+</html>

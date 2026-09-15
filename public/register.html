@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Daftar — NeuroTech SMK3</title>
+  <link rel="icon" href="/assets/favicon.png" type="image/png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <script src="https://code.iconify.design/iconify-icon/2.3.0/iconify-icon.min.js"></script>
+</head>
+<body>
+  <div class="auth-wrap">
+    <div class="card auth-card">
+      <a class="brand" href="/"><img src="/assets/logo-mark.png" alt="" /><span class="brand-word">neurotech</span></a>
+      <h2 style="text-align:center">Buat akun</h2>
+      <p class="center tiny">Setelah mendaftar, gabung dengan kode undangan atau daftarkan perusahaan baru.</p>
+
+      <div id="msg" class="msg hidden" role="alert"></div>
+
+      <form id="form">
+        <div class="field">
+          <label for="name">Nama lengkap</label>
+          <input id="name" type="text" autocomplete="name" required maxlength="120" placeholder="Nama sesuai identitas" />
+        </div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" type="email" autocomplete="email" required placeholder="nama@perusahaan.com" />
+        </div>
+        <div class="field">
+          <label for="password">Kata sandi</label>
+          <input id="password" type="password" autocomplete="new-password" required minlength="8" placeholder="Minimal 8 karakter" />
+        </div>
+        <div class="field">
+          <label for="password2">Ulangi kata sandi</label>
+          <input id="password2" type="password" autocomplete="new-password" required minlength="8" placeholder="Ketik ulang kata sandi" />
+        </div>
+        <button id="submit" class="btn btn-primary btn-block" type="submit">Daftar</button>
+      </form>
+
+      <div class="or-sep"><span>atau</span></div>
+      <button id="googleBtn" class="btn btn-ghost btn-block" type="button">
+        <iconify-icon icon="logos:google-icon"></iconify-icon> Daftar dengan Google
+      </button>
+
+      <div class="auth-switch">Sudah punya akun? <a href="/login">Masuk</a></div>
+    </div>
+  </div>
+  <script type="module" src="/js/pages/register.js"></script>
+</body>
+</html>

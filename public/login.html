@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Masuk — NeuroTech SMK3</title>
+  <link rel="icon" href="/assets/favicon.png" type="image/png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <script src="https://code.iconify.design/iconify-icon/2.3.0/iconify-icon.min.js"></script>
+</head>
+<body>
+  <div class="auth-wrap">
+    <div class="card auth-card">
+      <a class="brand" href="/"><img src="/assets/logo-mark.png" alt="" /><span class="brand-word">neurotech</span></a>
+
+      <!-- MASUK -->
+      <section id="loginPanel">
+        <h2 style="text-align:center">Masuk</h2>
+        <p class="center tiny">Platform SMK3 &amp; Ergonomi Kognitif.</p>
+        <div id="msg" class="msg hidden" role="alert"></div>
+        <form id="form">
+          <div class="field">
+            <label for="email">Email</label>
+            <input id="email" type="email" autocomplete="email" required placeholder="nama@perusahaan.com" />
+          </div>
+          <div class="field">
+            <label for="password">Kata sandi</label>
+            <input id="password" type="password" autocomplete="current-password" required placeholder="Kata sandi" />
+          </div>
+          <div class="tiny" style="text-align:right;margin:-.3rem 0 1rem">
+            <a href="#" id="forgotLink">Lupa kata sandi?</a>
+          </div>
+          <button id="submit" class="btn btn-primary btn-block" type="submit">Masuk</button>
+        </form>
+        <div class="or-sep"><span>atau</span></div>
+        <button id="googleBtn" class="btn btn-ghost btn-block" type="button">
+          <iconify-icon icon="logos:google-icon"></iconify-icon> Masuk dengan Google
+        </button>
+        <div class="auth-switch">Belum punya akun? <a href="/register">Daftar</a></div>
+      </section>
+
+      <!-- LUPA KATA SANDI -->
+      <section id="resetPanel" class="hidden">
+        <h2 style="text-align:center">Atur ulang kata sandi</h2>
+        <p class="center tiny">Kami akan mengirim tautan pengaturan ulang ke email Anda.</p>
+        <div id="resetMsg" class="msg hidden" role="alert"></div>
+        <form id="resetForm">
+          <div class="field">
+            <label for="resetEmail">Email</label>
+            <input id="resetEmail" type="email" autocomplete="email" required placeholder="nama@perusahaan.com" />
+          </div>
+          <button id="resetSubmit" class="btn btn-primary btn-block" type="submit">Kirim tautan</button>
+        </form>
+        <div class="auth-switch"><a href="#" id="backLink">← Kembali ke halaman masuk</a></div>
+      </section>
+    </div>
+  </div>
+  <script type="module" src="/js/pages/login.js"></script>
+</body>
+</html>
