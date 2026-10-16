@@ -180,7 +180,7 @@ const WorkerReadiness = () => {
       </div>
       <div style={metricCardStyle}>
         {metricIconWrap(<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>)}
-        <div style={{ fontSize: 17, fontWeight: 800, color: "var(--nt-text)", letterSpacing: "-0.01em", lineHeight: 1 }}>{w.hrv} ms</div>
+        <div style={{ fontSize: 17, fontWeight: 800, color: "var(--nt-text)", letterSpacing: "-0.01em", lineHeight: 1 }}>{Number.isFinite(w.hrv) ? `${w.hrv} ms` : "—"}</div>
         <div style={{ fontSize: 9.5, color: "#3B82F6", letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 700 }}>HRV</div>
       </div>
     </div>
@@ -280,15 +280,24 @@ const WorkerLive = () => {
     window.toast?.("Istirahat mikro dimulai · 3 menit", { kind: "info" });
   };
 
-  // Live values — pulled from CURRENT_WORKER which the engine mutates each
-  // tick. App re-renders this component on `nt-data` so we always read the
-  // freshest numbers. EEG band powers are derived from those vitals with a
-  // small per-tick sine so the bars never look identical.
+  // Real values use the same freshness/quality checks as the management page.
+  // Synthetic values are only displayed while demo streaming is active.
   const w = CURRENT_WORKER || {};
-  const cli = typeof w.cli === "number" ? w.cli : 64;
-  const fi  = typeof w.fi  === "number" ? w.fi  : 38;
-  const ei  = typeof w.ei  === "number" ? w.ei  : 71;
-  const stat = w.status || "waspada";
+  const [signalNow, setSignalNow] = React.useState(Date.now());
+  React.useEffect(() => {
+    if (!muse.real) return;
+    const timer = setInterval(() => setSignalNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [muse.real]);
+  const dsp = window.ntMuseDSP || {};
+  const liveModel = window.ntManagement.snapshot({ now: Date.now(), device: window.ntMuse?.status?.() || {}, dsp });
+  const demoActive = !muse.real && window.NT_LIVE === true;
+  const hasRealSample = demoActive || liveModel.valid;
+  const metrics = muse.real ? liveModel.latest || {} : demoActive ? w : {};
+  const cli = hasRealSample && typeof metrics.cli === "number" ? metrics.cli : 0;
+  const fi  = hasRealSample && typeof metrics.fi  === "number" ? metrics.fi  : 0;
+  const ei  = hasRealSample && typeof metrics.ei  === "number" ? metrics.ei  : 0;
+  const stat = metrics.instantStatus || metrics.status || null;
   const _clip = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(v)));
   // Time-based phase so bands gently drift between engine ticks (purely
   // visual). When Muse disconnects, NT_LIVE turns false → we freeze the
@@ -297,7 +306,8 @@ const WorkerLive = () => {
   // Prefer the REAL band powers computed by ble-muse-dsp.js whenever a Muse
   // is paired. Falls back to a sine-driven derivation for demo mode so the
   // bars still feel alive.
-  const realBands = (muse.real && window.ntMuseDSP && window.ntMuseDSP.bands) || null;
+  const realBands = demoActive ? null
+    : ((liveModel.valid && dsp.last?.bands) || { delta: 0, theta: 0, alpha: 0, beta: 0, gamma: 0 });
   const eegBands = [
     { l: "Delta", c: ["#6cb6f0", "#8cc6f5"], v: realBands ? realBands.delta : _clip(38 + (fi  - 50) * 0.55 + Math.sin(tickPhase + 0.1) * 5, 8, 95) },
     { l: "Theta", c: ["#9c8bf0", "#b9adf5"], v: realBands ? realBands.theta : _clip(48 + (fi  - 50) * 0.70 + Math.sin(tickPhase + 1.4) * 6, 10, 95) },
@@ -313,13 +323,14 @@ const WorkerLive = () => {
   const elapsedLabel = Math.floor(elapsedMin / 60) + " j " + (elapsedMin % 60) + " m";
   // Battery: real % from the headband when paired (rounded), otherwise a
   // gentle simulated number so the pill still feels alive in demo mode.
-  const ble = (muse.real && typeof muse.battery === "number")
-    ? Math.round(muse.battery)
-    : _clip(60 + Math.sin(tickPhase * 0.3) * 6, 40, 88);
+  const ble = muse.real
+    ? (typeof muse.battery === "number" ? Math.round(muse.battery) + "%" : "—")
+    : demoActive ? _clip(60 + Math.sin(tickPhase * 0.3) * 6, 40, 88) + "%" : "—";
+  const signalMessage = liveModel.message;
   const deviceLabel = (muse.real && muse.name)
     ? muse.name + " · TP9 · AF7 · AF8 · TP10"
     : "Muse S · TP9 · AF7 · AF8 · TP10";
-  const stCopy = {
+  const stCopy = muse.real ? liveModel.conclusion.summary + " " + liveModel.conclusion.action : {
     normal:   "Status normal. Pertahankan ritme kerja dan ambil jeda singkat tiap jam.",
     waspada:  "Beban kognitif naik 14 menit terakhir. Disarankan istirahat mikro 3 menit.",
     berisiko: "Beban kognitif tinggi. Istirahat mikro disarankan segera.",
@@ -327,7 +338,7 @@ const WorkerLive = () => {
   }[stat] || "Pantau kondisi Anda sepanjang shift.";
 
   return (
-  <div className="nt-screen" style={{ paddingBottom: 100 }}>
+  <div className="nt-screen worker-live" style={{ paddingBottom: 100 }}>
     <NeuroStatusBar time="11:42" />
 
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 24px 0" }}>
@@ -339,21 +350,22 @@ const WorkerLive = () => {
       <div style={{ fontSize: 10, letterSpacing: "0.24em", color: "var(--nt-text-2)", fontWeight: 600, whiteSpace: "nowrap" }}>
         LIVE MONITOR
       </div>
-      <NeuroIconBtn size={40} active onClick={() => window.toast?.("Status alert: AKTIF, supervisor menerima notifikasi", { kind: "warn" })}>
+      <AskAIButton variant="plus" />
+      {/* Signal indicators describe this browser; company results use archived summaries. */}
+      <span className="worker-live-indicator" title={demoActive ? "Simulasi aktif" : muse.real ? "Muse tersambung" : "Muse belum tersambung"}>
         <span style={{
           width: 8, height: 8, borderRadius: "50%",
-          background: "#ff7a7a",
-          boxShadow: "0 0 8px #ff7a7a"
+          background: muse.real || demoActive ? "var(--nt-green)" : "var(--nt-text-3)"
         }} />
-      </NeuroIconBtn>
+      </span>
     </div>
 
     {/* Worker + connection */}
-    <div style={{ padding: "12px 28px 0", display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+    <div className="worker-device-summary" style={{ padding: "12px 28px 0", display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
       <div>
-        <div className="nt-eyebrow">Shift berjalan</div>
+        <div className="nt-eyebrow">{demoActive ? "Shift simulasi" : "Sesi Muse"}</div>
         <div style={{ fontSize: 26, fontWeight: 700, marginTop: 4, color: "var(--nt-text)", lineHeight: 1 }}>
-          {elapsedLabel}
+          {demoActive ? elapsedLabel : muse.real ? "Terhubung" : "Belum terhubung"}
         </div>
         <div style={{ fontSize: 12, color: "var(--nt-text-2)", marginTop: 4 }}>
           {deviceLabel}
@@ -367,18 +379,26 @@ const WorkerLive = () => {
         fontSize: 11, color: "var(--nt-text-2)", fontWeight: 600
       }}>
         <span style={{ width: 6, height: 6, borderRadius: "50%",
-          background: window.NT_LIVE !== false ? "#7dd1a1" : "#94A3B8",
-          boxShadow: window.NT_LIVE !== false ? "0 0 6px #7dd1a1" : "none" }} />
-        BLE {ble}%
+          background: liveModel.receiving || demoActive ? "#7dd1a1" : muse.real ? "#f59e0b" : "#94A3B8",
+          boxShadow: liveModel.receiving || demoActive ? "0 0 6px #7dd1a1" : "none" }} />
+        {muse.real ? "BLE" : window.NT_LIVE ? "Demo" : "Terputus"} {muse.real || window.NT_LIVE ? ble : ""}
       </div>
     </div>
 
+      {!demoActive && (
+      <div role="status" style={{ margin: "12px 24px 0", padding: "10px 14px",
+        borderRadius: 12, background: "var(--nt-surface)", color: "var(--nt-text-2)",
+        fontSize: 12, lineHeight: 1.5 }}>
+        {signalMessage}
+      </div>
+    )}
+
     {/* MAIN: Cognitive Load gauge + side fatigue gauge — live values */}
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 16, marginTop: 18 }}>
+    <div className="worker-live-gauges" style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 16, marginTop: 18 }}>
       <NeuroGauge
         value={cli}
         size={180}
-        label={String(cli)}
+        label={hasRealSample && Number.isFinite(metrics.cli) ? String(cli) : "—"}
         sublabel="cog. load"
         gradient={["#9c8bf0", "#6cb6f0"]}
       />
@@ -386,7 +406,7 @@ const WorkerLive = () => {
         <NeuroGauge
           value={fi}
           size={92}
-          label={String(fi)}
+          label={hasRealSample && Number.isFinite(metrics.fi) ? String(fi) : "—"}
           sublabel="fatigue"
           gradient={["#7dd1a1", "#a8e0c0"]}
           thickness={12}
@@ -394,7 +414,7 @@ const WorkerLive = () => {
         <NeuroGauge
           value={ei}
           size={92}
-          label={String(ei)}
+          label={hasRealSample && Number.isFinite(metrics.ei) ? String(ei) : "—"}
           sublabel="engage"
           gradient={["#ffc56a", "#ff8aa1"]}
           thickness={12}
@@ -404,21 +424,23 @@ const WorkerLive = () => {
 
     {/* Current status text — drives off w.status (live) */}
     <div style={{ textAlign: "center", marginTop: 14 }}>
-      <StatusPill status={stat} />
+      {hasRealSample && stat ? <><StatusPill status={stat} />{muse.real && dsp.last?.classificationProvisional && <span style={{ fontSize: 11, marginLeft: 8 }}>{dsp.last.outputScope === "frontal-only" ? "Estimasi fatigue parsial · kanal frontal" : "Klasifikasi sementara"}</span>}</> : <span>{hasRealSample ? "Band power tersedia · klasifikasi belum tersedia" : "Menunggu EEG"}</span>}
       <div style={{ fontSize: 12.5, color: "var(--nt-text-2)", marginTop: 8, padding: "0 36px", lineHeight: 1.45 }}>
-        {stCopy}
+        {hasRealSample ? stCopy : signalMessage}
       </div>
     </div>
 
     {/* EEG band power bars — live derivation from CLI/FI/EI */}
+    <WorkerSessionArchive />
+
     <div className="neu-surface" style={{ margin: "16px 24px 0", padding: "16px 14px 12px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, padding: "0 4px" }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: "var(--nt-text)" }}>EEG Band Power</div>
-        <div style={{ fontSize: 10, color: "var(--nt-text-3)", letterSpacing: "0.18em", textTransform: "uppercase" }}>10 s window</div>
+        <div style={{ fontSize: 10, color: "var(--nt-text-3)", letterSpacing: "0.18em", textTransform: "uppercase" }}>{demoActive ? "Demo" : "2 s window"}</div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", justifyItems: "center", marginTop: 6 }}>
         {eegBands.map((b) => (
-          <NeuroBar key={b.l} value={b.v} color={b.c} label={b.l} sub={b.v + "%"} height={86} />
+          <NeuroBar key={b.l} value={b.v} color={b.c} label={b.l} sub={hasRealSample ? b.v + "%" : "—"} height={86} />
         ))}
       </div>
     </div>
@@ -539,10 +561,9 @@ const InsightAICard = () => {
   const [insight, setInsight] = React.useState(null);
   const [busy, setBusy] = React.useState(false);
   const ask = async () => {
-    if (typeof window.ntInsightMingguan !== "function") return;
     setBusy(true);
-    try { setInsight(await window.ntInsightMingguan()); }
-    catch (e) { setInsight("Gagal memuat insight. Coba lagi sebentar."); }
+    try { await window.ntAI.wait(); setInsight(await window.ntInsightMingguan()); }
+    catch (e) { setInsight(window.ntAI.errorMessage(e)); }
     finally { setBusy(false); }
   };
   return (
@@ -723,12 +744,12 @@ const WorkerStats = () => {
             </div>
             <div style={{
               fontSize: 9, fontWeight: 800, letterSpacing: "0.18em",
-              color: COLOR[w.status] || COLOR.normal, textTransform: "uppercase",
+              color: COLOR[w.status] || "#94a3b8", textTransform: "uppercase",
               padding: "3px 8px", borderRadius: 999,
-              background: (COLOR[w.status] || COLOR.normal) + "22",
-              border: "1px solid " + (COLOR[w.status] || COLOR.normal) + "55",
+              background: (COLOR[w.status] || "#94a3b8") + "22",
+              border: "1px solid " + (COLOR[w.status] || "#94a3b8") + "55",
             }}>
-              ● {w.status || "normal"}
+              ● {STATUS_MAP[w.status]?.label || "Belum tersedia"}
             </div>
           </div>
 

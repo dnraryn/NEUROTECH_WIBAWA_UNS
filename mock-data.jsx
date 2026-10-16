@@ -23,22 +23,23 @@ const WORKERS_RAW = [
 const WORKERS = WORKERS_RAW.map((w) => ({ ...w, id: slugify(w.name) }));
 
 const WORKERS_BY_ID = Object.fromEntries(WORKERS.map((w) => [w.id, w]));
+const DEMO_DAY = new Date().toLocaleDateString("id-ID", { dateStyle: "long" });
 
 // Recent alerts, used by Supervisor live feed AND Alert list/detail pages.
 const ALERTS = [
-  { id: "a-1142", t: "11:42", date: "14 Mei 2026", title: "Microsleep terdeteksi",      worker: "rizky-a",   workerName: "Rizky A.",   detail: "Theta-burst 2.3 s + EI drop 41% selama 8 detik.", status: "kritis",   action: null },
-  { id: "a-1128", t: "11:28", date: "14 Mei 2026", title: "CLI tinggi 18 menit",         worker: "bagas-s",   workerName: "Bagas S.",   detail: "Cognitive Load Index di atas ambang berisiko selama 18 menit.", status: "berisiko", action: null },
-  { id: "a-1054", t: "10:54", date: "14 Mei 2026", title: "Fatigue naik konsisten",      worker: "doni-r",    workerName: "Doni R.",    detail: "FI naik 24 poin sejak awal shift. Tren menanjak tanpa istirahat.", status: "waspada",  action: null },
-  { id: "a-1031", t: "10:31", date: "14 Mei 2026", title: "BLE disconnect",              worker: "indah-p",   workerName: "Indah P.",   detail: "Headband Muse S putus koneksi selama 4 menit. Sudah reconnect.", status: "waspada",  action: "Resolved" },
-  { id: "a-0948", t: "09:48", date: "14 Mei 2026", title: "Readiness rendah",            worker: "yusuf-h",   workerName: "Yusuf H.",   detail: "Skor readiness pra-shift 58 (di bawah ambang 65). Tidur 5.8 jam.", status: "waspada",  action: null },
-  { id: "a-0812", t: "08:12", date: "14 Mei 2026", title: "Kalibrasi selesai",           worker: null,         workerName: "12 pekerja", detail: "Baseline kalibrasi pagi selesai untuk 12 pekerja shift pagi.", status: "normal",   action: "Logged" },
+  { id: "a-1142", t: "11:42", date: DEMO_DAY, title: "Microsleep terdeteksi",      worker: "rizky-a",   workerName: "Rizky A.",   detail: "Theta-burst 2.3 s + EI drop 41% selama 8 detik.", status: "kritis",   action: null },
+  { id: "a-1128", t: "11:28", date: DEMO_DAY, title: "CLI tinggi 18 menit",         worker: "bagas-s",   workerName: "Bagas S.",   detail: "Cognitive Load Index di atas ambang berisiko selama 18 menit.", status: "berisiko", action: null },
+  { id: "a-1054", t: "10:54", date: DEMO_DAY, title: "Fatigue naik konsisten",      worker: "doni-r",    workerName: "Doni R.",    detail: "FI naik 24 poin sejak awal shift. Tren menanjak tanpa istirahat.", status: "waspada",  action: null },
+  { id: "a-1031", t: "10:31", date: DEMO_DAY, title: "BLE disconnect",              worker: "indah-p",   workerName: "Indah P.",   detail: "Headband Muse S putus koneksi selama 4 menit. Sudah reconnect.", status: "waspada",  action: "Resolved" },
+  { id: "a-0948", t: "09:48", date: DEMO_DAY, title: "Readiness rendah",            worker: "yusuf-h",   workerName: "Yusuf H.",   detail: "Skor readiness pra-shift 58 (di bawah ambang 65). Tidur 5.8 jam.", status: "waspada",  action: null },
+  { id: "a-0812", t: "08:12", date: DEMO_DAY, title: "Kalibrasi selesai",           worker: null,         workerName: "12 pekerja", detail: "Baseline kalibrasi pagi selesai untuk 12 pekerja shift pagi.", status: "normal",   action: "Logged" },
 ];
 
 const ALERTS_BY_ID = Object.fromEntries(ALERTS.map((a) => [a.id, a]));
 
 // Shift schedule, week grid
 const SCHEDULE = {
-  weekLabel: "Minggu, 11–17 Mei 2026",
+  weekLabel: "Jadwal simulasi · " + DEMO_DAY,
   days: ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"],
   shifts: [
     { id: "pagi",   label: "Pagi · 07:00–15:00", workers: ["rizky-a", "bagas-s", "indah-p", "yusuf-h", "lestari-n", "doni-r"] },
@@ -47,35 +48,24 @@ const SCHEDULE = {
   ],
 };
 
-// SMK3 reports, list with downloadable PDFs (mock)
-const REPORTS = [
-  { id: "rpt-2026-04", period: "April 2026",   workers: 142, incidents: 11, score: 84, status: "Final",  date: "01 Mei 2026" },
-  { id: "rpt-2026-03", period: "Maret 2026",   workers: 138, incidents: 18, score: 78, status: "Final",  date: "01 Apr 2026" },
-  { id: "rpt-2026-02", period: "Februari 2026",workers: 134, incidents: 22, score: 74, status: "Final",  date: "01 Mar 2026" },
-  { id: "rpt-2026-q1", period: "Q1 2026",      workers: 142, incidents: 51, score: 79, status: "Final",  date: "01 Apr 2026" },
-  { id: "rpt-2026-05", period: "Mei 2026 (running)", workers: 142, incidents: 7, score: 86, status: "Draft", date: "14 Mei 2026" },
-];
-
-const REPORTS_BY_ID = Object.fromEntries(REPORTS.map((r) => [r.id, r]));
-
 // Mock current logged-in worker (used by mobile screens that show "Rizky A.").
 // Fallback to WORKERS[0] so CURRENT_WORKER is never undefined.
-const CURRENT_WORKER = WORKERS_BY_ID["rizky-a"] || WORKERS[0];
+const CURRENT_WORKER = { ...(WORKERS_BY_ID["rizky-a"] || WORKERS[0]) };
 
 Object.assign(window, {
   slugify,
   WORKERS, WORKERS_BY_ID,
   ALERTS,  ALERTS_BY_ID,
   SCHEDULE,
-  REPORTS, REPORTS_BY_ID,
+  DEMO_DAY,
   CURRENT_WORKER,
 });
 
 // ── Worker identity — derived from the logged-in company's members ────────
 // The mock rows above are the offline/demo fallback. Once a member logs in,
 // every worker shown in the app is built from that company's member list
-// (companies/{code}.members). Monitoring numbers are generated deterministically
-// from the member id so they stay stable between renders and reloads.
+// (companies/{code}/members). Real member profiles start with unavailable
+// measurements. Only an explicit demo device may run simulated measurements.
 const SHIFTS = ["Pagi", "Sore", "Malam"];
 const SHIFT_HOURS = { Pagi: "07:00–15:00", Sore: "15:00–23:00", Malam: "23:00–07:00" };
 const ROLE_LABEL_ID = { pekerja: "Pekerja", supervisor: "Supervisor", management: "Manajemen" };
@@ -92,7 +82,7 @@ const _rngOf = (seed) => {
 };
 
 // Build one monitored-worker record from a company member.
-const workerFromMember = (m, idx) => {
+const workerFromMember = (m, idx, authenticated = false) => {
   const r = _rngOf(_seedOf((m.id || "m") + "|" + (m.name || "")));
   const fi  = Math.round(22 + r() * 60);
   const cli = Math.round(34 + r() * 52);
@@ -105,7 +95,7 @@ const workerFromMember = (m, idx) => {
     (microsleep || fi >= 76 || cli >= 82) ? "kritis" :
     (fi >= 60 || cli >= 70)               ? "berisiko" :
     (fi >= 44 || cli >= 56)               ? "waspada" : "normal";
-  const shift = SHIFTS.includes(m.shift) ? m.shift : SHIFTS[Math.floor(r() * 3)];
+  const shift = SHIFTS.includes(m.shift) ? m.shift : authenticated ? "Belum diatur" : SHIFTS[Math.floor(r() * 3)];
   const hourBase = { Pagi: 8, Sore: 16, Malam: 0 }[shift];
   const t = String(hourBase + Math.floor(r() * 6)).padStart(2, "0") + ":" +
             String(Math.floor(r() * 60)).padStart(2, "0");
@@ -113,23 +103,37 @@ const workerFromMember = (m, idx) => {
     id: m.id, name: m.name,
     role: m.roleDesc || ROLE_LABEL_ID[m.role] || "Pekerja",
     systemRole: m.role || "pekerja",
-    shift, fi, cli, hrv, ei, sleep, readiness, status, microsleep, t,
+    shift, fi: authenticated ? null : fi, cli: authenticated ? null : cli,
+    hrv: authenticated ? null : hrv, ei: authenticated ? null : ei,
+    sleep: authenticated ? null : sleep, readiness: authenticated ? null : readiness,
+    status: authenticated ? null : status, microsleep: authenticated ? null : microsleep,
+    t: authenticated ? null : t,
     img: NT_IMG[idx % NT_IMG.length],
   };
 };
 
 // Replace WORKERS / WORKERS_BY_ID / CURRENT_WORKER from a members array.
+let _workerCompany = null;
 const ntApplyCompanyMembers = (members, currentId) => {
-  if (!members || !members.length) return false;
-  const rows = members.map((m, i) => workerFromMember(m, i));
+  if (!members) return false;
+  const company = window.ntSession?.get()?.code || null;
+  const sameCompany = company === _workerCompany;
+  if (!sameCompany || (currentId && CURRENT_WORKER.id !== currentId)) {
+    window.ntDeviceDisconnect?.();
+    Object.keys(WORKER_HISTORY).forEach((id) => delete WORKER_HISTORY[id]);
+  }
+  _workerCompany = company;
+  const rows = members.map((m, i) => {
+    const previous = sameCompany && WORKERS_BY_ID[m.id];
+    return previous ? { ...previous, name: m.name, role: m.roleDesc || ROLE_LABEL_ID[m.role],
+      systemRole: m.role, shift: SHIFTS.includes(m.shift) ? m.shift : previous.shift } : workerFromMember(m, i, true);
+  });
   WORKERS.splice(0, WORKERS.length, ...rows);
   Object.keys(WORKERS_BY_ID).forEach((k) => delete WORKERS_BY_ID[k]);
   rows.forEach((w) => { WORKERS_BY_ID[w.id] = w; });
   const cur = (currentId && WORKERS_BY_ID[currentId]) || rows[0];
-  if (cur) {
-    Object.keys(CURRENT_WORKER).forEach((k) => delete CURRENT_WORKER[k]);
-    Object.assign(CURRENT_WORKER, cur);
-  }
+  Object.keys(CURRENT_WORKER).forEach((k) => delete CURRENT_WORKER[k]);
+  if (cur) Object.assign(CURRENT_WORKER, cur);
   window.dispatchEvent(new CustomEvent("nt-data"));
   return true;
 };
@@ -137,7 +141,10 @@ const ntApplyCompanyMembers = (members, currentId) => {
 // Called by App on mount — rebuilds worker data from the saved session.
 const ntStartWorkerSync = () => {
   const s = window.ntSession && window.ntSession.get();
-  if (s && s.members && s.members.length) ntApplyCompanyMembers(s.members, s.memberId);
+  if (s && s.members && s.members.length) {
+    ntApplyCompanyMembers(s.members, s.memberId);
+    if (!window.ntMuseConnected && !window.NT_DEMO_DEVICE) ntLiveStop();
+  }
 };
 
 // Shift groups for the schedule grid, derived live from WORKERS.
@@ -147,74 +154,63 @@ const ntShiftGroups = () => SHIFTS.map((sh) => ({
   workers: WORKERS.filter((w) => w.shift === sh).map((w) => w.id),
 }));
 
-// Persist the current company's members array (best-effort).
-const _persistMembers = () => {
-  const s = window.ntSession && window.ntSession.get();
-  if (s && s.code && s.members && window.ntCompany && window.ntCompany.setMembers) {
-    window.ntCompany.setMembers(s.code, s.members).catch((e) =>
-      console.warn("[NeuroTech] gagal simpan anggota:", e.message));
-  }
+// Serialize remote operations; Firestore Rules validate every protected write.
+let _memberWriteQueue = Promise.resolve();
+const _persistMembers = (operation) => {
+  const identity = window.ntSession?.get();
+  const work = async () => {
+    const current = window.ntSession?.get();
+    if (!identity || !current || identity.uid !== current.uid || identity.code !== current.code || identity.memberId !== current.memberId) {
+      throw new Error("Sesi berubah. Masuk kembali sebelum menyimpan.");
+    }
+    await operation();
+    const latest = window.ntSession.get();
+    if (!latest || latest.uid !== identity.uid || latest.code !== identity.code || latest.memberId !== identity.memberId) {
+      throw new Error("Sesi berubah saat menyimpan.");
+    }
+    ntApplyCompanyMembers(latest.members, latest.memberId);
+    return true;
+  };
+  const pending = _memberWriteQueue.then(work, work);
+  _memberWriteQueue = pending.catch(() => {});
+  return pending;
 };
 
-// Change one worker's shift (supervisor schedule).
-const ntSetWorkerShift = (id, shift) => {
-  const w = WORKERS_BY_ID[id];
-  if (!w || !SHIFTS.includes(shift)) return false;
-  w.shift = shift;
+const ntSetWorkerShift = async (id, shift) => {
+  if (!WORKERS_BY_ID[id] || !SHIFTS.includes(shift)) return false;
+  if (window.ntSession?.get()) return _persistMembers(() => window.ntCompany.setShift(id, shift));
+  WORKERS_BY_ID[id].shift = shift;
   if (CURRENT_WORKER.id === id) CURRENT_WORKER.shift = shift;
-  const s = window.ntSession && window.ntSession.get();
-  if (s && s.members) {
-    const m = s.members.find((x) => x.id === id);
-    if (m) { m.shift = shift; window.ntSession.set(s); _persistMembers(); }
-  }
   window.dispatchEvent(new CustomEvent("nt-data"));
   return true;
 };
 
-// Add a worker — creates a company member, then rebuilds the worker list.
-// role     = system role: "pekerja" | "supervisor" | "management"
-// roleDesc = job description shown in tables (e.g. "Operator CCR")
-const ntAddWorker = ({ name, role, roleDesc, shift }) => {
+const ntAddWorker = async ({ name, email, role, roleDesc, shift }) => {
   const nm = (name || "").trim();
   if (!nm) return false;
   const sysRole = ["pekerja", "supervisor", "management"].includes(role) ? role : "pekerja";
-  const member = {
-    id: "w" + Date.now().toString(36),
-    name: nm,
-    role: sysRole,
+  const details = { name: nm, email: (email || "").trim(), role: sysRole,
     roleDesc: (roleDesc || "").trim() || ROLE_LABEL_ID[sysRole],
-    password: "123456",
-    shift: SHIFTS.includes(shift) ? shift : "Pagi",
-  };
-  const s = window.ntSession && window.ntSession.get();
-  if (s) {
-    s.members = (s.members || []).concat([member]);
-    window.ntSession.set(s);
-    _persistMembers();
-    ntApplyCompanyMembers(s.members, s.memberId);
-  } else {
-    const w = workerFromMember(member, WORKERS.length);
-    WORKERS.push(w); WORKERS_BY_ID[w.id] = w;
-    window.dispatchEvent(new CustomEvent("nt-data"));
+    shift: SHIFTS.includes(shift) ? shift : "Pagi" };
+  if (window.ntSession?.get()) {
+    return _persistMembers(() => window.ntCompany.addMember(details));
   }
+  const member = { ...details, id: "demo-" + Date.now().toString(36) + Math.random().toString(36).slice(2) };
+  const worker = workerFromMember(member, WORKERS.length);
+  WORKERS.push(worker); WORKERS_BY_ID[worker.id] = worker;
+  window.dispatchEvent(new CustomEvent("nt-data"));
   return true;
 };
 
-// Remove a worker.
-const ntRemoveWorker = (id) => {
-  const s = window.ntSession && window.ntSession.get();
-  if (s && s.members) {
-    const next = s.members.filter((m) => m.id !== id);
-    if (next.length === s.members.length) return false;
-    s.members = next;
-    window.ntSession.set(s);
-    _persistMembers();
-    ntApplyCompanyMembers(s.members, s.memberId);
-    return true;
+const ntRemoveWorker = async (id) => {
+  const session = window.ntSession?.get();
+  if (session) {
+    if (id === session.memberId) throw new Error("Akun yang sedang digunakan tidak dapat dihapus.");
+    return _persistMembers(() => window.ntCompany.removeMember(id));
   }
-  const i = WORKERS.findIndex((w) => w.id === id);
-  if (i < 0) return false;
-  WORKERS.splice(i, 1); delete WORKERS_BY_ID[id];
+  const index = WORKERS.findIndex((w) => w.id === id);
+  if (index < 0) return false;
+  WORKERS.splice(index, 1); delete WORKERS_BY_ID[id];
   window.dispatchEvent(new CustomEvent("nt-data"));
   return true;
 };
@@ -245,7 +241,8 @@ const ntPushHistory = (id, entry) => {
   if (!id) return;
   const b = WORKER_HISTORY[id] || (WORKER_HISTORY[id] = []);
   b.push(entry);
-  if (b.length > NT_HISTORY_CAP) b.shift();
+  const cap = window.ntMuseConnected ? 3600 : NT_HISTORY_CAP;
+  if (b.length > cap) b.splice(0, b.length - cap);
 };
 
 const _liveTick = () => {
@@ -254,11 +251,12 @@ const _liveTick = () => {
   // EEG), skip the random drift here — otherwise the mock numbers would
   // fight the DSP output every tick. The DSP module writes CURRENT_WORKER +
   // ring buffer directly and dispatches its own `nt-data` event.
-  if (window.ntMuseConnected) return;
+  if (window.ntMuseConnected || (window.ntSession?.get() && !window.NT_DEMO_DEVICE)) return;
   const now = new Date();
   const hh = String(now.getHours()).padStart(2, "0");
   const mm = String(now.getMinutes()).padStart(2, "0");
   WORKERS.forEach((w) => {
+    if (window.ntSession?.get() && w.id !== CURRENT_WORKER.id) return;
     w.fi        = Math.round(_clip(w.fi        + 0.06 + (Math.random() - 0.45) * 3.2, 0, 100));
     w.cli       = Math.round(_clip(w.cli       + 0.05 + (Math.random() - 0.45) * 3.2, 0, 100));
     w.hrv       = Math.round(_clip(w.hrv       - 0.04 + (Math.random() - 0.5)  * 2.4, 30, 95));
@@ -268,6 +266,7 @@ const _liveTick = () => {
     w.t         = hh + ":" + mm;
     const buf = WORKER_HISTORY[w.id] || (WORKER_HISTORY[w.id] = []);
     buf.push({
+      source: "demo",
       ts: Date.now(), fi: w.fi, cli: w.cli, hrv: w.hrv, ei: w.ei,
       readiness: w.readiness, status: w.status, microsleep: !!w.microsleep,
     });
@@ -297,70 +296,106 @@ const ntHistory = (id) => WORKER_HISTORY[id] || [];
 if (window.NT_LIVE === undefined) window.NT_LIVE = true;
 if (window.NT_LIVE) ntLiveStart();
 
-// ── Device connect — tries real Muse via Web Bluetooth first, falls back
-// to simulation when BLE isn't available / the user cancels. Either path
-// flips NT_LIVE so every UI consumer keeps working unchanged.
-//
-// `mode`:
-//   undefined / "auto" — try BLE first; if user cancels OR BLE missing,
-//                        reject so the caller can decide. (We don't
-//                        silently fall back to fake data on cancel.)
-//   "real"             — force BLE; reject on cancel / no support.
-//   "demo"             — skip BLE entirely (use simulation).
-const ntDeviceConnect = (mode) => new Promise(async (resolve, reject) => {
-  if (window.NT_LIVE) { resolve({ real: !!window.ntMuseConnected }); return; }
-  const tryReal = mode !== "demo" && window.ntMuse && window.ntMuse.supported();
-  if (tryReal) {
-    try {
-      const info = await window.ntMuse.connect();
-      window.ntMuseConnected = true;
-      ntLiveStart();
-      window.dispatchEvent(new CustomEvent("nt-device", {
-        detail: { connected: true, real: true, name: info.name, battery: info.battery },
-      }));
-      resolve({ real: true, name: info.name });
-      return;
-    } catch (e) {
-      if (mode === "real") { reject(e); return; }
-      // Auto mode: pairing cancelled → reject (so the UI can suggest demo
-      // mode). Hard failure (no BLE service) → fall through to simulation.
-      if (e && /cancel|notfound/i.test((e.message || "") + (e.name || ""))) {
-        reject(e); return;
-      }
-      console.warn("[NeuroTech] BLE pairing gagal, lanjut ke simulasi:", e && e.message);
-    }
-  }
-  if (mode === "real") { reject(new Error("Web Bluetooth tidak tersedia di browser ini.")); return; }
-  // Simulation path.
-  setTimeout(() => {
-    window.ntMuseConnected = false;
+// Explicit real/demo modes. Real pairing failures never resume simulation.
+let _deviceEpoch = 0, _devicePairing = null;
+const ntDeviceStatus = () => {
+  const s = window.ntMuse?.status?.() || {};
+  return { connected: !!window.NT_LIVE, real: !!window.ntMuseConnected,
+    battery: s.battery ?? null, name: s.name ?? null };
+};
+const _publishDevice = (reason) => window.dispatchEvent(new CustomEvent("nt-device", {
+  detail: { ...ntDeviceStatus(), reason },
+}));
+window.addEventListener("nt-muse", (e) => {
+  const d = e.detail || {};
+  if (d.connected) {
+    if (CURRENT_WORKER.id) delete WORKER_HISTORY[CURRENT_WORKER.id];
+    window.ntMuseConnected = true;
     ntLiveStart();
-    window.dispatchEvent(new CustomEvent("nt-device", { detail: { connected: true, real: false } }));
-    resolve({ real: false });
-  }, 1200);
-});
-const ntDeviceDisconnect = () => {
-  if (window.ntMuse && window.ntMuseConnected) {
-    try { window.ntMuse.disconnect(); } catch (e) { /* ignore */ }
+  } else if (window.ntMuseConnected) {
+    window.ntMuseConnected = false;
+    ntLiveStop();
   }
+  _publishDevice(d.reason);
+});
+const ntDeviceConnect = async (mode = "auto") => {
+  if (_devicePairing !== null) throw new Error("Pairing Muse masih berlangsung.");
+  if (mode !== "demo" && window.ntMuseConnected) return { ...ntDeviceStatus(), real: true };
+  if (mode === "demo") {
+    const disconnected = ntDeviceDisconnect();
+    const token = _deviceEpoch;
+    await disconnected;
+    if (token !== _deviceEpoch) throw new Error("Koneksi demo dibatalkan.");
+    Object.keys(WORKER_HISTORY).forEach((id) => delete WORKER_HISTORY[id]);
+    window.NT_DEMO_DEVICE = true;
+    ntLiveStart();
+    _publishDevice();
+    return { real: false };
+  }
+  if (!window.ntMuse?.supported()) throw new Error("Web Bluetooth tidak tersedia. Pilih Mode Demo untuk simulasi.");
+  const token = ++_deviceEpoch;
+  _devicePairing = token;
+  window.NT_DEMO_DEVICE = false;
+  ntLiveStop();
+  _publishDevice();
+  try {
+    const info = await window.ntMuse.connect();
+    if (token !== _deviceEpoch) throw new Error("Pairing Muse dibatalkan.");
+    window.ntMuseConnected = true;
+    ntLiveStart();
+    _publishDevice();
+    return { real: true, ...info };
+  } catch (error) {
+    if (token === _deviceEpoch) {
+      window.ntMuseConnected = false;
+      ntLiveStop();
+      _publishDevice();
+    }
+    throw error;
+  } finally {
+    if (_devicePairing === token) _devicePairing = null;
+  }
+};
+const ntDeviceDisconnect = () => {
+  _deviceEpoch++;
+  _devicePairing = null;
+  window.NT_DEMO_DEVICE = false;
   window.ntMuseConnected = false;
   ntLiveStop();
-  window.dispatchEvent(new CustomEvent("nt-device", { detail: { connected: false } }));
+  _publishDevice();
+  return Promise.resolve(window.ntMuse?.disconnect()).catch((error) =>
+    console.warn("[NeuroTech] disconnect:", error.message));
 };
-const ntDeviceStatus = () => {
-  const s = (window.ntMuse && window.ntMuse.status && window.ntMuse.status()) || {};
-  return {
-    connected: !!window.NT_LIVE,
-    real: !!window.ntMuseConnected,
-    battery: s.battery || null,
-    name: s.name || null,
-  };
+const ntResetDemoWorkers = () => {
+  Object.keys(WORKER_HISTORY).forEach((id) => delete WORKER_HISTORY[id]);
+  const rows = WORKERS_RAW.map((w) => ({ ...w, id: slugify(w.name) }));
+  WORKERS.splice(0, WORKERS.length, ...rows);
+  Object.keys(WORKERS_BY_ID).forEach((id) => delete WORKERS_BY_ID[id]);
+  rows.forEach((w) => { WORKERS_BY_ID[w.id] = w; });
+  Object.keys(CURRENT_WORKER).forEach((k) => delete CURRENT_WORKER[k]);
+  Object.assign(CURRENT_WORKER, rows[0]);
+  _workerCompany = null;
+  window.dispatchEvent(new CustomEvent("nt-ai-close"));
+  window.dispatchEvent(new CustomEvent("nt-data"));
+};
+window.addEventListener("nt-session", () => {
+  ntDeviceDisconnect();
+  Object.keys(WORKER_HISTORY).forEach((id) => delete WORKER_HISTORY[id]);
+  if (!window.ntSession?.get()) ntResetDemoWorkers();
+});
+const ntLogout = async () => {
+  const disconnected = ntDeviceDisconnect();
+  window.ntSession?.clear();
+  sessionStorage.removeItem("nt-demo");
+  ntResetDemoWorkers();
+  await disconnected;
+  await window.ntAuth?.signOut();
 };
 
 Object.assign(window, {
   SHIFTS, SHIFT_HOURS, workerFromMember, ntApplyCompanyMembers,
   ntStartWorkerSync, ntShiftGroups, ntSetWorkerShift, ntAddWorker, ntRemoveWorker,
-  ntDeviceConnect, ntDeviceDisconnect, ntDeviceStatus,
+  ntDeviceConnect, ntDeviceDisconnect, ntDeviceStatus, ntLogout,
   ntLiveStart, ntLiveStop, ntHistory, ntPushHistory,
   NT_HISTORY_CAP, NT_LIVE_INTERVAL_MS,
 });

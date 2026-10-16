@@ -1,136 +1,108 @@
-// Login (/login) — company-code login. Enter the company code, then pick your
-// name from the member list and enter your password. No email/Google login.
-
+// Each member authenticates with Firebase Auth before any company data is read.
 const PKG_LABEL = { free: "Free", bronze: "Bronze", silver: "Silver", gold: "Gold", platinum: "Platinum" };
 const ROLE_LANDING = { pekerja: "/w/readiness", supervisor: "/s/overview", management: "/m/overview" };
-
-const MemberLogin = () => {
-  const [step, setStep] = React.useState("code"); // code | member
-  const [code, setCode] = React.useState("");
-  const [company, setCompany] = React.useState(null);
+const MemberLogin = ({ inviteCode = "", inviteToken = "" }) => {
+  const isInvite = !!inviteCode && !!inviteToken;
   const [memberName, setMemberName] = React.useState("");
+  const [code, setCode] = React.useState(inviteCode);
+  const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [register, setRegister] = React.useState(isInvite);
+  const [verify, setVerify] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
-
-  const checkCode = async () => {
-    if (!code.trim()) { window.toast?.("Masukkan kode perusahaan dulu.", { kind: "warn" }); return; }
-    if (!window.ntCompany) { window.toast?.("Firebase belum siap. Muat ulang halaman.", { kind: "danger" }); return; }
-    setBusy(true);
-    try {
-      const c = await window.ntCompany.getByCode(code);
-      if (!c) { window.toast?.("Kode perusahaan tidak ditemukan.", { kind: "danger" }); return; }
-      setCompany(c);
-      setMemberName((c.members && c.members[0] && c.members[0].name) || "");
-      setStep("member");
-    } catch (e) {
-      window.toast?.("Gagal memuat data: " + (e.message || e), { kind: "danger" });
-    } finally {
-      setBusy(false);
-    }
+  const pending = React.useRef(false);
+  const run = async (action) => {
+    if (pending.current) return;
+    pending.current = true; setBusy(true);
+    try { await action(); }
+    catch (error) {
+      const message = ["auth/invalid-credential", "auth/wrong-password", "auth/user-not-found"].includes(error.code)
+        ? "Email atau password tidak sesuai."
+        : isInvite && error.code === "permission-denied" ? "Undangan tidak dapat digunakan. Tautan mungkin kedaluwarsa, dicabut, kapasitas penuh, atau akun pernah dikeluarkan. Hubungi pengelola."
+        : error.code === "auth/email-already-in-use" ? "Email sudah memiliki akun. Pilih Sudah punya akun? Masuk di bawah."
+        : error.message || "Gagal masuk. Silakan coba kembali.";
+      window.toast?.(message, { kind: "danger" });
+    } finally { pending.current = false; setBusy(false); }
   };
-
-  const doLogin = () => {
-    const m = (company.members || []).find((x) => x.name === memberName);
-    if (!m) { window.toast?.("Pilih nama Anda dari daftar.", { kind: "warn" }); return; }
-    if ((password || "") !== (m.password || "")) {
-      window.toast?.("Password salah.", { kind: "danger" });
+  const enter = async () => {
+    await window.ntAuth.verify();
+    let session = await window.ntAuth.refresh(code);
+    if (!session && isInvite) session = await window.ntCompany.joinWithLink(inviteCode, inviteToken, memberName || window.NT_FIREBASE.auth.currentUser?.displayName || "Pekerja");
+    else if (!session && code.trim()) session = await window.ntCompany.acceptInvitation(code);
+    if (!session) throw new Error("Keanggotaan belum tersedia. Hubungi pengelola perusahaan.");
+    window.toast?.("Selamat datang, " + session.memberName + "!", { kind: "success" });
+    navigate(ROLE_LANDING[session.role] || "/w/readiness");
+  };
+  const submit = () => run(async () => {
+    if (!email.trim() || !password) throw new Error("Isi email dan password.");
+    if (register && !isInvite && !code.trim()) throw new Error("Buka tautan undangan dari pengelola atau isi kode untuk undangan email lama.");
+    if (register && !memberName.trim()) throw new Error("Isi nama lengkap Anda.");
+    if (register) {
+      await window.ntAuth.signUp({ name: memberName.trim(), email, password });
+      setPassword(""); setVerify(true);
+      window.toast?.("Buka email verifikasi, lalu kembali ke halaman ini.", { kind: "info" });
       return;
     }
-    window.ntSession.set({
-      code: company.code, companyName: company.companyName, package: company.package,
-      memberName: m.name, memberId: m.id, role: m.role, roleDesc: m.roleDesc,
-      members: company.members || [],
-    });
-    // Build the worker list (and CURRENT_WORKER) from this company's members.
-    window.ntApplyCompanyMembers?.(company.members || [], m.id);
-    window.toast?.("Selamat datang, " + m.name + "!", { kind: "success" });
-    navigate(ROLE_LANDING[m.role] || "/w/readiness");
-  };
-
+    const user = await window.ntAuth.signIn({ email, password });
+    setPassword("");
+    if (!user.emailVerified) { setVerify(true); return; }
+    await enter();
+  });
   return (
     <div className="nt-auth-screen">
       <span className="nt-landing-orb nt-landing-orb--a" />
       <span className="nt-landing-orb nt-landing-orb--b" />
-
       <div className="nt-auth-box">
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 6 }}>
-          <Brand size={30} />
-        </div>
-
-        {/* ── Step 1: company code ─────────────────────────────────── */}
-        {step === "code" && (
-          <>
-            <h1 className="nt-auth-title">Masuk ke NeuroTech</h1>
-            <p className="nt-auth-text">
-              Masukkan kode perusahaan Anda. Kode diberikan saat perusahaan Anda
-              bergabung dengan NeuroTech.
-            </p>
-            <label className="nt-join-field" style={{ marginTop: 18 }}>
-              <span>Kode perusahaan</span>
-              <input
-                className="nt-join-input"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") checkCode(); }}
-                placeholder="mis. P-001"
-                autoFocus
-              />
-            </label>
-            <div style={{ marginTop: 18 }}>
-              <NeuroBtn tone="primary" size="lg" style={{ width: "100%" }} onClick={checkCode}>
-                {busy ? "Memeriksa…" : "Lanjut"}
-              </NeuroBtn>
-            </div>
-            <div className="nt-auth-foot">
-              Perusahaan Anda belum bergabung?{" "}
-              <a onClick={() => navigate("/join")}>Bergabung dengan kami</a>
-            </div>
-          </>
-        )}
-
-        {/* ── Step 2: pick member + password ───────────────────────── */}
-        {step === "member" && company && (
-          <>
-            <div className="nt-auth-greet">
-              <strong>{company.companyName}</strong>, terima kasih telah mempercayai
-              NeuroTech. Perusahaan Anda terdaftar sebagai member paket{" "}
-              <strong>{PKG_LABEL[company.package] || company.package}</strong>.
-            </div>
-            <h1 className="nt-auth-title" style={{ marginTop: 16 }}>Pilih akun Anda</h1>
-
-            <label className="nt-join-field" style={{ marginTop: 14 }}>
-              <span>Nama</span>
-              <select className="nt-join-input" value={memberName}
-                onChange={(e) => setMemberName(e.target.value)}>
-                {(company.members || []).map((m) => (
-                  <option key={m.id || m.name} value={m.name}>
-                    {m.name} — {m.roleDesc || m.role}
-                  </option>
-                ))}
-              </select>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 6 }}><Brand size={30} /></div>
+        <h1 className="nt-auth-title">{verify ? "Verifikasi email Anda" : register ? isInvite ? "Bergabung sebagai pekerja" : "Aktifkan akun anggota" : "Masuk ke NeuroTech"}</h1>
+        <p className="nt-auth-text">
+          {verify ? "Buka tautan verifikasi di email Anda. Setelah selesai, tekan tombol di bawah."
+            : register ? isInvite ? "Isi data Anda sendiri. Setelah verifikasi email, Anda langsung bergabung sebagai pekerja." : "Untuk undangan email lama, gunakan email yang didaftarkan pengelola."
+            : "Masuk dengan email dan password Anda."}
+        </p>
+        <form onSubmit={(event) => { event.preventDefault(); if (!busy) verify ? run(enter) : submit(); }}>
+          {!isInvite && <label className="nt-join-field" style={{ marginTop: 18 }}>
+            <span>Kode perusahaan {register ? "" : "(opsional untuk akun aktif)"}</span>
+            <input className="nt-join-input" value={code} onChange={(e) => setCode(e.target.value)}
+              placeholder="mis. B-K7R2NX" required={register} autoComplete="organization" />
+          </label>}
+          {!verify && <>
+            {register && <label className="nt-join-field" style={{ marginTop: 12 }}><span>Nama lengkap</span>
+              <input className="nt-join-input" value={memberName} onChange={(e) => setMemberName(e.target.value)} required maxLength={120} autoComplete="name" />
+            </label>}
+            <label className="nt-join-field" style={{ marginTop: 12 }}>
+              <span>Email anggota</span>
+              <input className="nt-join-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                required autoComplete="username" placeholder="email@anda.com" />
             </label>
             <label className="nt-join-field" style={{ marginTop: 12 }}>
               <span>Password</span>
-              <input
-                className="nt-join-input" type="password" value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") doLogin(); }}
-                placeholder="Password Anda" autoFocus
-              />
+              <input className="nt-join-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+                required minLength={register ? 8 : undefined} autoComplete={register ? "new-password" : "current-password"} />
             </label>
-            <div style={{ marginTop: 18 }}>
-              <NeuroBtn tone="primary" size="lg" style={{ width: "100%" }} onClick={doLogin}>
-                Masuk
-              </NeuroBtn>
-            </div>
-            <div className="nt-auth-foot">
-              <a onClick={() => { setStep("code"); setPassword(""); }}>← Ganti kode perusahaan</a>
-            </div>
-          </>
-        )}
+          </>}
+          <button type="submit" className="nt-price-cta" disabled={busy} style={{ width: "100%", marginTop: 18 }}>
+            {busy ? "Memproses…" : verify ? "Saya sudah verifikasi · lanjut" : register ? "Buat akun & kirim verifikasi" : "Masuk"}
+          </button>
+        </form>
+        {verify ? <div className="nt-auth-foot">
+          <a onClick={() => run(async () => { await window.ntAuth.resendVerification(); window.toast?.("Email verifikasi dikirim.", { kind: "info" }); })}>Kirim ulang email</a>
+          {" · "}<a onClick={() => run(async () => { await window.ntAuth.signOut(); setVerify(false); })}>Ganti akun</a>
+        </div> : <>
+          <div className="nt-auth-foot">
+            <a onClick={() => { setRegister(!register); setPassword(""); }}>{register ? "Sudah punya akun? Masuk" : "Anggota baru? Aktifkan akun"}</a>
+          </div>
+          <div className="nt-auth-foot">
+            <a onClick={() => run(async () => {
+              if (!email.trim()) throw new Error("Isi email terlebih dahulu.");
+              await window.ntAuth.resetPassword(email);
+              window.toast?.("Jika akun tersedia, tautan reset password dikirim ke email Anda.", { kind: "info" });
+            })}>Lupa password?</a>
+            {" · "}<a onClick={() => navigate("/join")}>Daftarkan perusahaan</a>
+          </div>
+        </>}
       </div>
     </div>
   );
 };
-
 Object.assign(window, { MemberLogin });

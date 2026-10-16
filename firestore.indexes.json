@@ -1,0 +1,15 @@
+{
+  "indexes": [
+    { "collectionGroup": "sessions", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "ownerUid", "order": "ASCENDING" }, { "fieldPath": "startedAt", "order": "DESCENDING" }
+    ] },
+    { "collectionGroup": "sessionReviews", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "ownerUid", "order": "ASCENDING" }, { "fieldPath": "updatedAt", "order": "DESCENDING" }
+    ] }
+  ],
+  "fieldOverrides": [
+    { "collectionGroup": "sessions", "fieldPath": "minutes", "indexes": [] },
+    { "collectionGroup": "sessions", "fieldPath": "checkin", "indexes": [] },
+    { "collectionGroup": "sessionReviews", "fieldPath": "note", "indexes": [] }
+  ]
+}

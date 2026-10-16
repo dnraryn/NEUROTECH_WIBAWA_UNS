@@ -1,11 +1,17 @@
-﻿const fs = require('fs');
+const fs = require('node:fs');
 const parser = require('@babel/parser');
-const files = ['router.jsx','primitives.jsx','mock-data.jsx','worker-screens.jsx','worker-profile.jsx','supervisor-screen.jsx','supervisor-workers.jsx','supervisor-alerts.jsx','supervisor-schedule.jsx','supervisor-reports.jsx','management-screen.jsx','landing.jsx','auth-login.jsx','join.jsx','content-pages.jsx','ask-ai.jsx','app.jsx'];
-for (const f of files) {
+const path = require('node:path');
+const files = ['', 'functions', 'scripts'].flatMap((dir) =>
+  fs.existsSync(path.join(__dirname, dir)) ? fs.readdirSync(path.join(__dirname, dir)).filter((f) => /\.(js|jsx)$/.test(f)).map((f) => path.join(dir, f)) : []);
+let failed = false;
+for (const file of files) {
   try {
-    parser.parse(fs.readFileSync(f,'utf8'), { sourceType: 'script', plugins: ['jsx'] });
-    console.log('OK  ', f);
-  } catch (e) {
-    console.log('ERR ', f, '->', e.message.split('\n')[0]);
+    parser.parse(fs.readFileSync(require('node:path').join(__dirname, file), 'utf8'),
+      { sourceType: 'unambiguous', plugins: ['jsx'] });
+    console.log('OK ', file);
+  } catch (error) {
+    failed = true;
+    console.error('ERR', file, '->', error.message.split('\n')[0]);
   }
 }
+if (failed) process.exitCode = 1;

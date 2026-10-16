@@ -65,11 +65,18 @@ const AskAIButton = ({ variant = "card" }) => {
 const AskAI = ({ route }) => {
   const GREETING = "Halo! Saya NeuroTech-AI. Tanyakan apa saja soal fatigue, microsleep, cognitive load, K3, atau cara memakai aplikasi ini.";
   const [open, setOpen] = React.useState(false);
-  const [messages, setMessages] = React.useState([{ role: "model", text: GREETING, animate: true }]);
+  const [messages, setMessages] = React.useState([{ role: "model", text: GREETING }]);
   const [input, setInput] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [frame, setFrame] = React.useState(null);
   const bodyRef = React.useRef(null);
+  const requestRef = React.useRef(0);
+  const busyRef = React.useRef(false);
+  React.useEffect(() => {
+    const clear = () => { requestRef.current++; busyRef.current = false; setBusy(false); setMessages([{ role: "model", text: GREETING }]); setInput(""); setOpen(false); };
+    window.addEventListener("nt-session", clear);
+    return () => { requestRef.current++; window.removeEventListener("nt-session", clear); };
+  }, []);
 
   // Listen for AskAIButton clicks.
   React.useEffect(() => {
@@ -108,29 +115,30 @@ const AskAI = ({ route }) => {
   };
   React.useEffect(scrollDown, [messages, busy, open]);
 
-  const send = async () => {
-    const text = input.trim();
-    if (!text || busy) return;
+  const send = async (suggestion) => {
+    const text = (typeof suggestion === "string" ? suggestion : input).trim().slice(0, 2000);
+    if (!text || busyRef.current) return;
+    busyRef.current = true;
+    const ticket = ++requestRef.current;
     const next = [...messages, { role: "user", text }];
     setMessages(next);
     setInput("");
     setBusy(true);
     try {
-      if (typeof window.ntGemini !== "function") {
-        throw new Error("Asisten AI belum aktif. Pastikan Firebase AI Logic sudah diaktifkan di Firebase Console.");
-      }
-      const history = next.slice(1);
+      await window.ntAI.wait();
+      if (ticket !== requestRef.current) return;
+      const history = next.slice(1).filter((message) => !message.error);
       const reply = await window.ntGemini(history);
-      setMessages((m) => [...m, { role: "model", text: (reply || "").trim() || "(jawaban kosong)", animate: true }]);
+      if (ticket === requestRef.current) setMessages((m) => [...m, { role: "model", text: (reply || "").trim() || "AI belum menghasilkan jawaban. Coba lagi." }]);
     } catch (e) {
-      setMessages((m) => [...m, { role: "model", text: "⚠️ " + (e && e.message ? e.message : "Terjadi kesalahan.") }]);
+      if (ticket === requestRef.current) setMessages((m) => [...m, { role: "model", text: window.ntAI.errorMessage(e), error: true }]);
     } finally {
-      setBusy(false);
+      if (ticket === requestRef.current) { busyRef.current = false; setBusy(false); }
     }
   };
 
   const onKey = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); }
   };
 
   const target = frame || (typeof document !== "undefined" ? document.body : null);
@@ -148,7 +156,7 @@ const AskAI = ({ route }) => {
           <button className="nt-ai-x" onClick={() => setOpen(false)} aria-label="Tutup">✕</button>
         </div>
 
-        <div className="nt-ai-body" ref={bodyRef}>
+        <div className="nt-ai-body" ref={bodyRef} role="log" aria-live="polite" aria-label="Percakapan NeuroTech AI">
           {messages.map((m, i) => (
             <div key={i} className={"nt-ai-msg nt-ai-msg--" + (m.role === "user" ? "user" : "ai")}>
               {m.role === "model" && m.animate
@@ -158,12 +166,16 @@ const AskAI = ({ route }) => {
           ))}
           {busy && <div className="nt-ai-msg nt-ai-msg--ai nt-ai-typing">sedang mengetik…</div>}
         </div>
+        {messages.length === 1 && <div className="nt-ai-suggestions">{["Jelaskan hasil EEG saya", "Kenapa Cognitive Load belum tersedia?", "Bagaimana menghitung sleep debt?"].map((text) => <button key={text} type="button" disabled={busy} onClick={() => send(text)}>{text}</button>)}</div>}
+        {messages[messages.length - 1]?.error && <button type="button" className="frm-link nt-ai-retry" disabled={busy} onClick={() => send([...messages].reverse().find((m) => m.role === "user")?.text)}>Coba lagi</button>}
 
         <div className="nt-ai-input-row">
           <input
             className="nt-ai-input"
             value={input}
             placeholder="Tulis pertanyaan…"
+            aria-label="Pertanyaan untuk NeuroTech AI"
+            maxLength={2000}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={onKey}
           />
@@ -175,6 +187,7 @@ const AskAI = ({ route }) => {
             </svg>
           </button>
         </div>
+        <div className="nt-ai-privacy">Saat bertanya, ringkasan indeks dan catatan sesi dikirim ke Gemini. Jawaban AI bersifat informatif.</div>
       </div>
     </div>,
     target

@@ -1,13 +1,15 @@
 // Firebase AI Logic (Gemini), modular ES module.
 // Kept separate from the compat SDK (firebase-init.js) used by the rest of the
 // app. Exposes window.ntGemini(history) so the Ask AI chat (ask-ai.jsx) can
-// call Gemini without any API key in the page source.
+// call Gemini through the App Check protected Firebase AI gateway.
 //
 // Setup required once in the Firebase Console:
 //   Build → AI Logic → Get started → pilih "Gemini Developer API".
 // That enables the API; no key needs to be pasted anywhere.
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider, getToken }
+  from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app-check.js";
 import { getAI, getGenerativeModel, GoogleAIBackend }
   from "https://www.gstatic.com/firebasejs/12.0.0/firebase-ai.js";
 
@@ -26,90 +28,83 @@ const SYSTEM_INSTRUCTION =
   "headband EEG Muse. Jawab dalam Bahasa Indonesia yang ringkas, jelas, dan ramah. " +
   "Bantu pengguna soal fatigue, microsleep, cognitive load, kesiapan kerja pra-shift, " +
   "penggunaan aplikasi NeuroTech, dan praktik K3. Jika ditanya hal di luar topik itu, " +
-  "jawab singkat lalu arahkan kembali ke topik kesehatan dan keselamatan kerja.";
+  "jawab singkat lalu arahkan kembali ke penggunaan NeuroTech. " +
+  "Indeks EEG aplikasi adalah heuristik prototipe; hasil parsial atau sementara bukan diagnosis. " +
+  "Jangan mengarang nilai, tren, durasi, kualitas sensor, atau menyatakan pengguna aman bekerja. " +
+  "Jika metrik belum tersedia, jelaskan keterbatasannya. Sleep debt berasal dari laporan mandiri. " +
+  "Jawab maksimal tiga paragraf pendek dan saran yang sesuai data.";
 
-let model = null;
+let model = null, appCheck = null;
 try {
   // A separate, named app instance so it never clashes with the compat default app.
   const app = initializeApp(firebaseConfig, "nt-ai");
+  if (!window.NT_APP_CHECK_SITE_KEY) throw new Error("App Check belum dikonfigurasi.");
+  appCheck = initializeAppCheck(app, {
+    provider: new ReCaptchaEnterpriseProvider(window.NT_APP_CHECK_SITE_KEY),
+    isTokenAutoRefreshEnabled: true,
+  });
   const ai = getAI(app, { backend: new GoogleAIBackend() });
   model = getGenerativeModel(ai, {
     model: "gemini-2.5-flash",
     systemInstruction: SYSTEM_INSTRUCTION,
-  });
+    generationConfig: { temperature: 0.35, maxOutputTokens: 1024, thinkingConfig: { thinkingBudget: 0 } },
+  }, { timeout: 25000 });
   console.info("[NeuroTech] Gemini siap.");
 } catch (e) {
-  console.error("[NeuroTech] Inisialisasi Gemini gagal:", e);
+  window.ntAIInitializationError = typeof e.code === "string" ? e.code : e.name || "Error";
+  console.warn("[NeuroTech] Modul AI belum siap.");
 }
 
 // Build a one-shot context snippet from the logged-in worker's current
 // indices. Prepended as an initial user/model exchange so Gemini answers
 // personally ("CLI kamu 88 sekarang, lebih tinggi dari biasanya — coba…").
 function buildWorkerContext() {
-  const w = window.CURRENT_WORKER;
-  if (!w || !w.name) return null;
-  const lines = ["Konteks pengguna saat ini (gunakan untuk menjawab personal, nada non-punitif):"];
-  if (w.name)             lines.push("- Nama: " + w.name);
-  if (w.role)             lines.push("- Posisi: " + w.role);
-  if (w.shift)            lines.push("- Shift: " + w.shift);
-  if (typeof w.fi === "number")        lines.push("- Fatigue Index (FI): " + w.fi + "/100");
-  if (typeof w.cli === "number")       lines.push("- Cognitive Load (CLI): " + w.cli + "/100");
-  if (typeof w.ei === "number")        lines.push("- Engagement Index (EI): " + w.ei + "/100");
-  if (typeof w.hrv === "number")       lines.push("- HRV: " + w.hrv + " ms");
-  if (typeof w.readiness === "number") lines.push("- Readiness pra-shift: " + w.readiness + "/100");
-  if (typeof window.stressOf === "function") {
-    const s = window.stressOf(w);
-    if (typeof s === "number") lines.push("- Tingkat stres: " + s + "/100");
-  }
-  if (w.status)           lines.push("- Status saat ini: " + w.status);
-  if (w.microsleep)       lines.push("- Microsleep terdeteksi pada shift berjalan.");
-  return lines.join("\n");
+  const live = window.ntManagement?.snapshot({ now: Date.now(), device: window.ntMuse?.status?.() || {}, dsp: window.ntMuseDSP || {} });
+  const latest = live?.latest;
+  const context = { signal: live?.message || "Belum ada data Muse", indices: latest ? {
+    fi: latest.fi, cli: latest.cli, ei: latest.ei, quality: latest.qualityLevel,
+    outputScope: latest.outputScope, provisional: latest.classificationProvisional,
+  } : null };
+  const metrics = window.ntSessionMetrics?.get?.();
+  if (metrics) context.personalRecord = { sleepHours: metrics.sleptHours, sleepTargetHours: metrics.sleepTargetHours,
+    sleepDebtHours: metrics.sleepDebt, monitoringMinutes: Math.round(metrics.receivedMinutes * 10) / 10,
+    monitoringTargetMinutes: metrics.targetMinutes, source: "Laporan tidur mandiri dan hitungan paket EEG di browser" };
+  return "Data aplikasi saat ini (nilai null berarti belum tersedia; tanpa identitas pengguna): " + JSON.stringify(context);
+}
+
+function bounded(promise, milliseconds) {
+  let timer;
+  return Promise.race([promise, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error("Permintaan AI melewati batas waktu. Coba lagi.")), milliseconds); })])
+    .finally(() => clearTimeout(timer));
 }
 
 // history: [{ role: "user" | "model", text: string }]  →  reply text
 window.ntGemini = async (history) => {
+  if (window.NT_FIREBASE?.emulators) throw new Error("AI cloud dinonaktifkan selama pengujian emulator lokal.");
   if (!model) throw new Error("Modul AI gagal dimuat. Periksa koneksi atau setup Firebase AI Logic.");
+  await bounded(getToken(appCheck, false), 15000);
   const contents = [];
   const ctx = buildWorkerContext();
   if (ctx) {
     contents.push({ role: "user",  parts: [{ text: ctx }] });
     contents.push({ role: "model", parts: [{ text: "Catatan kondisi tercatat. Silakan tanyakan apa pun." }] });
   }
-  (history || []).forEach((m) => {
-    contents.push({
-      role: m.role === "user" ? "user" : "model",
-      parts: [{ text: String(m.text || "") }],
-    });
+  (history || []).filter((m) => !m.error && ["user", "model"].includes(m.role) && typeof m.text === "string" && m.text.trim()).slice(-20).forEach((m) => {
+    const role = m.role, text = m.text.slice(0, 3000), previous = contents[contents.length - 1];
+    if (previous?.role === role) previous.parts.push({ text });
+    else contents.push({ role, parts: [{ text }] });
   });
-  const result = await model.generateContent({ contents });
-  return result.response.text();
+  const result = await bounded(model.generateContent({ contents }), 30000);
+  const text = result.response.text().trim();
+  if (!text) throw new Error("AI belum menghasilkan jawaban. Coba pertanyaan yang lebih singkat.");
+  return text;
 };
 
 // One-shot weekly insight from the in-memory ring buffer (mock-data.jsx).
 // Returns a single supportive Bahasa Indonesia sentence summarising the
 // last ≤60 ticks for the logged-in worker. Used by WorkerStats.
 window.ntInsightMingguan = async () => {
-  if (!model) return null;
-  const w = window.CURRENT_WORKER;
-  const hist = (w && w.id && typeof window.ntHistory === "function") ? window.ntHistory(w.id) : [];
-  if (!hist.length) return "Belum ada cukup data untuk diringkas. Pakai aplikasi sebentar lagi, ya.";
-  const avg = (k) => Math.round(hist.reduce((s, h) => s + (h[k] || 0), 0) / hist.length);
-  const ms  = hist.filter((h) => h.microsleep).length;
-  const trendFi = hist.length >= 4
-    ? (hist[hist.length - 1].fi - hist[0].fi) / (hist.length - 1)
-    : 0;
-  const summary = "Ringkas pola berikut menjadi SATU kalimat (max 28 kata) Bahasa Indonesia, " +
-    "ramah dan non-punitif, fokus pada saran konkret untuk pekerja shift. " +
-    "Pengguna: " + (w.name || "—") + ". " +
-    "Selama " + hist.length + " titik terakhir: " +
-    "FI rerata " + avg("fi") + ", CLI rerata " + avg("cli") + ", " +
-    "HRV rerata " + avg("hrv") + ", EI rerata " + avg("ei") + ", " +
-    "microsleep " + ms + " kali, " +
-    "tren FI " + (trendFi > 0.2 ? "menanjak" : trendFi < -0.2 ? "menurun" : "stabil") + ".";
-  const result = await model.generateContent({
-    contents: [{ role: "user", parts: [{ text: summary }] }],
-  });
-  return result.response.text();
+  return window.ntGemini([{ role: "user", text: "Ringkas kondisi sesi saat ini dalam dua kalimat singkat. Jelaskan keterbatasan data dan satu langkah berikutnya. Jangan menyebut tren mingguan jika datanya tidak ada." }]);
 };
 
 window.dispatchEvent(new Event("nt-gemini-ready"));

@@ -18,35 +18,52 @@ const SupervisorWorkersList = () => {
   const [statusFilter, setStatusFilter] = React.useState(null);
   const [addOpen, setAddOpen] = React.useState(false);
   const [removeTarget, setRemoveTarget] = React.useState(null);
-  const [form, setForm] = React.useState({ name: "", role: "pekerja", roleDesc: "", shift: "Pagi" });
+  const [form, setForm] = React.useState({ name: "", email: "", role: "pekerja", roleDesc: "", shift: "Pagi" });
+  const session = window.ntSession?.get();
+  const archive = useSessionArchive();
+  const workers = session ? realWorkerSummaries(archive) : WORKERS;
+  const availableRoles = !session || session.uid === session.ownerUid ? ROLE_OPTIONS
+    : ROLE_OPTIONS.filter((r) => r.v === "pekerja" || (session.role === "management" && r.v === "supervisor"));
 
-  const filtered = WORKERS.filter((w) =>
+  const saving = React.useRef(false);
+  const filtered = workers.filter((w) =>
     (shiftFilter === "Semua" || w.shift === shiftFilter) &&
     (!statusFilter || w.status === statusFilter)
   );
 
   // Build a fresh worker record and hand it to the shared store.
-  const submitAdd = () => {
+  const submitAdd = async () => {
+    if (saving.current) return;
     const name = form.name.trim();
     if (!name) { window.toast?.("Nama pekerja wajib diisi.", { kind: "warn" }); return; }
-    if (!ROLE_OPTIONS.some((r) => r.v === form.role)) {
+    if (session && !form.email.trim()) { window.toast?.("Email anggota wajib diisi.", { kind: "warn" }); return; }
+    if (!availableRoles.some((r) => r.v === form.role)) {
       window.toast?.("Pilih role pekerja.", { kind: "warn" }); return;
     }
-    const ok = window.ntAddWorker({
-      name, role: form.role, roleDesc: form.roleDesc, shift: form.shift,
-    });
-    if (!ok) { window.toast?.("Gagal menambah pekerja.", { kind: "warn" }); return; }
-    window.toast?.(`${name} ditambahkan ke daftar pekerja.`, { kind: "success" });
-    setForm({ name: "", role: "pekerja", roleDesc: "", shift: "Pagi" });
-    setAddOpen(false);
+    saving.current = true;
+    try {
+      const ok = await window.ntAddWorker({
+        name, email: form.email, role: form.role, roleDesc: form.roleDesc, shift: form.shift,
+      });
+      if (!ok) throw new Error("Gagal menambah pekerja.");
+      window.toast?.(name + " ditambahkan ke daftar pekerja.", { kind: "success" });
+      setForm({ name: "", email: "", role: "pekerja", roleDesc: "", shift: "Pagi" });
+      setAddOpen(false);
+    } catch (error) { window.toast?.(error.message || "Gagal menyimpan pekerja.", { kind: "danger" }); }
+    finally { saving.current = false; }
   };
 
-  const confirmRemove = () => {
+  const confirmRemove = async () => {
+    if (saving.current) return;
     if (!removeTarget) return;
     const nm = removeTarget.name;
-    window.ntRemoveWorker(removeTarget.id);
-    window.toast?.(`${nm} dihapus dari daftar pekerja.`, { kind: "success" });
-    setRemoveTarget(null);
+    saving.current = true;
+    try {
+      if (!await window.ntRemoveWorker(removeTarget.id)) throw new Error("Pekerja tidak ditemukan.");
+      window.toast?.(nm + " dihapus dari daftar pekerja.", { kind: "success" });
+      setRemoveTarget(null);
+    } catch (error) { window.toast?.(error.message || "Gagal menghapus pekerja.", { kind: "danger" }); }
+    finally { saving.current = false; }
   };
 
   const fieldStyle = {
@@ -65,12 +82,12 @@ const SupervisorWorkersList = () => {
 
     <main style={{ padding: "22px 28px 22px 6px", overflow: "hidden", display: "flex", flexDirection: "column", gap: 18 }}>
       <PageHeader
-        eyebrow={`${filtered.length} dari ${WORKERS.length} pekerja`}
+        eyebrow={`${filtered.length} dari ${workers.length} anggota perusahaan`}
         title="Pekerja"
         right={
           <div style={{ display: "flex", gap: 8 }}>
-            <NeuroBtn tone="default" size="sm" onClick={() => window.toast?.("Export pekerja → CSV (mock)", { kind: "info" })}>
-              Export CSV
+            <NeuroBtn tone="default" size="sm" onClick={() => session ? navigate("/s/reports") : window.toast?.("Export pekerja → CSV (mock)", { kind: "info" })}>
+              {session ? "Buka laporan" : "Export CSV"}
             </NeuroBtn>
             <NeuroBtn tone="primary" size="sm" onClick={() => setAddOpen(true)}>
               + Tambah Pekerja
@@ -78,6 +95,8 @@ const SupervisorWorkersList = () => {
           </div>
         }
       />
+      {session && <RealArchiveStatus state={archive} />}
+      {session && session.package !== "free" && <CompanyInvitePanel code={session.code} />}
 
       {/* Filters */}
       <div style={{ display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" }}>
@@ -94,7 +113,7 @@ const SupervisorWorkersList = () => {
           ))}
         </div>
 
-        <div style={{ display: "flex", gap: 6 }}>
+        <div className="worker-status-filters" style={{ display: "flex", gap: 6 }}>
           {Object.entries(STATUS_MAP).map(([k, s]) => (
             <button key={k}
               onClick={() => setStatusFilter(statusFilter === k ? null : k)}
@@ -118,10 +137,11 @@ const SupervisorWorkersList = () => {
       </div>
 
       {/* Table */}
-      <div className="neu-surface" style={{ padding: 0, overflow: "hidden", flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+      <p className="worker-table-hint">Geser tabel ke samping untuk melihat seluruh kolom.</p>
+      <div className={"neu-surface workers-table" + (session ? " workers-table--real" : "")} tabIndex={0} role="region" aria-label="Daftar pekerja, dapat digeser ke samping" style={{ padding: 0, overflow: "hidden", flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
         <div style={{
           display: "grid",
-          gridTemplateColumns: "1.9fr 1.05fr 0.85fr 0.58fr 0.58fr 0.58fr 0.68fr 0.95fr 44px",
+          gridTemplateColumns: session ? "1.9fr 1.05fr 0.85fr 0.58fr 0.58fr 0.95fr 44px" : "1.9fr 1.05fr 0.85fr 0.58fr 0.58fr 0.58fr 0.68fr 0.95fr 44px",
           padding: "14px 22px", gap: 12,
           fontSize: 10, color: "var(--nt-text-3)", letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 700,
           borderBottom: "1px solid var(--nt-bg-deep)"
@@ -129,8 +149,7 @@ const SupervisorWorkersList = () => {
           <span>Nama</span><span>Peran</span><span>Shift</span>
           <span style={{ textAlign: "right" }}>FI</span>
           <span style={{ textAlign: "right" }}>CLI</span>
-          <span style={{ textAlign: "right" }}>HRV</span>
-          <span style={{ textAlign: "right" }}>Ready</span>
+          {!session && <><span style={{ textAlign: "right" }}>HRV</span><span style={{ textAlign: "right" }}>Ready</span></>}
           <span style={{ textAlign: "right" }}>Status</span>
           <span />
         </div>
@@ -142,7 +161,7 @@ const SupervisorWorkersList = () => {
               <Link key={w.id} to={`/s/workers/${w.id}`}>
                 <div className="nt-card-click" style={{
                   display: "grid",
-                  gridTemplateColumns: "1.9fr 1.05fr 0.85fr 0.58fr 0.58fr 0.58fr 0.68fr 0.95fr 44px",
+                  gridTemplateColumns: session ? "1.9fr 1.05fr 0.85fr 0.58fr 0.58fr 0.95fr 44px" : "1.9fr 1.05fr 0.85fr 0.58fr 0.58fr 0.58fr 0.68fr 0.95fr 44px",
                   padding: "14px 22px", gap: 12,
                   alignItems: "center",
                   borderBottom: "1px solid var(--nt-bg-deep)",
@@ -156,17 +175,16 @@ const SupervisorWorkersList = () => {
                     }}>{w.name.split(" ").map((x) => x[0]).slice(0, 2).join("")}</div>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: "var(--nt-text)" }}>{w.name}</div>
-                      {w.roleDesc && (
-                        <div style={{ fontSize: 10.5, color: "var(--nt-text-3)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{w.roleDesc}</div>
+                      {(w.roleDesc || (session && w.recordedAt)) && (
+                        <div style={{ fontSize: 10.5, color: "var(--nt-text-3)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{session ? realDate(w.recordedAt) : w.roleDesc}</div>
                       )}
                     </div>
                   </div>
                   <div style={{ fontSize: 12, color: "var(--nt-text-2)" }}>{w.role}</div>
                   <div style={{ fontSize: 12, color: "var(--nt-text-2)" }}>{w.shift}</div>
-                  <div style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 13, fontWeight: 700, color: w.fi > 65 ? "#ff7a7a" : "var(--nt-text)" }}>{w.fi}</div>
-                  <div style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 13, fontWeight: 700, color: w.cli > 65 ? "#ff7a7a" : "var(--nt-text)" }}>{w.cli}</div>
-                  <div style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 13, fontWeight: 700, color: w.hrv < 50 ? "#ff7a7a" : "var(--nt-text)" }}>{w.hrv}</div>
-                  <div style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 13, fontWeight: 700, color: w.readiness < 60 ? "#ff7a7a" : "var(--nt-text)" }}>{w.readiness}</div>
+                  <div style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 13, fontWeight: 700, color: w.fi > 65 ? "#ff7a7a" : "var(--nt-text)" }}>{w.fi ?? "—"}</div>
+                  <div style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 13, fontWeight: 700, color: w.cli > 65 ? "#ff7a7a" : "var(--nt-text)" }}>{w.cli ?? "—"}</div>
+                  {!session && <><div style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 13, fontWeight: 700, color: Number.isFinite(w.hrv) && w.hrv < 50 ? "#ff7a7a" : "var(--nt-text)" }}>{w.hrv ?? "—"}</div><div style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 13, fontWeight: 700, color: Number.isFinite(w.readiness) && w.readiness < 60 ? "#ff7a7a" : "var(--nt-text)" }}>{w.readiness ?? "—"}</div></>}
                   <div style={{ display: "flex", justifyContent: "flex-end" }}>
                     <StatusPill status={w.status} size="sm" />
                   </div>
@@ -199,7 +217,7 @@ const SupervisorWorkersList = () => {
         open={addOpen}
         onClose={() => setAddOpen(false)}
         title="Tambah Pekerja"
-        subtitle="Pekerja baru muncul di daftar dengan status awal Normal. Headband Muse dikalibrasi pada shift pertamanya."
+        subtitle="Daftarkan email anggota, lalu berikan kode perusahaan. Anggota mengaktifkan akun dan membuat password sendiri melalui halaman login."
         actions={
           <>
             <NeuroBtn tone="ghost" onClick={() => setAddOpen(false)}>Batal</NeuroBtn>
@@ -220,13 +238,18 @@ const SupervisorWorkersList = () => {
             />
           </div>
           <div>
+            <label style={labelStyle}>Email anggota</label>
+            <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}
+              placeholder="email@anggota.com" style={fieldStyle} />
+          </div>
+          <div>
             <label style={labelStyle}>Role</label>
             <select
               value={form.role}
               onChange={(e) => setForm({ ...form, role: e.target.value })}
               style={fieldStyle}
             >
-              {ROLE_OPTIONS.map((r) => (
+              {availableRoles.map((r) => (
                 <option key={r.v} value={r.v}>{r.l}</option>
               ))}
             </select>
@@ -369,7 +392,7 @@ const SupervisorWorkerDetail = ({ id }) => {
           <div key={i} className="neu-surface" style={{ padding: 16 }}>
             <div className="nt-eyebrow" style={{ fontSize: 9 }}>{m.l}</div>
             <div style={{ fontSize: 30, fontWeight: 700, color: "var(--nt-text)", marginTop: 8, letterSpacing: "-0.01em" }}>
-              {m.v}<span style={{ fontSize: 13, color: "var(--nt-text-3)", marginLeft: 2 }}>{m.suffix || ""}</span>
+              {m.v ?? "—"}<span style={{ fontSize: 13, color: "var(--nt-text-3)", marginLeft: 2 }}>{Number.isFinite(m.v) ? m.suffix || "" : ""}</span>
             </div>
             <div style={{ height: 6, borderRadius: 999, background: "var(--nt-bg-deep)", marginTop: 10, overflow: "hidden", boxShadow: "inset 1px 1px 2px rgba(140,156,180,0.3)" }}>
               <div style={{ width: `${Math.min(100, m.v)}%`, height: "100%", borderRadius: 999, background: `linear-gradient(90deg, ${m.c[0]}, ${m.c[1]})` }} />

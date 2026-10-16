@@ -4,7 +4,9 @@
 // ── Route parsing ─────────────────────────────────────────────────────────
 const parseRoute = (hash) => {
   const path = (hash || "#/").replace(/^#/, "") || "/";
-  const parts = path.split("/").filter(Boolean);
+  const parts = path.split("/").filter(Boolean).map((part) => {
+    try { return decodeURIComponent(part); } catch { return part; }
+  });
   return { path, parts, app: parts[0] || null, page: parts[1] || null, id: parts[2] || null };
 };
 
@@ -32,8 +34,9 @@ const navigate = (to) => {
 };
 
 // Link, renders an <a> with hash href so browser back/forward works.
-const Link = ({ to, children, style, className, onClick }) => (
+const Link = ({ to, children, style, className, onClick, ...attributes }) => (
   <a
+    {...attributes}
     href={"#" + to}
     onClick={onClick}
     className={className}
@@ -73,13 +76,17 @@ const Modal = ({ open, onClose, title, subtitle, children, actions, width = 420,
       }}
     >
       <div
+        className="nt-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
         onClick={(e) => e.stopPropagation()}
         style={{
           width, maxWidth: "90vw",
           background: "var(--nt-bg)",
           borderRadius: 24,
           boxShadow: "var(--nt-shadow-out-lg)",
-          padding: 0, overflow: "hidden",
+          padding: 0, maxHeight: "90vh", overflowY: "auto", overflowX: "hidden",
           animation: (popDir === "down" ? "nt-pop-down" : popDir === "up" ? "nt-pop-up" : "nt-pop") +
             " .22s cubic-bezier(.2,.7,.3,1)",
           position: "relative",
@@ -139,7 +146,7 @@ const ToastProvider = () => {
   };
 
   return ReactDOM.createPortal(
-    <div style={{
+    <div className="nt-toasts" role="status" style={{
       position: "fixed", right: 24, bottom: 24, zIndex: 1100,
       display: "flex", flexDirection: "column", gap: 10, pointerEvents: "none",
     }}>
@@ -213,7 +220,7 @@ const NeuroBtn = ({ children, onClick, tone = "default", size = "md", style }) =
 
 // ── Page header with back button (used by detail pages) ──────────────────
 const PageHeader = ({ backTo, eyebrow, title, right }) => (
-  <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "4px 0 18px" }}>
+  <div className="nt-page-header" style={{ display: "flex", alignItems: "center", gap: 16, padding: "4px 0 18px" }}>
     {backTo && (
       <Link to={backTo}>
         <NeuroIconBtn size={40}>

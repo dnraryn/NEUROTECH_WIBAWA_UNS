@@ -169,10 +169,11 @@ const STATUS_MAP = {
   waspada:   { label: "Waspada",  color: "#3B82F6", soft: "#60A5FA", emoji: "🟦" },
   berisiko:  { label: "Berisiko", color: "#1D4ED8", soft: "#2563EB", emoji: "🟦" },
   kritis:    { label: "Kritis",   color: "#1E3A8A", soft: "#172554", emoji: "⬛" },
+  unavailable: { label: "Belum tersedia", color: "#64748B", soft: "#CBD5E1", emoji: "○" },
 };
 
 const StatusPill = ({ status = "normal", showDot = true, size = "md" }) => {
-  const s = STATUS_MAP[status];
+  const s = STATUS_MAP[status] || STATUS_MAP.unavailable;
   const sz = size === "sm"
     ? { padX: 10, padY: 4, fs: 11, dot: 8 }
     : { padX: 14, padY: 7, fs: 13, dot: 10 };
@@ -272,7 +273,7 @@ const EEGWave = ({ width = 180, height = 36, color, seed = 0, live = true, statu
 // screen body scrolls, mimicking real iOS/Android behaviour. The padding-top
 // of 32px leaves room for the Dynamic Island notch drawn on .app-frame--mobile.
 const NeuroStatusBar = ({ time = "07:24" }) => (
-  <div style={{
+  <div className="nt-phone-status" aria-hidden="true" style={{
     position: "sticky", top: 0, zIndex: 8,
     display: "flex", justifyContent: "space-between", alignItems: "center",
     padding: "30px 24px 10px", fontSize: 13, fontWeight: 600, color: "var(--nt-text)",
@@ -291,15 +292,21 @@ const NeuroStatusBar = ({ time = "07:24" }) => (
 
 // Floating fintech-style tab bar — glassmorphic pill, blue active circle.
 const NeuroTabBar = ({ active = "home" }) => {
-  const tabs = [
+  let tabs = [
     { k: "home",  to: "/w/readiness", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 11l9-7 9 7v9a2 2 0 0 1-2 2h-4v-7h-6v7H5a2 2 0 0 1-2-2z"/></svg> },
     { k: "brain", to: "/w/live",      icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 4a3 3 0 0 0-3 3v0a3 3 0 0 0-3 3v1a3 3 0 0 0 2 2.8V16a3 3 0 0 0 4 3 3 3 0 0 0 4-3v-2.2A3 3 0 0 0 18 11v-1a3 3 0 0 0-3-3v0a3 3 0 0 0-3-3z"/></svg> },
     { k: "pulse", to: "/w/wellness",  icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg> },
     { k: "audio", to: "/w/audio",     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 14v-2a9 9 0 0 1 18 0v2"/><rect x="3" y="14" width="4" height="7" rx="1.6"/><rect x="17" y="14" width="4" height="7" rx="1.6"/></svg> },
     { k: "chart", to: "/w/stats",     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg> },
   ];
+  if (window.ntSession?.get()) {
+    tabs = tabs.filter((tab) => tab.k !== "pulse");
+    tabs.push({ k: "profile", to: "/w/profile", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg> });
+  }
+  const labels = { home: "Beranda", brain: "Live", pulse: "Kondisi", audio: "Audio", chart: "Riwayat", profile: "Profil" };
+  const activeKey = window.location?.hash?.includes("/w/profile") ? "profile" : active;
   return (
-    <div className="nt-tabbar" style={{
+    <nav className="nt-tabbar" aria-label="Navigasi pekerja" style={{
       position: "sticky", bottom: 18,
       margin: "auto 20px 18px",
       display: "flex", justifyContent: "space-around", alignItems: "center",
@@ -313,9 +320,9 @@ const NeuroTabBar = ({ active = "home" }) => {
       zIndex: 10, flexShrink: 0,
     }}>
       {tabs.map((t) => {
-        const on = active === t.k;
+        const on = activeKey === t.k;
         return (
-          <Link key={t.k} to={t.to}>
+          <Link key={t.k} to={t.to} aria-label={labels[t.k]} aria-current={on ? "page" : undefined} className="nt-worker-tab">
             <div style={{
               width: 42, height: 42, borderRadius: "50%",
               display: "flex", alignItems: "center", justifyContent: "center",
@@ -324,10 +331,11 @@ const NeuroTabBar = ({ active = "home" }) => {
               boxShadow: on ? "0 8px 18px rgba(59,130,246,0.45)" : "none",
               transition: "background .15s, color .15s, box-shadow .15s",
             }}>{t.icon}</div>
+            <span>{labels[t.k]}</span>
           </Link>
         );
       })}
-    </div>
+    </nav>
   );
 };
 
@@ -387,7 +395,7 @@ const ThemeToggle = () => {
 // — listens to BOTH the engine tick (`nt-data`) and the device pairing
 // event (`nt-device`) so it stops the moment the user clicks "Disconnect"
 // even though the engine has already stopped ticking.
-const LiveSparkline = ({ index = 0, trendDir = 1, color = "#3B82F6", height = 26, viewH = 22 }) => {
+const LiveSparkline = ({ index = 0, trendDir = 1, color = "#3B82F6", height = 26, viewH = 22, animate = true, values }) => {
   const POINTS = 10;
   const STEP = 100 / (POINTS - 2);
   const [phase, setPhase] = React.useState(0);
@@ -406,7 +414,7 @@ const LiveSparkline = ({ index = 0, trendDir = 1, color = "#3B82F6", height = 26
       if (interval) { clearInterval(interval); interval = null; }
     };
     const check = () => {
-      if (window.NT_LIVE !== false) start(); else stop();
+      if (animate && window.NT_LIVE !== false) start(); else stop();
     };
     check();
     window.addEventListener("nt-data", check);
@@ -416,7 +424,7 @@ const LiveSparkline = ({ index = 0, trendDir = 1, color = "#3B82F6", height = 26
       window.removeEventListener("nt-data", check);
       window.removeEventListener("nt-device", check);
     };
-  }, []);
+  }, [animate]);
 
   const phaseInt = Math.floor(phase);
   const phaseFrac = phase - phaseInt;
@@ -433,7 +441,14 @@ const LiveSparkline = ({ index = 0, trendDir = 1, color = "#3B82F6", height = 26
       + (POINTS / 2 - i) * trendDir * (viewH * 0.05);
     pts.push({ x, y: Math.max(viewH * 0.10, Math.min(viewH * 0.90, y)) });
   }
-  const d = pts.map((p, i) =>
+  const measured = Array.isArray(values) ? values.filter(Number.isFinite) : null;
+  const lo = measured?.length ? Math.min(...measured) : 0;
+  const hi = measured?.length ? Math.max(...measured) : 1;
+  const plot = measured ? measured.map((value, i) => ({
+    x: i / Math.max(1, measured.length - 1) * 100,
+    y: hi === lo ? viewH / 2 : viewH * (0.9 - 0.8 * (value - lo) / (hi - lo)),
+  })) : pts;
+  const d = plot.map((p, i) =>
     (i === 0 ? "M" : "L") + p.x.toFixed(2) + "," + p.y.toFixed(2)
   ).join(" ");
   const id = "nt-spk-live-" + index + "-" + viewH;
@@ -446,8 +461,10 @@ const LiveSparkline = ({ index = 0, trendDir = 1, color = "#3B82F6", height = 26
           <stop offset="100%" stopColor={color} stopOpacity="0" />
         </linearGradient>
       </defs>
-      <path d={d + " L100," + viewH + " L0," + viewH + " Z"} fill={"url(#" + id + ")"} />
-      <path d={d} fill="none" stroke={color} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+      {plot.length > 1 ? <>
+        <path d={d + " L100," + viewH + " L0," + viewH + " Z"} fill={"url(#" + id + ")"} />
+        <path d={d} fill="none" stroke={color} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+      </> : <text x="0" y={viewH / 2 + 3} fontSize="9" fill="var(--nt-text-3)">Belum ada riwayat</text>}
     </svg>
   );
 };

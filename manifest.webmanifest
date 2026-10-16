@@ -1,0 +1,23 @@
+{
+  "id": "/?app=worker",
+  "name": "NeuroTech Pekerja",
+  "short_name": "NeuroTech",
+  "description": "Pemantauan Muse, hasil sesi dan riwayat pribadi pekerja.",
+  "lang": "id",
+  "start_url": "/?app=worker#/w/readiness",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0c1931",
+  "theme_color": "#0c1931",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    { "src": "/assets/worker-app-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/worker-app-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/worker-app-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Live Muse", "url": "/?app=worker#/w/live", "icons": [{ "src": "/assets/worker-app-192.png", "sizes": "192x192" }] },
+    { "name": "Riwayat pribadi", "url": "/?app=worker#/w/stats", "icons": [{ "src": "/assets/worker-app-192.png", "sizes": "192x192" }] }
+  ],
+  "prefer_related_applications": false
+}

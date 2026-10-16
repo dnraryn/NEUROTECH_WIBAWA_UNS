@@ -1,24 +1,23 @@
 // NeuroTech root — hash router dispatches to per-persona screens inside their
 // native frame (mobile 360×780 or desktop 1280×800).
 //
-// Auth model: a member "session" (company code + member name + role) is kept
-// in sessionStorage. Visitors join via /join or log in via /login. A no-auth
-// "demo" bypass is kept for quick walkthroughs.
+// Firebase Auth + server-managed memberships determine the current session.
+// Demo renders local sample data; it grants no Firebase access.
 
 const ROUTES = {
   // Worker mobile (app prefix: w)
-  "w/readiness": { c: () => <WorkerReadiness />, frame: "mobile", label: "Readiness" },
+  "w/readiness": { c: () => window.ntSession?.get() ? <RealWorkerHome /> : <WorkerReadiness />, frame: "mobile", label: "Readiness" },
   "w/live":      { c: () => <WorkerLive />,      frame: "mobile", label: "Live" },
-  "w/wellness":  { c: () => <WorkerWellness />,  frame: "mobile", label: "Kondisi" },
+  "w/wellness":  { c: () => window.ntSession?.get() ? <RealWorkerHome /> : <WorkerWellness />,  frame: "mobile", label: "Kondisi" },
   "w/audio":     { c: () => <WorkerAudio />,     frame: "mobile", label: "Neurofeedback" },
-  "w/stats":     { c: () => <WorkerStats />,     frame: "mobile", label: "Statistik" },
+  "w/stats":     { c: () => window.ntSession?.get() ? <RealWorkerHistory /> : <WorkerStats />, frame: "mobile", label: "Statistik" },
   "w/profile":   { c: () => <WorkerProfile />,   frame: "mobile", label: "Profil" },
 
   // Supervisor K3 desktop (app prefix: s)
-  "s/overview":  { c: () => <SupervisorDashboard />,  frame: "desktop", label: "Overview Tim" },
+  "s/overview":  { c: () => window.ntSession?.get() ? <RealSupervisorDashboard /> : <SupervisorDashboard />,  frame: "desktop", label: "Overview Tim" },
   "s/workers":   { c: () => <SupervisorWorkersList />, frame: "desktop", label: "Pekerja" },
-  "s/alerts":    { c: () => <SupervisorAlertsList />,  frame: "desktop", label: "Alert" },
-  "s/schedule":  { c: () => <SupervisorSchedule />,    frame: "desktop", label: "Jadwal" },
+  "s/alerts":    { c: () => window.ntSession?.get() ? <RealSupervisorAlerts /> : <SupervisorAlertsList />,  frame: "desktop", label: "Alert" },
+  "s/schedule":  { c: () => window.ntSession?.get() ? <RealSupervisorSchedule /> : <SupervisorSchedule />, frame: "desktop", label: "Jadwal" },
   "s/reports":   { c: () => <SupervisorReports />,     frame: "desktop", label: "Laporan" },
 
   // Management SMK3 desktop (app prefix: m)
@@ -29,6 +28,7 @@ const ROUTES = {
   "pricing":     { c: () => <PlanPricing />, frame: "landing", label: "Plan & Pricing" },
   "join":        { c: () => <JoinFlow />, frame: "landing", label: "Bergabung" },
   "login":       { c: () => <MemberLogin />, frame: "auth", label: "Masuk" },
+  "app":         { c: () => <WorkerAppInstall />, frame: "auth", label: "Aplikasi pekerja" },
 };
 
 const PERSONAS = [
@@ -38,10 +38,10 @@ const PERSONAS = [
 ];
 
 // Role → home route, label, and which persona prefixes the role may open.
-// Management may open both the supervisor and the management views.
+// Staff may also open the worker area for their own measurement sessions.
 const ROLE_HOME  = { pekerja: "/w/readiness", supervisor: "/s/overview", management: "/m/overview" };
 const ROLE_LABEL = { pekerja: "Pekerja", supervisor: "Supervisor", management: "Manajemen" };
-const ROLE_APPS  = { pekerja: ["w"], supervisor: ["s"], management: ["s", "m"] };
+const ROLE_APPS  = { pekerja: ["w"], supervisor: ["w", "s"], management: ["w", "s", "m"] };
 
 // Per-package area access — the Free package unlocks only the worker app.
 const PACKAGE_APPS = {
@@ -69,19 +69,22 @@ const homeFor = (session) => {
 const resolveRoute = (route) => {
   const direct = ROUTES[`${route.app}/${route.page}`];
   if (direct && !route.id) return direct;
+  if (route.app === "invite") {
+    return { c: MemberLogin, props: { inviteCode: route.page || "", inviteToken: route.id || "" }, frame: "auth", label: "Undangan pekerja" };
+  }
   // Content/marketing pages — /p/<slug>
   if (route.app === "p" && route.page) {
-    return { c: () => <ContentPage slug={route.page} />, frame: "landing", label: "Halaman" };
+    return { c: ContentPage, props: { slug: route.page }, frame: "landing", label: "Halaman" };
   }
   // Dynamic detail routes
   if (route.app === "s" && route.page === "workers" && route.id) {
-    return { c: () => <SupervisorWorkerDetail id={route.id} />, frame: "desktop", label: "Detail Pekerja" };
+    return { c: typeof window !== "undefined" && window.ntSession?.get() ? RealSupervisorWorkerDetail : SupervisorWorkerDetail, props: { id: route.id }, frame: "desktop", label: "Detail Pekerja" };
   }
   if (route.app === "s" && route.page === "alerts" && route.id) {
-    return { c: () => <SupervisorAlertDetail id={route.id} />, frame: "desktop", label: "Detail Alert" };
+    return { c: typeof window !== "undefined" && window.ntSession?.get() ? RealSupervisorAlertDetail : SupervisorAlertDetail, props: { id: route.id }, frame: "desktop", label: "Detail Alert" };
   }
   if (route.app === "s" && route.page === "reports" && route.id) {
-    return { c: () => <SupervisorReportDetail id={route.id} />, frame: "desktop", label: "Detail Laporan" };
+    return { c: SupervisorReportDetail, props: { id: route.id }, frame: "desktop", label: "Detail Laporan" };
   }
   // Plain top-level (e.g. /login)
   if (route.app && !route.page) {
@@ -146,17 +149,31 @@ const BackButton = ({ disabled, floating }) => (
 // ── Light/Dark theme toggle ──────────────────────────────────────────────
 // Persists the choice in localStorage and toggles a body class.
 // ── Device connect button — real Muse via Web Bluetooth, or demo mode ────
-// "Hubungkan Muse" opens the OS pairing dialog (Chrome/Edge desktop, Bluefy
-// on iOS). Right-click / hold also offers a "Mode demo" path that skips BLE
+// "Hubungkan Muse" opens the pairing dialog on a supported browser.
+// The options button explicitly offers demo mode, which skips BLE
 // entirely. Once paired, battery % from telemetry is shown live.
-const DeviceButton = () => {
+const DeviceButton = ({ embedded = false }) => {
+  const allowDemo = !window.ntSession?.get();
   const init = (window.ntDeviceStatus && window.ntDeviceStatus()) || {};
   const [connected, setConnected] = React.useState(!!init.connected);
   const [real,      setReal]      = React.useState(!!init.real);
-  const [battery,   setBattery]   = React.useState(init.battery || null);
+  const [battery,   setBattery]   = React.useState(init.battery ?? null);
   const [name,      setName]      = React.useState(init.name || null);
   const [busy,      setBusy]      = React.useState(false);
   const [menuOpen,  setMenuOpen]  = React.useState(false);
+  const [phase, setPhase] = React.useState("chooser");
+  const [slow, setSlow] = React.useState(false);
+  const pairing = React.useRef(0);
+  React.useEffect(() => {
+    const onPhase = (event) => setPhase(event.detail.phase);
+    window.addEventListener("nt-muse-phase", onPhase);
+    return () => window.removeEventListener("nt-muse-phase", onPhase);
+  }, []);
+  React.useEffect(() => {
+    if (!busy) { setSlow(false); return; }
+    const timer = setTimeout(() => setSlow(true), 10000);
+    return () => clearTimeout(timer);
+  }, [busy]);
 
   React.useEffect(() => {
     const onDev = (e) => {
@@ -166,6 +183,7 @@ const DeviceButton = () => {
       if (d.name) setName(d.name);
       if (typeof d.battery === "number") setBattery(d.battery);
       if (!d.connected) { setBattery(null); setName(null); }
+      if (d.reason === "gatt") window.toast?.("Koneksi Muse terputus. Hubungkan kembali untuk melanjutkan.", { kind: "warn" });
     };
     const onTel = (e) => { if (e && e.detail && typeof e.detail.battery === "number") setBattery(e.detail.battery); };
     window.addEventListener("nt-device", onDev);
@@ -177,29 +195,35 @@ const DeviceButton = () => {
   }, []);
 
   const pair = async (mode) => {
+    if (mode === "demo" && !allowDemo) return;
     setMenuOpen(false);
     if (busy) return;
-    if (connected) {
-      window.ntDeviceDisconnect && window.ntDeviceDisconnect();
+    if (connected && !mode) {
+      await window.ntDeviceDisconnect();
       window.toast && window.toast("Muse terputus.", { kind: "info" });
       return;
     }
+    const ticket = ++pairing.current;
+    setPhase("chooser"); setSlow(false);
     setBusy(true);
     window.toast && window.toast(
       mode === "demo" ? "Memuat data demo…" : "Membuka dialog pairing Muse…",
       { kind: "info" });
     try {
       const info = await window.ntDeviceConnect(mode);
+      if (ticket !== pairing.current) return;
       window.toast && window.toast(
         info && info.real
           ? "Muse tersambung · " + (info.name || "Muse S")
           : "Mode demo aktif — data simulasi.",
         { kind: "success" });
+      if (embedded && info?.real) navigate("/w/live");
     } catch (e) {
+      if (ticket !== pairing.current) return;
       const msg = (e && e.message) || "Pairing dibatalkan";
       window.toast && window.toast(msg, { kind: "warn" });
     } finally {
-      setBusy(false);
+      if (ticket === pairing.current) setBusy(false);
     }
   };
 
@@ -212,17 +236,17 @@ const DeviceButton = () => {
       : "Hubungkan Muse";
 
   return (
-    <div style={{ position: "relative", display: "inline-flex" }}>
+    <div className={"nt-device-control" + (embedded ? " nt-device-control--embedded" : "")} style={{ position: "relative", display: "inline-flex" }}>
       <button
+        type="button"
         onClick={() => {
-          if (connected) return pair();
-          // Not connected: if BLE available, default action = real pair.
-          // If not available, default = demo. Right-click always opens menu.
-          if (supportsBle) pair("auto"); else pair("demo");
+          if (connected && real) return embedded ? navigate("/w/live") : pair();
+          if (connected && !supportsBle) return pair();
+          if (supportsBle) pair("real"); else setMenuOpen((o) => !o);
         }}
-        onContextMenu={(e) => { e.preventDefault(); if (!busy && !connected) setMenuOpen((o) => !o); }}
+        onContextMenu={(e) => { e.preventDefault(); if (!busy && (allowDemo || !supportsBle)) setMenuOpen((o) => !o); }}
         disabled={busy}
-        title={supportsBle ? "Klik kanan untuk opsi" : "Browser tidak mendukung BLE, klik untuk mode demo"}
+        title={supportsBle ? embedded ? "Hubungkan Muse yang sudah menyala dan mulai pemantauan" : "Hubungkan atau putuskan Muse" : "Buka petunjuk browser Bluetooth"}
         style={{
           display: "flex", alignItems: "center", gap: 9,
           padding: "8px 14px", borderRadius: 999, border: "none",
@@ -238,14 +262,27 @@ const DeviceButton = () => {
           boxShadow: connected ? "0 0 8px rgba(255,255,255,0.6)" : "0 0 6px " + dotColor,
           animation: busy ? "ntPulseDot 1s ease-in-out infinite" : "none",
         }} />
-        {label}
+        {!supportsBle && !connected ? "Panduan koneksi Muse" : embedded && connected && real ? "Buka Live" : label}
       </button>
 
-      {/* Caret to open mode menu (real vs demo) when not connected */}
-      {!connected && !busy && (
+      {busy && <div className="nt-pairing-status" role="status">
+        <strong>{({ chooser: "Menunggu pilihan perangkat", gatt: "Menghubungkan Bluetooth", services: "Membaca layanan Muse", notifications: "Mengaktifkan sensor", streaming: "Memulai aliran EEG", ready: "Muse tersambung" })[phase] || "Menyiapkan koneksi"}</strong>
+        <button type="button" onClick={() => {
+          pairing.current++; setBusy(false); setSlow(false);
+          Promise.resolve(window.ntDeviceDisconnect()).catch(() => {});
+        }}>Batalkan koneksi</button>
+        {slow && <p>{phase === "chooser" ? "Dialog perangkat belum muncul? Batalkan, buka website ini langsung di Chrome Android, lalu tekan Hubungkan Muse lagi." : "Koneksi tertahan? Batalkan, tutup aplikasi Muse lain, lalu nyalakan ulang headband dan coba kembali."}
+          {" "}Pastikan Bluetooth aktif dan izinkan Perangkat di sekitar untuk browser jika tersedia di pengaturan HP.</p>}
+      </div>}
+
+      {/* Demo options belong only to the public demo experience. */}
+      {allowDemo && !busy && (
         <button
+          type="button"
+          className="nt-device-options-toggle"
           onClick={() => setMenuOpen((o) => !o)}
           aria-label="Opsi koneksi"
+          aria-expanded={menuOpen}
           style={{
             marginLeft: 4, padding: "8px 8px", borderRadius: 999, border: "none",
             background: "var(--nt-surface)", boxShadow: "var(--nt-shadow-out-sm)",
@@ -259,8 +296,8 @@ const DeviceButton = () => {
         </button>
       )}
 
-      {menuOpen && !connected && (
-        <div onClick={() => setMenuOpen(false)} style={{
+      {menuOpen && (
+        <div className="nt-device-menu" style={{
           position: "absolute", top: "calc(100% + 6px)", right: 0,
           background: "var(--nt-surface)",
           border: "var(--nt-hairline)",
@@ -268,10 +305,11 @@ const DeviceButton = () => {
           boxShadow: "var(--nt-shadow-out-lg)",
           padding: 4, zIndex: 50, minWidth: 200,
         }}>
+          {!supportsBle && <p className="nt-device-help">{!window.isSecureContext ? "Buka website melalui HTTPS atau localhost untuk mengakses Bluetooth." : "Gunakan Chrome di Android untuk menghubungkan Muse. Chrome di iPhone/iPad belum mendukung Bluetooth website."}</p>}
           {[
-            { k: "auto", l: "Hubungkan Muse (BLE)", d: supportsBle ? "Buka dialog pairing OS" : "Tidak didukung browser ini", disabled: !supportsBle },
+            { k: "real", l: "Hubungkan Muse (BLE)", d: supportsBle ? "Buka dialog pairing OS" : "Tidak didukung browser ini", disabled: !supportsBle },
             { k: "demo", l: "Mode Demo",            d: "Pakai data simulasi" },
-          ].map((it) => (
+          ].filter((it) => allowDemo || it.k !== "demo").map((it) => (
             <button key={it.k} type="button" disabled={it.disabled}
               onClick={(e) => { e.stopPropagation(); pair(it.k); }}
               style={{
@@ -295,17 +333,20 @@ const App = () => {
   const route = useHashRoute();
   const [, bump] = React.useReducer((n) => n + 1, 0);
 
-  // Read fresh each render — sessionStorage is not reactive.
+  // Firebase session is in memory and refreshed from protected documents.
   const session = window.ntSession ? window.ntSession.get() : null;
-  const demo = typeof sessionStorage !== "undefined" && sessionStorage.getItem("nt-demo") === "1";
+  const demo = !session && typeof sessionStorage !== "undefined" && sessionStorage.getItem("nt-demo") === "1";
+  const authLoading = !!window.ntAuth?.loading;
   const authed = !!session || demo;
   const homeOf = homeFor(session);
+  React.useEffect(() => { if (!authed) window.ntLiveStop?.(); }, [authed]);
 
-  // Start the live worker-data sync once anonymous auth is ready.
+  // React to login, role changes and membership revocation, including idle pages.
   React.useEffect(() => {
-    const fb = window.NT_FIREBASE;
-    if (!fb || !fb.auth) { window.ntStartWorkerSync?.(); return; }
-    return fb.auth.onAuthStateChanged((u) => { if (u) window.ntStartWorkerSync?.(); });
+    const onAuth = () => { window.ntStartWorkerSync?.(); bump(); };
+    onAuth();
+    window.addEventListener("nt-auth", onAuth);
+    return () => window.removeEventListener("nt-auth", onAuth);
   }, []);
 
   // Re-render when the live engine / Firestore pushes fresh worker data.
@@ -318,7 +359,7 @@ const App = () => {
   React.useEffect(() => {
     const onData = () => {
       const r = _routeRef.current;
-      if (r && ["w", "s", "m"].includes(r.app)) bump();
+      if (r && (r.app === "w" || (r.app === "s" && !window.ntSession?.get()))) bump();
     };
     window.addEventListener("nt-data", onData);
     return () => window.removeEventListener("nt-data", onData);
@@ -331,6 +372,7 @@ const App = () => {
   React.useLayoutEffect(() => {
     const stage = document.querySelector(".app-stage");
     if (stage) stage.scrollTop = 0;
+    document.querySelector(".app-frame .nt-screen")?.scrollTo(0, 0);
   }, [route.path]);
 
   // Sync body class with the sidebar collapsed flag so CSS can shrink the
@@ -349,9 +391,13 @@ const App = () => {
 
   // Routing guard.
   React.useEffect(() => {
-    const publicPage = ["landing", "pricing", "login", "join"].includes(route.app);
+    if (authLoading) return;
+    const publicPage = ["landing", "pricing", "login", "join", "invite", "app"].includes(route.app);
     const contentPage = route.app === "p";
-    if (!authed && !publicPage && !contentPage) { navigate("/landing"); return; }
+    if (!authed && !publicPage && !contentPage) {
+      const workerApp = new URLSearchParams(window.location.search).get("app") === "worker" || window.ntPWA?.state().installed;
+      navigate(workerApp ? "/login" : "/landing"); return;
+    }
     // A logged-in member never sits on the login/join screens.
     if (session && (route.app === "login" || route.app === "join")) {
       navigate(homeOf); return;
@@ -362,7 +408,7 @@ const App = () => {
       const allowed = allowedApps(session);
       if (!allowed.includes(route.app)) navigate(homeOf);
     }
-  }, [route.path]);
+  }, [route.path, authLoading, session?.uid, session?.role, session?.package, demo]);
 
   // Theme is scoped to the in-app pages (w/s/m). Landing, About, Pricing,
   // Login, Join, and content pages always render in their brand-dark theme.
@@ -383,15 +429,15 @@ const App = () => {
     return () => window.removeEventListener("nt-theme", apply);
   }, [route.path]);
 
-  const onLogout = () => {
-    window.ntSession?.clear();
-    sessionStorage.removeItem("nt-demo");
+  const onLogout = async () => {
+    await window.ntLogout();
     window.toast?.("Anda telah keluar.", { kind: "info" });
     navigate("/login");
   };
 
   const resolved = resolveRoute(route) || ROUTES["landing"];
   const chromeless = resolved.frame === "auth" || resolved.frame === "landing";
+  if (authLoading && !demo && !chromeless) return <Splash text="Memeriksa sesi…" />;
 
   // Block rendering another persona's screen for a locked-in member.
   if (session && !demo && ["w", "s", "m"].includes(route.app)) {
@@ -406,11 +452,11 @@ const App = () => {
   const visiblePersonas = roleApps ? PERSONAS.filter((p) => roleApps.includes(p.id)) : PERSONAS;
 
   return (
-    <div className="app-shell">
+    <div className={"app-shell" + (!chromeless ? " app-shell--workspace" : "") + (resolved.frame === "mobile" ? " app-shell--worker" : "")}>
       {!chromeless && (
         <>
           <header className="app-topbar">
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div className="app-topbar-brand" style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <BackButton disabled={false} />
               <Link to={homeOf} style={{ display: "flex" }}>
                 <div className="app-brand">
@@ -422,18 +468,18 @@ const App = () => {
                 </div>
               </Link>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <DeviceButton />
+            <div className="app-topbar-actions" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              {!(session && route.app === "w") && <DeviceButton />}
               {session ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 12, color: "var(--nt-text-2)" }}>
+                <div className="app-account" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span className="app-account-label" style={{ fontSize: 12, color: "var(--nt-text-2)" }}>
                     {session.memberName} · {ROLE_LABEL[session.role] || session.role} · {session.companyName}
                   </span>
                   <NeuroBtn tone="default" size="sm" onClick={onLogout}>Keluar</NeuroBtn>
                 </div>
               ) : demo ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 12, color: "var(--nt-text-3)" }}>Mode demo</span>
+                <div className="app-account" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span className="app-account-label" style={{ fontSize: 12, color: "var(--nt-text-3)" }}>Mode demo</span>
                   <NeuroBtn tone="default" size="sm" onClick={onLogout}>Keluar demo</NeuroBtn>
                 </div>
               ) : (
@@ -444,7 +490,7 @@ const App = () => {
             </div>
           </header>
 
-          <nav className="app-tabs" role="tablist" aria-label="Pilih persona">
+          <nav className={"app-tabs" + (visiblePersonas.length === 1 ? " app-tabs--single" : "")} role="tablist" aria-label="Pilih persona">
             {visiblePersonas.map((p) => {
               const on = activePersona?.id === p.id;
               return (
@@ -474,7 +520,7 @@ const App = () => {
             </span>
           )}
           <ScreenBoundary routeKey={route.path}>
-            <ScreenComponent />
+            <ScreenComponent key={route.path} {...resolved.props} />
           </ScreenBoundary>
         </div>
       </main>

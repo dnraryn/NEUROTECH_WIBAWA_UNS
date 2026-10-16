@@ -2,13 +2,18 @@
 
 const WorkerProfile = () => {
   const w = CURRENT_WORKER;
+  const account = window.ntSession?.get();
+  const archive = useSessionArchive();
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
+  const ownRows = window.ntSessionInsights.rows(archive, { ownOnly: true }).filter((r) => r.startedAt >= monthStart);
+  const personal = window.ntSessionInsights.aggregate(ownRows, { ownOnly: true });
   const [notifications, setNotifications] = React.useState(true);
   const [autoBreak, setAutoBreak] = React.useState(true);
   const [signOutModal, setSignOutModal] = React.useState(false);
 
   return (
   <div className="nt-screen" style={{ paddingBottom: 100 }}>
-    <NeuroStatusBar time="07:24" />
+    <NeuroStatusBar time={new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} />
 
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 24px 0" }}>
       <Link to="/w/readiness">
@@ -33,17 +38,21 @@ const WorkerProfile = () => {
       }}>{w.name.split(" ").map((x) => x[0]).slice(0, 2).join("")}</div>
       <div className="nt-title-lg" style={{ marginTop: 14 }}>{w.name}</div>
       <div style={{ fontSize: 12, color: "var(--nt-text-2)", marginTop: 6 }}>
-        {w.role} · Karyawan ID #2026-{w.id.toUpperCase().slice(0, 3)}
+        {w.role} · {account?.companyName || "Profil simulasi"}
       </div>
     </div>
 
     {/* Quick stats */}
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, padding: "20px 24px 0" }}>
-      {[
+      {(account ? [
+        { l: "Sesi bulan ini", v: personal.sessions },
+        { l: "Rerata fatigue", v: archiveNumber(personal.meanFI) },
+        { l: "Engagement", v: archiveNumber(personal.meanEI) },
+      ] : [
         { l: "Shift bulan ini", v: "18", c: ["#9c8bf0", "#b9adf5"] },
         { l: "Rerata readiness", v: w.readiness, c: ["#6cb6f0", "#8cc6f5"] },
         { l: "Skor fokus",      v: "84", c: ["#ff8aa1", "#ffaebb"] },
-      ].map((s, i) => (
+      ]).map((s, i) => (
         <div key={i} className="neu-surface-sm" style={{ padding: "12px 10px", textAlign: "center" }}>
           <div style={{ fontSize: 22, fontWeight: 700, color: "var(--nt-text)", letterSpacing: "-0.01em" }}>{s.v}</div>
           <div style={{ fontSize: 9.5, color: "var(--nt-text-3)", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 4 }}>{s.l}</div>
@@ -51,12 +60,22 @@ const WorkerProfile = () => {
       ))}
     </div>
 
+    {account && <div style={{ margin: "18px 24px 0" }}><WorkerAppInstallCard always /></div>}
     {/* Settings */}
     <div className="neu-surface" style={{ margin: "18px 24px 0", padding: "8px 0" }}>
       {[
-        { l: "Notifikasi istirahat mikro", v: notifications, set: setNotifications, type: "toggle" },
-        { l: "Auto-start istirahat saat Waspada", v: autoBreak, set: setAutoBreak, type: "toggle" },
-        { l: "Kalibrasi baseline", sub: "Terakhir: kemarin", type: "action", onClick: () => window.toast?.("Mulai sesi kalibrasi singkat (5 menit)", { kind: "info" }) },
+        ...(!account ? [
+          { l: "Notifikasi istirahat mikro (simulasi)", v: notifications, set: setNotifications, type: "toggle" },
+          { l: "Auto-start istirahat (simulasi)", v: autoBreak, set: setAutoBreak, type: "toggle" },
+        ] : []),
+        { l: "Kalibrasi baseline", sub: "Ulangi dengan sekitar 2 menit sinyal bersih", type: "action", onClick: () => {
+            if (!window.ntDeviceStatus?.().real) {
+              window.toast?.("Hubungkan Muse dalam mode real untuk kalibrasi.", { kind: "warn" });
+              return;
+            }
+            window.ntMuseClearBaseline?.();
+            window.toast?.("Kalibrasi dimulai ulang. Duduk tenang dan jaga kontak sensor.", { kind: "info" });
+          } },
         { l: "Kondisi & neurofeedback", type: "link", to: "/w/wellness" },
         { l: "Pasangkan ulang Muse S", type: "action", onClick: async () => {
             // Disconnect first if already paired, then trigger the OS
@@ -125,7 +144,7 @@ const WorkerProfile = () => {
     <div className="neu-surface-sm" style={{ margin: "14px 24px 0", padding: "12px 16px" }}>
       <div className="nt-eyebrow" style={{ fontSize: 9 }}>🔒 Privasi</div>
       <div style={{ fontSize: 11.5, color: "var(--nt-text-2)", marginTop: 6, lineHeight: 1.5 }}>
-        Data EEG mentah Anda hanya tersimpan di perangkat. Supervisor & manajemen hanya melihat indeks ringkas (FI/CLI/HRV), bukan sinyal mentah. Data tidak digunakan untuk sanksi.
+        EEG mentah diproses sementara pada browser. Arsip menyimpan ringkasan indeks, kualitas sinyal, check-in, dan evaluasi. Supervisor serta manajemen perusahaan dapat meninjau ringkasan tersebut.
       </div>
     </div>
 
@@ -142,7 +161,8 @@ const WorkerProfile = () => {
       actions={
         <>
           <NeuroBtn tone="ghost" onClick={() => setSignOutModal(false)}>Batal</NeuroBtn>
-          <NeuroBtn tone="warn" onClick={() => {
+          <NeuroBtn tone="warn" onClick={async () => {
+            await window.ntLogout();
             setSignOutModal(false);
             window.toast?.("Anda telah keluar", { kind: "success" });
             navigate("/login");

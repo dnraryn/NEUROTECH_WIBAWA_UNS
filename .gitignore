@@ -19,3 +19,11 @@ Thumbs.db
 
 # Editor
 .claude/
+
+# Local security tools and migration mappings (never publish credentials)
+.tools/
+private/
+*-debug.log
+.env.*
+*-service-account*.json
+/neurotech-diagnostics.json

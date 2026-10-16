@@ -1,23 +1,12 @@
-// Join flow (/join) — owner onboarding: pick a package → payment (name,
-// email, simulated) → success pop-up → set-up profile (company + members)
-// → receive a company code.
-
-const JOIN_ROLES = [
-  { v: "pekerja", l: "Pekerja" },
-  { v: "supervisor", l: "Supervisor" },
-  { v: "management", l: "Manajemen" },
-];
-
-// Max number of "pekerja"-role members per package (supervisors not counted).
-const PKG_LIMIT = { free: 0, bronze: 10, silver: 25, gold: 50, platinum: 100 };
-
+// Owner onboarding creates only the owner account; workers self-register with a revocable link.
 const JoinFlow = () => {
   const [step, setStep] = React.useState("package"); // package | pay | setup | done
   const [pkg, setPkg] = React.useState(null);
   const [busy, setBusy] = React.useState(false);
   const [code, setCode] = React.useState("");
   const [paid, setPaid] = React.useState(false); // payment-success pop-up
-  const [createdMembers, setCreatedMembers] = React.useState([]);
+  const [verificationPending, setVerificationPending] = React.useState(false);
+  const submitting = React.useRef(false);
 
   const [payName, setPayName] = React.useState("");
   const [payEmail, setPayEmail] = React.useState("");
@@ -26,28 +15,7 @@ const JoinFlow = () => {
   const [ownerName, setOwnerName] = React.useState("");
   const [ownerDesc, setOwnerDesc] = React.useState("Pemilik Usaha");
   const [ownerPass, setOwnerPass] = React.useState("");
-  const [workers, setWorkers] = React.useState([
-    { name: "", role: "pekerja", roleDesc: "", password: "" },
-  ]);
-
   const isFree = pkg && pkg.name.toLowerCase() === "free";
-  const ownerRole = isFree ? "pekerja" : "management";
-  const limit = pkg ? (PKG_LIMIT[pkg.name.toLowerCase()] ?? 10) : 10;
-
-  const addWorker = () => {
-    const pekerjaCount = workers.filter((w) => w.role === "pekerja").length;
-    if (pekerjaCount >= limit) {
-      window.toast?.(
-        `Perusahaan Anda terdaftar di paket ${pkg.name}, sehingga tidak bisa menambah lebih banyak pekerja.`,
-        { kind: "warn" }
-      );
-      return;
-    }
-    setWorkers((w) => [...w, { name: "", role: "pekerja", roleDesc: "", password: "" }]);
-  };
-  const removeWorker = (i) => setWorkers((w) => w.filter((_, j) => j !== i));
-  const setWorker = (i, k, val) =>
-    setWorkers((w) => w.map((x, j) => (j === i ? { ...x, [k]: val } : x)));
 
   const doPay = () => {
     if (!payName.trim() || !payEmail.trim()) {
@@ -64,52 +32,44 @@ const JoinFlow = () => {
   };
 
   const save = async () => {
-    if (!companyName.trim() || !ownerName.trim() || !ownerPass.trim()) {
-      window.toast?.("Lengkapi nama perusahaan, nama & password pemilik.", { kind: "warn" });
-      return;
+    if (submitting.current) return;
+    if (!companyName.trim() || !ownerName.trim() || !payEmail.trim() || ownerPass.length < 8) {
+      window.toast?.("Lengkapi nama, email pemilik, dan password minimal 8 karakter.", { kind: "warn" }); return;
     }
-    if (!window.ntCompany) {
-      window.toast?.("Firebase belum siap. Muat ulang halaman.", { kind: "danger" });
-      return;
-    }
-    const validWorkers = isFree ? [] : workers.filter((w) => w.name.trim());
-    if (validWorkers.filter((w) => w.role === "pekerja").length > limit) {
-      window.toast?.(`Paket ${pkg.name} hanya mengizinkan ${limit} pekerja.`, { kind: "warn" });
-      return;
-    }
-    setBusy(true);
+    submitting.current = true; setBusy(true);
     try {
-      const members = [
-        { id: "owner", name: ownerName.trim(), role: ownerRole,
-          roleDesc: ownerDesc.trim() || (isFree ? "Pengguna" : "Manajemen"), password: ownerPass.trim() },
-        ...validWorkers.map((w, i) => ({
-          id: "w" + (i + 1), name: w.name.trim(), role: w.role,
-          roleDesc: w.roleDesc.trim() || JOIN_ROLES.find((r) => r.v === w.role).l,
-          password: w.password.trim() || "123456",
-        })),
-      ];
-      setCreatedMembers(members);
+      let user = window.NT_FIREBASE.auth.currentUser;
+      if (!user || user.isAnonymous || user.email?.toLowerCase() !== payEmail.trim().toLowerCase()) {
+        try { user = await window.ntAuth.signUp({ name: ownerName, email: payEmail, password: ownerPass }); }
+        catch (error) {
+          if (error.code !== "auth/email-already-in-use") throw error;
+          user = await window.ntAuth.signIn({ email: payEmail, password: ownerPass });
+        }
+      }
+      if (!user.emailVerified) {
+        setVerificationPending(true);
+        try { await window.ntAuth.verify(); }
+        catch (error) {
+          window.toast?.("Buka email verifikasi, lalu tekan Simpan lagi. Anda juga dapat mengirim ulang email.", { kind: "info" }); return;
+        }
+      }
       const newCode = await window.ntCompany.create({
-        pkg: pkg.name.toLowerCase(), companyName: companyName.trim(), members,
+        pkg: pkg.name.toLowerCase(), companyName: companyName.trim(),
+        ownerName: ownerName.trim(), ownerDesc: ownerDesc.trim() || "Pemilik",
+        members: [],
       });
-      setCode(newCode);
-      setStep("done");
-    } catch (e) {
-      window.toast?.("Gagal menyimpan: " + (e.message || e), { kind: "danger" });
-    } finally {
-      setBusy(false);
-    }
+      setOwnerPass(""); setCode(newCode); setStep("done");
+    } catch (error) {
+      window.toast?.(error.message || "Gagal membuat perusahaan.", { kind: "danger" });
+    } finally { submitting.current = false; setBusy(false); }
   };
 
-  const enterDashboard = () => {
-    window.ntSession.set({
-      code, companyName: companyName.trim(), package: pkg.name.toLowerCase(),
-      memberName: ownerName.trim(), memberId: "owner", role: ownerRole,
-      roleDesc: ownerDesc.trim() || "Manajemen", members: createdMembers,
-    });
-    window.ntApplyCompanyMembers?.(createdMembers, "owner");
-    window.toast?.("Selamat datang, " + ownerName.trim() + "!", { kind: "success" });
-    navigate(ownerRole === "pekerja" ? "/w/readiness" : "/m/overview");
+  const enterDashboard = async () => {
+    try {
+      const session = await window.ntAuth.refresh(code);
+      if (!session) throw new Error("Masuk kembali untuk memuat keanggotaan.");
+      navigate(session.role === "pekerja" ? "/w/readiness" : "/m/overview");
+    } catch (error) { window.toast?.(error.message, { kind: "danger" }); }
   };
 
   return (
@@ -119,7 +79,7 @@ const JoinFlow = () => {
           <Brand size={30} />
         </a>
         <NeuroBtn tone="ghost" size="sm" onClick={() => navigate("/login")}>
-          Sudah punya kode? Login
+          Sudah punya akun? Login
         </NeuroBtn>
       </div>
 
@@ -203,7 +163,7 @@ const JoinFlow = () => {
           <div className="nt-join-card nt-join-card--wide">
             <div className="nt-eyebrow">Langkah 3 dari 3</div>
             <h1 className="nt-join-h1">Set-Up Profile</h1>
-            <p className="nt-join-sub">Lengkapi data perusahaan dan pekerja Anda.</p>
+            <p className="nt-join-sub">Lengkapi profil perusahaan dan akun pemilik.</p>
             <div className="nt-join-note">
               ℹ️ Tenang, data ini masih bisa Anda adjust (tambah/hapus pekerja) di dalam aplikasi nanti.
             </div>
@@ -222,39 +182,26 @@ const JoinFlow = () => {
                 onChange={(e) => setOwnerName(e.target.value)} placeholder="Nama Anda" />
               <input className="nt-join-input" value={ownerDesc}
                 onChange={(e) => setOwnerDesc(e.target.value)} placeholder="Deskripsi peran" />
-              <input className="nt-join-input" type="text" value={ownerPass}
-                onChange={(e) => setOwnerPass(e.target.value)} placeholder="Password" />
+              <input className="nt-join-input" type="password" autoComplete="new-password" value={ownerPass}
+                onChange={(e) => setOwnerPass(e.target.value)} placeholder="Password minimal 8 karakter" />
             </div>
 
-            {isFree ? (
-              <div className="nt-join-note" style={{ marginTop: 22 }}>
-                Paket Free hanya untuk 1 pengguna individu, jadi tidak ada data pekerja tambahan.
-              </div>
-            ) : (
-              <>
-                <div className="nt-join-section-label">
-                  Data pekerja · maksimal {limit} pekerja untuk paket {pkg.name}
-                </div>
-                {workers.map((w, i) => (
-                  <div className="nt-join-worker" key={i}>
-                    <input className="nt-join-input" value={w.name}
-                      onChange={(e) => setWorker(i, "name", e.target.value)} placeholder="Nama pekerja" />
-                    <select className="nt-join-input" value={w.role}
-                      onChange={(e) => setWorker(i, "role", e.target.value)}>
-                      {JOIN_ROLES.map((r) => <option key={r.v} value={r.v}>{r.l}</option>)}
-                    </select>
-                    <input className="nt-join-input" value={w.roleDesc}
-                      onChange={(e) => setWorker(i, "roleDesc", e.target.value)}
-                      placeholder="Deskripsi peran (mis. Driver Truk)" />
-                    <input className="nt-join-input" type="text" value={w.password}
-                      onChange={(e) => setWorker(i, "password", e.target.value)} placeholder="Password" />
-                    <button className="nt-join-del" type="button"
-                      onClick={() => removeWorker(i)} title="Hapus pekerja">✕</button>
-                  </div>
-                ))}
-                <button className="nt-join-add" type="button" onClick={addWorker}>+ Tambah pekerja</button>
-              </>
-            )}
+            <label className="nt-join-field" style={{ marginTop: 14 }}>
+              <span>Email pemilik</span>
+              <input className="nt-join-input" type="email" value={payEmail}
+                onChange={(e) => setPayEmail(e.target.value)} autoComplete="username" />
+            </label>
+            {verificationPending && <div className="nt-join-note" style={{ marginTop: 14 }}>
+              Buka tautan verifikasi di email, lalu tekan Simpan kembali.
+              <NeuroBtn tone="ghost" onClick={async () => {
+                try { await window.ntAuth.resendVerification(); window.toast?.("Email verifikasi dikirim.", { kind: "info" }); }
+                catch (error) { window.toast?.(error.message, { kind: "danger" }); }
+              }}>Kirim ulang email</NeuroBtn>
+            </div>}
+
+            <div className="nt-join-note" style={{ marginTop: 22 }}>
+              {isFree ? "Paket Free untuk satu pengguna individu." : "Pekerja mendaftar sendiri melalui tautan undangan. Anda tidak perlu mengisi email pekerja."}
+            </div>
 
             <div style={{ display: "flex", gap: 12, marginTop: 24, flexWrap: "wrap" }}>
               <NeuroBtn tone="default" size="lg" onClick={() => setStep("pay")}>← Kembali</NeuroBtn>
@@ -271,9 +218,10 @@ const JoinFlow = () => {
             <div style={{ fontSize: 44 }}>🎉</div>
             <h1 className="nt-join-h1">Perusahaan terdaftar!</h1>
             <p className="nt-join-sub">
-              Simpan kode di bawah ini. Pekerja Anda memakainya untuk login ke NeuroTech.
+              Simpan kode perusahaan Anda. Untuk mengajak pekerja, bagikan tautan undangan di bawah.
             </p>
             <div className="nt-join-code">{code}</div>
+            {!isFree && <CompanyInvitePanel code={code} />}
             <p className="nt-join-sub">Paket {pkg.name} · {companyName}</p>
             <div style={{ marginTop: 22 }}>
               <NeuroBtn tone="primary" size="lg" onClick={enterDashboard}>
@@ -297,4 +245,45 @@ const JoinFlow = () => {
   );
 };
 
-Object.assign(window, { JoinFlow });
+// A link grants worker membership only; elevated roles still need the owner.
+const CompanyInvitePanel = ({ code }) => {
+  const [links, setLinks] = React.useState([]);
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState("");
+  const pending = React.useRef(false);
+  const load = async () => setLinks(await window.ntCompany.listJoinLinks(code));
+  React.useEffect(() => {
+    let alive = true;
+    window.ntCompany.listJoinLinks(code).then((rows) => { if (alive) setLinks(rows); })
+      .catch(() => { if (alive) setError("Daftar undangan belum dapat dimuat."); });
+    return () => { alive = false; };
+  }, [code]);
+  const run = async (action) => {
+    if (pending.current) return;
+    pending.current = true; setBusy(true); setError("");
+    try { await action(); await load(); }
+    catch (_) { setError("Undangan gagal diproses. Periksa koneksi dan kapasitas paket, lalu coba lagi."); }
+    finally { pending.current = false; setBusy(false); }
+  };
+  const url = (row) => `${window.location.origin}${window.location.pathname}#/invite/${encodeURIComponent(code)}/${row.token}`;
+  const active = links.filter((row) => row.enabled && row.expiresAt > Date.now()).sort((a, b) => b.expiresAt - a.expiresAt);
+  const [fallback, setFallback] = React.useState("");
+  const copy = async (row) => {
+    try { await navigator.clipboard.writeText(url(row)); window.toast?.("Tautan undangan disalin.", { kind: "success" }); }
+    catch (_) { setFallback(url(row)); }
+  };
+  return <section className="nt-invite-panel">
+    <div className="nt-invite-heading"><div><strong>Undang pekerja</strong><p>Bagikan tautan · pekerja mengisi akun sendiri · berlaku 7 hari.</p></div>
+      <NeuroBtn tone="primary" size="sm" disabled={busy} onClick={() => run(() => window.ntCompany.createJoinLink(code))}>{busy ? "Memproses…" : active.length ? "Buat tautan tambahan" : "Buat tautan undangan"}</NeuroBtn></div>
+    {active.map((row, i) => <div className="nt-invite-row" key={row.token}>
+      <span>Undangan {i + 1}<small>{row.uses} bergabung · sampai {new Date(row.expiresAt).toLocaleDateString("id-ID")}</small></span>
+      <NeuroBtn size="sm" onClick={() => copy(row)}>Salin tautan</NeuroBtn>
+      {typeof navigator.share === "function" && <NeuroBtn size="sm" onClick={() => navigator.share({ title: "Undangan pekerja NeuroTech", url: url(row) }).catch(() => {})}>Bagikan</NeuroBtn>}
+      <NeuroBtn size="sm" disabled={busy} onClick={() => run(async () => { await window.ntCompany.revokeJoinLink(code, row.token); setFallback(""); })}>Cabut</NeuroBtn>
+    </div>)}
+    {fallback && <label>Tautan siap disalin<input className="nt-join-input" aria-label="Tautan undangan" readOnly value={fallback} onFocus={(event) => event.target.select()} /></label>}
+    {active.length > 0 && <p className="nt-invite-note">Siapa pun yang menerima tautan dapat bergabung sebagai pekerja. Bagikan hanya kepada tim Anda; cabut jika sudah selesai.</p>}
+    {error && <p role="alert">{error}</p>}
+  </section>;
+};
+Object.assign(window, { JoinFlow, CompanyInvitePanel });

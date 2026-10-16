@@ -56,6 +56,11 @@ const ManagementSidebar = ({ active = "overview" }) => {
   const btnRefs = React.useRef({});
   const [hl, setHl] = React.useState(_mgmtLastActive);
   const [pos, setPos] = React.useState({ top: 0, height: 0, ready: false });
+  React.useEffect(() => {
+    const sync = () => { const current = window._mgmtCurrentZoom || "overview"; setHl(current); _mgmtLastActive = current; };
+    window.addEventListener("nt-management-zoom", sync);
+    return () => window.removeEventListener("nt-management-zoom", sync);
+  }, []);
 
   React.useEffect(() => {
     const id = requestAnimationFrame(() => {
@@ -116,10 +121,11 @@ const ManagementSidebar = ({ active = "overview" }) => {
       return;
     }
     if (it.id === "overview") {
+      window._mgmtOpenZoom?.(null, "up");
       window.toast?.("Anda sudah di Overview.", { kind: "info", duration: 1400 });
       return;
     }
-    window.toast?.("Setelan SMK3, segera hadir.", { kind: "info" });
+    if (it.id === "settings") window._mgmtOpenZoom?.("settings", "down");
   };
 
   return (
@@ -154,7 +160,7 @@ const ManagementSidebar = ({ active = "overview" }) => {
         {NAV.map((it) => {
           const on = hl === it.id;
           return (
-            <button key={it.id} type="button" onClick={() => go(it)}
+            <button key={it.id} type="button" onClick={() => go(it)} aria-label={it.id === "lini" && session ? "Indeks Shift" : it.label} aria-pressed={on}
               ref={(el) => { btnRefs.current[it.id] = el; }}
               className="nt-sb-item"
               style={{
@@ -168,7 +174,7 @@ const ManagementSidebar = ({ active = "overview" }) => {
                 transition: "color .2s",
               }}>
               <span style={{ display: "inline-flex", color: on ? "#fff" : "var(--nt-text-3)", transition: "color .2s" }}>{it.icon}</span>
-              <span className="nt-sb-label" style={{ flex: 1 }}>{it.label}</span>
+              <span className="nt-sb-label" style={{ flex: 1 }}>{it.id === "lini" && session ? "Indeks Shift" : it.label}</span>
               {on && <span className="nt-sb-label" style={{ fontSize: 16, lineHeight: 1, marginRight: -2 }}>›</span>}
             </button>
           );
@@ -200,6 +206,26 @@ const _MGMT_MONTHS = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "J
 const _MGMT_DAYS = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
 
 const ManagementDashboard = () => {
+  const session = window.ntSession?.get();
+  const archive = useSessionArchive();
+  const [view, setView] = React.useState("company");
+  const companyView = !!session && view === "company";
+  const [now, setNow] = React.useState(Date.now());
+  const [signalDetails, setSignalDetails] = React.useState(false);
+  const [diagnosticsBusy, setDiagnosticsBusy] = React.useState(false);
+  const [archiveInitialId, setArchiveInitialId] = React.useState(null);
+  const [metricsOpen, setMetricsOpen] = React.useState(false);
+  const [metricsDraft, setMetricsDraft] = React.useState(null);
+  const [metricsError, setMetricsError] = React.useState("");
+  const [chartMetric, setChartMetric] = React.useState(null);
+  React.useEffect(() => {
+    if (companyView) return;
+    const update = () => setNow(Date.now());
+    const timer = setInterval(update, 1000);
+    window.addEventListener("nt-device", update);
+    window.addEventListener("nt-data", update);
+    return () => { clearInterval(timer); window.removeEventListener("nt-device", update); window.removeEventListener("nt-data", update); };
+  }, [companyView]);
   const [period, setPeriod] = React.useState(1);
   const periods = ["7 hari", "30 hari", "Kuartal", "Tahun"];
   const [heatCell, setHeatCell] = React.useState(null);
@@ -214,7 +240,7 @@ const ManagementDashboard = () => {
     window._mgmtOpenZoom = fn;
     return () => { if (window._mgmtOpenZoom === fn) delete window._mgmtOpenZoom; };
   }, []);
-  React.useEffect(() => { window._mgmtCurrentZoom = zoom; }, [zoom]);
+  React.useEffect(() => { window._mgmtCurrentZoom = zoom; window.dispatchEvent(new Event("nt-management-zoom")); }, [zoom]);
 
   // Real-time header values — today's date + actual worker count.
   const _today = new Date();
@@ -222,46 +248,111 @@ const ManagementDashboard = () => {
     _MGMT_MONTHS[_today.getMonth()] + " " + _today.getFullYear();
   const workerCount = (typeof WORKERS !== "undefined" && WORKERS) ? WORKERS.length : 0;
 
-  const heatRows = [
+  const demo = !window.ntSession?.get() && !window.ntMuseConnected && window.NT_LIVE !== false;
+  const device = window.ntMuse?.status?.() || {};
+  const dsp = window.ntMuseDSP || {};
+  const personalMetrics = window.ntSessionMetrics.get();
+  const openMetrics = () => {
+    setMetricsDraft({ targetMinutes: String(personalMetrics.targetMinutes), sleepTargetHours: String(personalMetrics.sleepTargetHours),
+      sleptHours: personalMetrics.sleptHours === null ? "" : String(personalMetrics.sleptHours) });
+    setMetricsError(""); setMetricsOpen(true);
+  };
+  const saveMetrics = (event) => {
+    event.preventDefault();
+    try {
+      const saved = window.ntSessionMetrics.update({ targetMinutes: Number(metricsDraft.targetMinutes),
+        sleepTargetHours: Number(metricsDraft.sleepTargetHours), sleptHours: metricsDraft.sleptHours.trim() === "" ? null : Number(metricsDraft.sleptHours) });
+      setMetricsOpen(false); setNow(Date.now());
+      window.toast?.(!saved.personal ? "Data tersedia selama sesi demo ini." : saved.persisted ? "Data sesi disimpan di browser ini." : "Data tersedia untuk sesi ini; penyimpanan browser tidak diizinkan.", { kind: "info" });
+    } catch (error) { setMetricsError(error.message); }
+  };
+  const diagnostics = window.ntMuseDiagnostics?.status?.() || {};
+  const toggleDiagnostics = async () => {
+    if (diagnosticsBusy) return;
+    setDiagnosticsBusy(true);
+    try {
+      if (diagnostics.active) await window.ntMuseDiagnostics.stop();
+      else await window.ntMuseDiagnostics.start();
+    } finally { setDiagnosticsBusy(false); setNow(Date.now()); }
+  };
+  const live = window.ntManagement.snapshot({ now, device, dsp, period, demo,
+    history: window.ntHistory?.(window.CURRENT_WORKER?.id) || [] });
+  const company = React.useMemo(() => window.ntSessionInsights.aggregate(archive, { days: [7, 30, 90, 365][period] }), [archive, period]);
+  const exportRows = () => {
+    if (companyView) {
+      if (!company.rows.length) { window.toast?.("Belum ada sesi tersimpan pada periode ini.", { kind: "info" }); return; }
+      archiveSummaryDownload(company.rows);
+      return;
+    }
+    if (!live.history.length) { window.toast?.("Belum ada hasil EEG bersih untuk diekspor.", { kind: "info" }); return; }
+    window.ntReports.download(window.ntReports.live(live.history), window.ntReports.filename(demo ? "SIMULASI-Live" : "Live-Perangkat"));
+  };
+  const heatRows = demo ? [
     { l: "Pagi",   h: [22, 18, 24, 35, 48, 52, 58, 46] },
     { l: "Sore",   h: [28, 32, 38, 52, 62, 71, 78, 64] },
     { l: "Malam",  h: [42, 48, 58, 72, 86, 92, 88, 76] },
     { l: "Lembur", h: [38, 44, 56, 68, 80, 86, 78, 70] },
-  ];
+  ] : companyView ? company.heatRows : live.heatRows;
 
-  const lini = [
+  const lini = demo ? [
     { l: "Lab",       v: 32 },
     { l: "CCR",       v: 46 },
     { l: "Dispatch",  v: 58 },
     { l: "Transport", v: 71 },
     { l: "Security",  v: 64 },
-  ];
+  ] : companyView ? company.shiftIndices : live.lini;
 
-  const insights = [
+  const insights = demo ? [
     { tier: "critical", icon: "⚠", t: "Shift malam jam +5/+6, fatigue puncak",     d: "Pertimbangkan istirahat wajib 15 menit pada +4j; rotasi tugas di +6j." },
     { tier: "high",     icon: "🚛", t: "Transport: sleep debt rata-rata 2.1 j",     d: "5 pekerja konsisten readiness < 60. Tinjau jadwal off-day." },
     { tier: "medium",   icon: "📐", t: "Pola fatigue konsisten ≥ 3 minggu",         d: "Cukup data untuk evaluasi formal desain shift di audit triwulan." },
     { tier: "low",      icon: "✓", t: "Lini Lab, risiko rendah berkelanjutan",     d: "Pola istirahat eksisting bisa jadi referensi internal." },
+  ] : companyView ? [{ tier: "medium", icon: "•", t: company.clean ? `Rerata FI ${company.meanFI}/100 dari ${company.sessions} sesi tersimpan.` : "Belum ada hasil EEG bersih pada periode ini.", d: `${company.members} anggota dengan sesi; ${company.partial} hasil terbatas tidak masuk rerata. Tinjau kualitas sinyal dan evaluasi petugas pada laporan K3.` }] : [live.insight];
+  const kpis = demo ? [
+    { l: "KEPATUHAN", v: "92%", sub: "Headband terpasang", trend: "+3%", dir: 1 },
+    { l: "INSIDEN FATIGUE", v: "11", sub: "Microsleep · alert", trend: "−24%", dir: -1 },
+    { l: "SLEEP DEBT", v: "1.2 j", sub: "Rerata / pekerja", trend: "−0.3", dir: -1 },
+    { l: "JAM PANTAU", v: "11.4k", sub: "Total jam EEG", trend: "+18%", dir: 1 },
+  ] : companyView ? [
+    { l: "CAKUPAN TARGET PANTAU", v: company.compliance === null ? "—" : archiveNumber(company.compliance, 1) + "%", sub: `${company.complianceDays} catatan anggota/hari · rerata terhadap target yang dilaporkan`, trend: "Arsip perusahaan", progress: company.compliance },
+    { l: "INDIKASI MICROSLEEP", v: company.sessions ? String(company.incidents) : "—", sub: "Kejadian dari hasil EEG bersih tersimpan", trend: `${company.sessions} sesi` },
+    { l: "KEKURANGAN TIDUR", v: company.sleepDebt === null ? "Belum diisi" : archiveNumber(company.sleepDebt, 1) + " j", sub: `Laporan tidur terakhir dari ${company.sleepReportedMembers} anggota pada periode ini`, trend: "Laporan mandiri" },
+    { l: "JAM PANTAU", v: archiveNumber(company.receivedMinutes / 60, 2) + " j", sub: "Total EEG diterima pada sesi dalam periode", trend: `${company.members} anggota` },
+  ] : [
+    { l: "KEPATUHAN", v: personalMetrics.compliance.toFixed(1) + "%", sub: `${personalMetrics.receivedMinutes.toFixed(1)} / ${personalMetrics.targetMinutes} menit target hari ini`, trend: "Target pantau", action: "Ubah target", progress: personalMetrics.compliance },
+    { l: "INSIDEN FATIGUE", v: live.history.length ? String(live.incidents) : "—", sub: live.history.length ? "Indikasi microsleep · EEG bersih" : "Menunggu pengukuran EEG bersih", trend: "Sesi ini" },
+    { l: "SLEEP DEBT", v: personalMetrics.sleepDebt === null ? "Isi tidur" : personalMetrics.sleepDebt.toFixed(1) + " j", sub: personalMetrics.sleptHours === null ? "Catat tidur terakhir untuk menghitung" : `Tidur ${personalMetrics.sleptHours} j · target ${personalMetrics.sleepTargetHours} j`, trend: "Laporan mandiri", action: "Catat tidur" },
+    { l: "JAM PANTAU", v: personalMetrics.receivedMinutes < 60 ? personalMetrics.receivedMinutes.toFixed(1) + " m" : (personalMetrics.receivedMinutes / 60).toFixed(2) + " j", sub: "Total EEG diterima hari ini · browser ini", trend: "Hari ini" },
   ];
+  const resultMetrics = [
+    { key: "fi", label: "Fatigue Index", color: "#7c3aed", meaning: "Indeks pola kelelahan relatif." },
+    { key: "cli", label: "Cognitive Load", color: "#2563eb", meaning: "Indeks beban kognitif relatif." },
+    { key: "ei", label: "Engagement", color: "#15803d", meaning: "Indeks keterlibatan, bukan persentase fokus." },
+  ];
+  const classLabels = { normal: "Normal", waspada: "Waspada", berisiko: "Berisiko", kritis: "Kritis" };
+  const classColors = { normal: "#15803d", waspada: "#a16207", berisiko: "#c2410c", kritis: "#b91c1c" };
+  const currentClass = live.latest?.instantStatus || live.latest?.status;
 
   return (
-  <div className="nt-screen" style={{ padding: 0, display: "grid", gridTemplateColumns: "204px 1fr", overflow: "hidden" }}>
+  <div className="nt-screen frm-dashboard" style={{ padding: 0, display: "grid", gridTemplateColumns: "204px 1fr", overflow: "hidden" }}>
     <ManagementSidebar active="overview" />
 
     <main style={{ padding: "22px 28px 22px", display: "flex", flexDirection: "column", gap: 14, overflowY: "auto", overflowX: "hidden" }}>
       {/* ── Header ─────────────────────────────────────────────── */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 18 }}>
+      <div className="frm-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 18 }}>
         <div style={{ minWidth: 0 }}>
-          <div className="nt-eyebrow" style={{ fontSize: 10 }}>{dateLabel} · {lini.length} lini · {workerCount} pekerja</div>
+          <div className="nt-eyebrow" style={{ fontSize: 10 }}>{dateLabel} · {demo ? `${lini.length} lini · ${workerCount} pekerja` : companyView ? `${session.companyName} · ${company.members} anggota dengan sesi` : "Sesi Muse lokal"}</div>
           <div style={{ fontSize: 25, fontWeight: 800, color: "var(--nt-text)", marginTop: 4, letterSpacing: "-0.02em" }}>
             Fatigue Risk Management
           </div>
           <div style={{ fontSize: 11.5, color: "var(--nt-text-3)", marginTop: 3 }}>
-            Data agregat &amp; anonim · PP No. 50/2012 SMK3 — Pemantauan, Evaluasi, Tindak lanjut
+            {demo ? "Mode Demo · data contoh agregat & anonim" : companyView ? "Ringkasan perusahaan · sumber arsip yang sama dengan Supervisor K3" : "Pemantauan pribadi · Muse pada browser ini"} · Pemantauan, Evaluasi, Tindak lanjut
           </div>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          {session && <button type="button" className="frm-button" onClick={() => { setView(companyView ? "live" : "company"); setNow(Date.now()); }}>{companyView ? "Sesi perangkat ini" : "Ringkasan perusahaan"}</button>}
+          {!demo && !companyView && <button type="button" className="frm-button" onClick={openMetrics}>Data sesi</button>}
           <div style={{
             display: "flex", gap: 3, padding: 3, borderRadius: 999,
             background: "var(--nt-bg-deep)",
@@ -278,7 +369,7 @@ const ManagementDashboard = () => {
                 }}>{b}</button>
             ))}
           </div>
-          <button type="button" onClick={() => window.toast?.("Export → CSV", { kind: "info" })}
+          <button type="button" onClick={exportRows}
             title="Export CSV"
             style={{
               width: 38, height: 38, borderRadius: "50%", border: "none", cursor: "pointer",
@@ -291,29 +382,79 @@ const ManagementDashboard = () => {
         </div>
       </div>
 
+      {companyView ? <CompanyArchiveOverview state={archive} data={company} /> : <SessionControl onOpen={(id) => { setArchiveInitialId(id); setZoom("report"); }} />}
       {/* ── KPI row ────────────────────────────────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1.25fr 1fr 1fr 1fr 1fr", gap: 12 }}>
-        <div className="neu-surface" style={{ padding: 16, display: "flex", alignItems: "center", gap: 14 }}>
-          <NeuroGauge value={84} size={100} label="84" sublabel="K3 SCORE"
-            gradient={["#3B82F6", "#93C5FD"]} thickness={11} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="nt-eyebrow" style={{ fontSize: 9 }}>SMK3 INDEX</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "var(--nt-text)", marginTop: 3, letterSpacing: "-0.02em" }}>Baik</div>
-            <div style={{ fontSize: 11, color: "var(--nt-text-2)", marginTop: 4 }}>
-              <span style={{
-                display: "inline-block", padding: "2px 7px", borderRadius: 999,
-                fontSize: 9.5, fontWeight: 800, background: "#DBEAFE", color: "#1D4ED8",
-              }}>↑ 6 poin</span>&nbsp; vs Maret
-            </div>
+      {!demo && !companyView && <div className="frm-live-status" role="status" style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "6px 14px", padding: "10px 14px", borderRadius: 12, background: "var(--nt-surface)", fontSize: 11 }}>
+        <span style={{ flex: "1 1 320px", color: "var(--nt-text-2)" }}>{live.message}</span>
+        <span>EEG: <output aria-label="Sampel EEG diterima">{device.samples || 0}</output> sampel</span>
+        <button type="button" onClick={() => setSignalDetails(true)} style={{ border: "none", background: "transparent", color: "#2563EB", cursor: "pointer", font: "inherit" }}>Detail sinyal</button>
+      </div>}
+      {!demo && !companyView && <section aria-label="Ringkasan hasil EEG" className="neu-surface frm-results" style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline", flexWrap: "wrap" }}>
+          <div style={{ fontSize: 14, fontWeight: 800 }}>Hasil olahan EEG · sesi saat ini</div>
+          <span style={{ fontSize: 11, color: "var(--nt-text-3)" }}>{live.latest ? `Diperbarui ${Math.max(0, Math.floor((now - live.latest.ts) / 1000))} detik lalu` : "Menunggu hasil EEG yang layak"}</span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
+          {resultMetrics.map((metric) => <div key={metric.key} style={{ borderRadius: 12, padding: "12px 14px", background: "var(--nt-bg-2)", border: "1px solid var(--nt-bg-deep)" }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--nt-text-2)" }}>{metric.label}</div>
+            <div style={{ margin: "5px 0", color: metric.color }}><output aria-label={metric.label} style={{ fontSize: 34, lineHeight: 1.1, fontWeight: 800 }}>{live.latest?.[metric.key] ?? "—"}</output><span style={{ fontSize: 12, color: "var(--nt-text-3)", marginLeft: 5 }}>/100</span></div>
+            <div style={{ fontSize: 11, lineHeight: 1.5, color: "var(--nt-text-2)" }}>{live.latest && !Number.isFinite(live.latest[metric.key])
+              ? metric.key === "cli" ? "Belum tersedia: membutuhkan kanal frontal dan posterior yang dapat dipakai." : "Belum tersedia: membutuhkan kanal frontal AF7 atau AF8 yang dapat dipakai."
+              : metric.meaning}</div>
+          </div>)}
+          <div style={{ borderRadius: 12, padding: "12px 14px", background: "var(--nt-bg-2)", border: "1px solid var(--nt-bg-deep)" }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--nt-text-2)" }}>{live.latest?.outputScope === "frontal-only" ? "Estimasi fatigue · parsial" : "Estimasi klasifikasi"}</div>
+            <output aria-label="Klasifikasi EEG" style={{ display: "block", fontSize: 27, lineHeight: 1.2, fontWeight: 800, margin: "8px 0", color: classColors[currentClass] || "var(--nt-text-3)" }}>{live.latest ? classLabels[currentClass] || "—" : "—"}</output>
+            {live.latest && currentClass && <div style={{ fontSize: 11, marginBottom: 6 }}>Kategori tren: {classLabels[live.latest.status] || "—"}</div>}
+            {live.latest?.outputScope === "frontal-only" && <div style={{ fontSize: 11, marginBottom: 6 }}>Hanya dari Fatigue Index kanal frontal; Cognitive Load belum tersedia.</div>}
+            <div style={{ fontSize: 11, lineHeight: 1.5, color: "var(--nt-text-2)" }}>{live.latest && currentClass ? live.latest.classificationProvisional ? "Sementara: kualitas terbatas atau baseline masih dikalibrasi. Belum menjadi penilaian final." : "Pola sesaat dari aturan indeks. Kategori tren diratakan dari beberapa jendela pengukuran." : "Belum dapat diklasifikasikan. Periksa status sinyal di atas."}</div>
           </div>
         </div>
-
-        {[
-          { l: "KEPATUHAN",       v: "92%",   sub: "Headband terpasang",  trend: "+3%",  dir:  1 },
-          { l: "INSIDEN FATIGUE", v: "11",    sub: "Microsleep · alert",  trend: "−24%", dir: -1 },
-          { l: "SLEEP DEBT",      v: "1.2 j", sub: "Rerata / pekerja",    trend: "−0.3", dir: -1 },
-          { l: "JAM PANTAU",      v: "11.4k", sub: "Total jam EEG",       trend: "+18%", dir:  1 },
-        ].map((k, i) => (
+        <div className="frm-conclusion" role="region" aria-label="Kesimpulan sesi EEG" style={{ borderRadius: 12, padding: "12px 14px", borderLeft: `4px solid ${live.latest ? classColors[currentClass] || "#2563eb" : "#94a3b8"}`, background: "var(--nt-bg-2)" }}>
+          <div style={{ fontSize: 12, fontWeight: 800 }}>Kesimpulan sesi</div>
+          <output aria-label="Kesimpulan EEG" style={{ display: "block", fontWeight: 800, fontSize: 17, marginTop: 5 }}>{live.conclusion.title}</output>
+          <p style={{ fontSize: 12, lineHeight: 1.6, margin: "6px 0" }}>{live.conclusion.summary}</p>
+          <div style={{ fontSize: 12, lineHeight: 1.6 }}><strong>Tindak lanjut: </strong>{live.conclusion.action}</div>
+          {!!live.conclusion.problemChannels.length && <details className="frm-note"><summary>Sensor perlu diperiksa ({live.conclusion.problemChannels.length})</summary>{live.conclusion.problemChannels.join("; ")}.</details>}
+          <div className="frm-note">{live.conclusion.note}</div>
+        </div>
+        <div style={{ fontSize: 11, lineHeight: 1.6, color: "var(--nt-text-2)" }}>
+          Sensor yang dipakai: {dsp.quality?.usedChannels?.join(", ") || "—"}. {dsp.quality?.excludedChannels?.length ? `Sensor yang dikecualikan: ${dsp.quality.excludedChannels.join(", ")}. ` : ""}
+          Kalibrasi: {dsp.baseline ? "baseline siap" : `${dsp.baselineCount || 0}/${dsp.baselineTarget || 120} jendela bersih`}. Skala indeks 0–100; hasil bersifat estimasi.
+        </div>
+        <div aria-label="Grafik indeks sesi" style={{ paddingTop: 10, borderTop: "1px solid var(--nt-bg-deep)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            <strong style={{ fontSize: 12 }}>Tren indeks · 60 detik terakhir</strong>
+            <span style={{ fontSize: 11, color: live.valid ? "#15803d" : "var(--nt-text-3)" }}>{live.valid ? "● Hasil EEG diperbarui" : live.receiving ? "● EEG diterima · menunggu hasil layak" : "Menunggu aliran EEG"}</span>
+          </div>
+          <div className="frm-chart-keys"><button type="button" aria-pressed={!chartMetric} onClick={() => setChartMetric(null)}>Semua indeks</button>{resultMetrics.map((m) => <button key={m.key} type="button" aria-pressed={chartMetric === m.key} onClick={() => setChartMetric(chartMetric === m.key ? null : m.key)} style={{ color: m.color }}>{m.label}</button>)}</div>
+          {live.preview.length ? <svg role="img" aria-label="Tren FI CLI dan Engagement dari EEG" width="100%" height="185" viewBox="-25 -5 635 120" preserveAspectRatio="none" style={{ marginTop: 6 }}>
+            {[0, 25, 50, 75, 100].map((v) => <g key={v}><line x1="0" y1={100 - v} x2="600" y2={100 - v} stroke="var(--nt-bg-deep)" strokeDasharray="3 4" /><text x="-5" y={103 - v} textAnchor="end" fontSize="9" fill="var(--nt-text-3)">{v}</text></g>)}
+            {resultMetrics.filter((m) => !chartMetric || m.key === chartMetric).map((m) => {
+              const paths = window.ntManagement.trend(live.preview, m.key, now);
+              return <g key={m.key}><path d={paths.solid} fill="none" stroke={m.color} strokeWidth="1.8" /><path d={paths.limited} fill="none" stroke={m.color} strokeWidth="1.8" strokeDasharray="5 4" />{paths.latest && <circle cx={paths.latest.x} cy={paths.latest.y} r="2.4" fill={m.color} />}</g>;
+            })}
+          </svg> : <div style={{ padding: "20px 0", fontSize: 12, color: "var(--nt-text-3)" }}>{live.latest?.outputScope === "bands-only" ? "Band power tersedia di bawah. Tren indeks menunggu sensor frontal yang dapat dipakai." : "Tren muncul setelah ada hasil pengukuran EEG. " + (live.receiving ? "Paket masuk; lihat alasan kualitas pada kesimpulan atau buka Detail sinyal." : "Hubungkan dan pasang Muse untuk memulai.")}</div>}
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--nt-text-3)" }}><span>−60 detik</span><span>−30 detik</span><span>Sekarang</span></div>
+          <div className="frm-note">Garis utuh: kualitas baik. Putus-putus: hasil sementara. Jeda dan indeks yang belum tersedia tidak dihubungkan.</div>
+        </div>
+        <details aria-label="Daya pita EEG" style={{ paddingTop: 10, borderTop: "1px solid var(--nt-bg-deep)" }}>
+          <summary style={{ fontSize: 12, fontWeight: 700, cursor: "pointer" }}>EEG Band Power · jendela 2 detik</summary>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 12, marginTop: 8 }}>
+            {[{ key: "delta", label: "Delta", color: "#38bdf8" }, { key: "theta", label: "Theta", color: "#8b5cf6" }, { key: "alpha", label: "Alpha", color: "#ec4899" }, { key: "beta", label: "Beta", color: "#f59e0b" }, { key: "gamma", label: "Gamma", color: "#10b981" }].map((band) => {
+              const value = live.latest?.bands?.[band.key];
+              const available = Number.isFinite(value) && value >= 0 && value <= 100;
+              return <div key={band.key}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, gap: 4 }}><span>{band.label}</span><output aria-label={`Daya ${band.label}`}>{available ? `${value}%` : "—"}</output></div>
+                <div role="meter" aria-label={`Pita ${band.label}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={available ? value : undefined} aria-valuetext={available ? `${value}%` : "Belum tersedia"} style={{ height: 8, background: "var(--nt-bg-deep)", borderRadius: 8, overflow: "hidden", marginTop: 6 }}><div style={{ height: "100%", width: `${available ? value : 0}%`, background: band.color, transition: "width 0.4s ease" }} /></div>
+              </div>;
+            })}
+          </div>
+          <div style={{ fontSize: 10.5, color: "var(--nt-text-3)", marginTop: 7 }}>Daya relatif dari sensor yang dipakai; hasil dihaluskan antarjendela. Saat sinyal tidak layak, angka pita menunggu hasil baru.</div>
+        </details>
+      </section>}
+      <div className="frm-kpis">
+        {kpis.map((k, i) => (
           <div key={i} className="neu-surface" style={{ padding: 14, display: "flex", flexDirection: "column", gap: 6 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div className="nt-eyebrow" style={{ fontSize: 9 }}>{k.l}</div>
@@ -323,21 +464,23 @@ const ManagementDashboard = () => {
                 background: "#DBEAFE", color: "#1D4ED8",
               }}>{k.trend}</div>
             </div>
-            <div style={{ fontSize: 23, fontWeight: 800, color: "var(--nt-text)", lineHeight: 1, letterSpacing: "-0.02em" }}>{k.v}</div>
+            <output aria-label={k.l} style={{ fontSize: 25, fontWeight: 800, color: "var(--nt-text)", lineHeight: 1.2, letterSpacing: "-0.02em" }}>{k.v}</output>
             <div style={{ fontSize: 10.5, color: "var(--nt-text-3)" }}>{k.sub}</div>
-            <LiveSparkline index={i} trendDir={k.dir} />
+            {Number.isFinite(k.progress) && <div role="progressbar" aria-label="Kemajuan target pantau" aria-valuemin={0} aria-valuemax={100} aria-valuenow={k.progress} style={{ height: 5, borderRadius: 5, background: "var(--nt-bg-deep)", overflow: "hidden", margin: "3px 0" }}><div style={{ width: `${k.progress}%`, height: "100%", borderRadius: 5, background: "#2563eb" }} /></div>}
+            {!demo && k.action ? <button type="button" className="frm-link" onClick={openMetrics}>{k.action}</button> : demo ? <LiveSparkline index={i} trendDir={k.dir} animate /> : null}
           </div>
         ))}
       </div>
 
       {/* ── Body grid: heatmap + right column ─────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1.55fr 1fr", gap: 14, flex: 1, minHeight: 0 }}>
+      <details className="frm-advanced"><summary>Analisis lanjutan · pola shift, indeks lini, dan laporan</summary>
+      <div className="frm-analysis-layout" style={{ display: "grid", gridTemplateColumns: "1.55fr 1fr", gap: 14, minHeight: 360, marginTop: 12 }}>
         {/* Heatmap */}
         <div id="frm-fatigue" className="neu-surface" style={{ padding: 18, display: "flex", flexDirection: "column", gap: 12, minHeight: 0 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
               <div style={{ fontSize: 13.5, fontWeight: 800, color: "var(--nt-text)", letterSpacing: "-0.01em" }}>Pola Fatigue · Shift × Jam</div>
-              <div style={{ fontSize: 11, color: "var(--nt-text-3)", marginTop: 2 }}>Rata-rata Fatigue Index dari {workerCount} pekerja</div>
+              <div style={{ fontSize: 11, color: "var(--nt-text-3)", marginTop: 2 }}>{demo ? `Rata-rata Fatigue Index dari ${workerCount} pekerja` : companyView ? "Hasil bersih arsip perusahaan; slot kosong belum memiliki data" : "Hasil EEG bersih sesi ini; slot kosong belum memiliki data"}</div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: 10, color: "var(--nt-text-3)" }}>Rendah</span>
@@ -355,10 +498,12 @@ const ManagementDashboard = () => {
                 <div style={{ width: 54, fontSize: 11, color: "var(--nt-text-2)", fontWeight: 700 }}>{row.l}</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 5, flex: 1 }}>
                   {row.h.map((v, c) => {
-                    const bg = _heatBlue(v);
+                    const bg = v === null ? "var(--nt-bg-deep)" : _heatBlue(v);
                     const t = v / 100;
                     return (
                       <button key={c} type="button"
+                        disabled={v === null}
+                        aria-label={`${row.l} +${c + 1}j: ${v === null ? "belum ada data" : v}`}
                         onClick={() => setHeatCell({ shift: row.l, hour: "+" + (c + 1) + "j", fi: v })}
                         style={{
                           height: 38, borderRadius: 9, background: bg, border: "none",
@@ -368,7 +513,7 @@ const ManagementDashboard = () => {
                           boxShadow: t > 0.6 ? "0 3px 10px " + bg + "aa" : "inset 0 0 0 1px rgba(15,23,42,0.06)",
                         }}
                         onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.06)"; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}>{v}</button>
+                        onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}>{v ?? "—"}</button>
                     );
                   })}
                 </div>
@@ -386,12 +531,12 @@ const ManagementDashboard = () => {
         <div style={{ display: "flex", flexDirection: "column", gap: 12, minHeight: 0 }}>
           <div id="frm-lini" className="neu-surface" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: "var(--nt-text)" }}>Indeks per Lini</div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "var(--nt-text)" }}>{companyView ? "Indeks per Shift" : "Indeks per Lini"}</div>
               <div style={{ fontSize: 10, color: "var(--nt-text-3)", letterSpacing: "0.14em", textTransform: "uppercase" }}>Risk avg</div>
             </div>
             <div style={{ display: "flex", justifyContent: "space-around", alignItems: "flex-end", paddingTop: 4 }}>
               {lini.map((b, i) => (
-                <NeuroBar key={i} value={b.v} color={FRM_BLUES[_frmTier(b.v)]} label={b.l} sub={String(b.v)} height={92} width={26} />
+                <NeuroBar key={i} value={b.v ?? 0} color={FRM_BLUES[_frmTier(b.v)]} label={b.l} sub={b.v === null ? "—" : String(b.v)} height={92} width={26} />
               ))}
             </div>
           </div>
@@ -404,7 +549,7 @@ const ManagementDashboard = () => {
                 background: "linear-gradient(135deg, #3B82F6, #1D4ED8)",
                 color: "white", fontSize: 9.5, fontWeight: 800, letterSpacing: "0.08em",
                 boxShadow: "0 4px 10px rgba(58,130,246,0.32)",
-              }}>AI</div>
+              }}>{demo ? "AI · Demo" : "Sesi EEG"}</div>
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 7, overflowY: "auto", flex: 1, minHeight: 0 }}>
@@ -439,29 +584,77 @@ const ManagementDashboard = () => {
               boxShadow: "0 6px 16px rgba(58,130,246,0.32)",
             }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
-              Buka Laporan SMK3
+              Buka Arsip & Laporan K3
             </button>
           </div>
         </div>
       </div>
 
+      </details>
+      <Modal open={signalDetails} onClose={() => setSignalDetails(false)} title="Detail sinyal Muse"
+        subtitle={live.message} width={650}
+        actions={<NeuroBtn tone="primary" onClick={() => setSignalDetails(false)}>Tutup</NeuroBtn>}>
+        <p>EEG diterima: {device.samples || 0} sampel. {device.lastEEGAt ? `Data terakhir ${Math.max(0, Math.floor((now - device.lastEEGAt) / 1000))} detik lalu.` : "Belum ada paket EEG."}</p>
+        <table style={{ width: "100%", textAlign: "left", fontSize: 12, borderSpacing: "0 8px" }}>
+          <thead><tr><th>Sensor</th><th>Sampel</th><th>Puncak-ke-puncak</th><th>Setelah detrend</th><th>Kualitas</th></tr></thead>
+          <tbody>{["TP9", "AF7", "AF8", "TP10"].map((ch) => {
+            const q = dsp.quality?.channels?.[ch];
+            return <tr key={ch}><td>{ch}</td><td>{device.channelSamples?.[ch] || 0}</td>
+              <td>{q ? q.peakToPeak.toFixed(1) + " µV" : "Belum dinilai"}</td>
+              <td>{q ? q.processedPeakToPeak.toFixed(1) + " µV" : "—"}</td>
+              <td title={q?.reasons?.join(", ")}>{q ? ({ good: "Layak", limited: "Terbatas", bad: "Tidak dipakai" }[q.state]) : "Menunggu jendela EEG"}</td></tr>;
+          })}</tbody>
+        </table>
+        {signalDetails && <div aria-label="Gelombang EEG diterima" style={{ margin: "12px 0" }}>
+          <strong style={{ fontSize: 12 }}>Sinyal EEG diterima · 1 detik terakhir</strong>
+          {live.receiving ? ["TP9", "AF7", "AF8", "TP10"].map((ch) => {
+            const wave = window.ntManagement.waveform(window.ntMuse?.readEEG?.(ch));
+            return <div key={ch} style={{ marginTop: 8 }}><div style={{ fontSize: 10.5 }}>{ch} · {wave.peakToPeak === null ? "menunggu sampel" : `${wave.peakToPeak.toFixed(1)} µV puncak-ke-puncak`}</div>
+              <svg role="img" aria-label={`Gelombang ${ch}`} viewBox="0 0 600 40" width="100%" height="40" preserveAspectRatio="none"><line x1="0" y1="20" x2="600" y2="20" stroke="var(--nt-bg-deep)" /><path d={wave.path} fill="none" stroke="#8b5cf6" strokeWidth="1.3" /></svg>
+            </div>;
+          }) : <p style={{ fontSize: 12 }}>Belum ada paket EEG baru. Grafik tidak bergerak saat aliran berhenti.</p>}
+          <p style={{ fontSize: 10.5, color: "var(--nt-text-3)" }}>Tampilan dikurangi rata-rata kanal dan dibatasi ±200 µV. Gerakan grafik menunjukkan paket masuk; kualitas untuk menghitung indeks diperiksa terpisah.</p>
+        </div>}
+        <p style={{ fontSize: 12 }}>Pasang keempat sensor rapat pada kulit, rapikan rambut di area sensor, dan duduk tenang. Gerakan, kedipan, atau kontak kurang baik dapat membuat jendela sinyal ditolak.</p>
+        <p style={{ fontSize: 11, color: "var(--nt-text-3)" }}>Tren tegangan dibersihkan sebelum pemeriksaan kualitas. Batas awal per sensor setelah detrend: layak hingga 200 µV puncak-ke-puncak/70 µV deviasi; kualitas terbatas hingga 400 µV/120 µV. Gamma 25–45% diberi peringatan. Sinyal datar, terpotong, atau melewati batas berat dikeluarkan. FI/Engagement dapat dihitung sementara dari kanal frontal yang tersisa; Cognitive Load memerlukan kanal frontal dan posterior. Jika hanya kanal posterior yang tersisa, hanya band power ditampilkan. Ini kemampuan perhitungan prototipe yang masih memerlukan validasi alat fisik.</p>
+        <p style={{ fontSize: 11, color: "var(--nt-text-3)" }}>Sensor dipakai: {dsp.quality?.usedChannels?.join(", ") || "—"}. Gamma gabungan: {typeof dsp.quality?.gamma === "number" ? dsp.quality.gamma.toFixed(1) + "%" : "—"}. Hasil berkualitas terbatas tidak melatih baseline atau memicu indikasi microsleep.</p>
+        <div style={{ borderTop: "1px solid #E2E8F0", marginTop: 16, paddingTop: 16 }}>
+          <strong>Diagnostik sesi Muse</strong>
+          <p style={{ fontSize: 12 }}>Simpan neurotech-diagnostics.json ke folder proyek. File diperbarui tiap 2 detik dengan jumlah sampel, kualitas sensor, alasan penolakan, dan indeks; tanpa akun, token, atau sampel EEG mentah.</p>
+          <button type="button" onClick={toggleDiagnostics} disabled={diagnosticsBusy || diagnostics.pending}
+            style={{ padding: "9px 13px", border: 0, borderRadius: 8, background: "#2563EB", color: "white", fontWeight: 700, cursor: "pointer" }}>
+            {diagnosticsBusy || diagnostics.pending ? "Menyiapkan file…" : diagnostics.active ? "Hentikan diagnostik" : "Mulai diagnostik ke file"}
+          </button>
+          <p style={{ fontSize: 12, marginTop: 8 }}>{diagnostics.active ? `Merekam ${diagnostics.frames} catatan terakhir. Terakhir disimpan: ${diagnostics.lastSavedAt ? new Date(diagnostics.lastSavedAt).toLocaleTimeString("id-ID") : "menunggu"}.` : diagnostics.error || "Perekaman belum dimulai."}</p>
+        </div>
+      </Modal>
+
+      <Modal open={metricsOpen} onClose={() => setMetricsOpen(false)} title="Data sesi & tidur" width={460}>
+        {metricsDraft && <form className="frm-data-form" onSubmit={saveMetrics}>
+          <p>Catatan pribadi untuk {personalMetrics.date}. Nilai awal dapat diubah sesuai targetmu.</p>
+          <label>Target pantau hari ini (menit)<input type="number" min="1" max="1440" step="1" required value={metricsDraft.targetMinutes} onChange={(e) => setMetricsDraft({ ...metricsDraft, targetMinutes: e.target.value })} /></label>
+          <label>Target tidur pribadi (jam)<input type="number" min="1" max="16" step="0.5" required value={metricsDraft.sleepTargetHours} onChange={(e) => setMetricsDraft({ ...metricsDraft, sleepTargetHours: e.target.value })} /></label>
+          <label>Durasi tidur terakhir (jam)<input type="number" min="0" max="24" step="0.5" placeholder="Contoh: 6.5" value={metricsDraft.sleptHours} onChange={(e) => setMetricsDraft({ ...metricsDraft, sleptHours: e.target.value })} /></label>
+          <p className="frm-note">Kepatuhan = durasi EEG diterima ÷ target pantau, maksimal 100%. Sleep debt = selisih positif target dan tidur terakhir yang kamu laporkan. Ini ringkasan pribadi, bukan skor audit SMK3 atau hasil pengukuran tidur dari Muse. {personalMetrics.personal ? "Tersimpan per akun di browser ini." : "Pada mode demo, catatan hanya tersedia selama halaman terbuka."}</p>
+          {metricsError && <p role="alert">{metricsError}</p>}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}><button type="button" className="frm-button" onClick={() => setMetricsOpen(false)}>Batal</button><button type="submit" className="frm-button frm-button-primary">Simpan data sesi</button></div>
+        </form>}
+      </Modal>
+      <Modal open={zoom === "settings"} onClose={() => setZoom(null)} title="Setelan monitoring"
+        actions={<NeuroBtn tone="primary" onClick={() => setZoom(null)}>Tutup</NeuroBtn>}>
+        <p>Kalibrasi mengumpulkan sekitar dua menit jendela EEG bersih. Gangguan sinyal perlu diperbaiki sebelum kalibrasi dapat bertambah.</p>
+        <ThemeToggle />
+        <div style={{ marginTop: 16 }}><NeuroBtn onClick={openMetrics}>Data sesi & tidur</NeuroBtn></div>
+        <div style={{ marginTop: 18 }}><NeuroBtn tone="default" onClick={() => { window.ntMuseClearBaseline?.(); window.toast?.("Baseline direset. Kalibrasi dimulai saat EEG bersih diterima.", { kind: "info" }); }}>Kalibrasi ulang</NeuroBtn></div>
+      </Modal>
+
       <Modal
         open={!!heatCell}
         onClose={() => setHeatCell(null)}
         title={heatCell ? heatCell.shift + " · " + heatCell.hour + " setelah mulai" : ""}
-        subtitle={heatCell ?
-          "Rata-rata Fatigue Index pada slot ini: " + heatCell.fi + ". " +
-          (heatCell.fi > 70 ? "Slot puncak fatigue, pertimbangkan istirahat wajib."
-            : heatCell.fi > 50 ? "Slot fatigue meningkat, pantau lebih ketat."
-            : "Slot relatif aman, pola istirahat eksisting cukup.")
-          : ""}
+        subtitle={heatCell ? "Rata-rata Fatigue Index pada slot ini: " + heatCell.fi + ". Hasil adalah estimasi prototipe; evaluasi bersama kondisi pekerja dan kualitas pengukuran." : ""}
         tone={heatCell?.fi > 70 ? "danger" : heatCell?.fi > 50 ? "warn" : "success"}
-        actions={
-          <>
-            <NeuroBtn tone="ghost" onClick={() => setHeatCell(null)}>Tutup</NeuroBtn>
-            <Link to="/s/schedule"><NeuroBtn tone="primary" onClick={() => setHeatCell(null)}>Tinjau jadwal</NeuroBtn></Link>
-          </>
-        }
+        actions={<><NeuroBtn tone="ghost" onClick={() => setHeatCell(null)}>Tutup</NeuroBtn><Link to="/s/schedule"><NeuroBtn tone="primary" onClick={() => setHeatCell(null)}>Tinjau jadwal</NeuroBtn></Link></>}
       />
 
       {/* ── Pola Fatigue zoom modal — larger heatmap when opened from sidebar */}
@@ -469,7 +662,7 @@ const ManagementDashboard = () => {
         open={zoom === "fatigue"}
         onClose={() => setZoom(null)}
         title="Pola Fatigue · Shift × Jam"
-        subtitle={"Rata-rata Fatigue Index dari " + workerCount + " pekerja · " + dateLabel}
+        subtitle={demo ? "Rata-rata Fatigue Index dari " + workerCount + " pekerja · " + dateLabel : companyView ? "Hasil EEG bersih pada arsip perusahaan dalam periode terpilih" : "Hasil EEG bersih yang tersedia di sesi browser ini"}
         width={920}
         popDir={zoomDir}
         actions={<NeuroBtn tone="primary" onClick={() => setZoom(null)}>Tutup</NeuroBtn>}
@@ -488,10 +681,11 @@ const ManagementDashboard = () => {
               <div style={{ width: 80, fontSize: 13, color: "var(--nt-text-2)", fontWeight: 700 }}>{row.l}</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 8, flex: 1 }}>
                 {row.h.map((v, c) => {
-                  const bg = _heatBlue(v);
+                  const bg = v === null ? "var(--nt-bg-deep)" : _heatBlue(v);
                   const t = v / 100;
                   return (
                     <button key={c} type="button"
+                      disabled={v === null}
                       onClick={() => { setZoom(null); setHeatCell({ shift: row.l, hour: "+" + (c + 1) + "j", fi: v }); }}
                       style={{
                         height: 58, borderRadius: 12, background: bg, border: "none",
@@ -501,7 +695,7 @@ const ManagementDashboard = () => {
                         boxShadow: t > 0.6 ? "0 4px 14px " + bg + "aa" : "inset 0 0 0 1px rgba(15,23,42,0.06)",
                       }}
                       onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.05)"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}>{v}</button>
+                      onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}>{v ?? "—"}</button>
                   );
                 })}
               </div>
@@ -518,8 +712,8 @@ const ManagementDashboard = () => {
       <Modal
         open={zoom === "lini"}
         onClose={() => setZoom(null)}
-        title="Indeks per Lini"
-        subtitle={"Rata-rata risk per lini operasional · " + lini.length + " lini · " + dateLabel}
+        title={companyView ? "Indeks per Shift" : "Indeks per Lini"}
+        subtitle={companyView ? "Rerata fatigue dari sesi per shift · " + dateLabel : "Rata-rata risk per lini operasional · " + lini.length + " lini · " + dateLabel}
         width={720}
         popDir={zoomDir}
         actions={<NeuroBtn tone="primary" onClick={() => setZoom(null)}>Tutup</NeuroBtn>}
@@ -531,7 +725,7 @@ const ManagementDashboard = () => {
           border: "1px solid rgba(15,23,42,0.06)",
         }}>
           {lini.map((b, i) => (
-            <NeuroBar key={i} value={b.v} color={FRM_BLUES[_frmTier(b.v)]} label={b.l} sub={String(b.v)} height={180} width={44} />
+            <NeuroBar key={i} value={b.v ?? 0} color={FRM_BLUES[_frmTier(b.v)]} label={b.l} sub={b.v === null ? "—" : String(b.v)} height={180} width={44} />
           ))}
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(" + lini.length + ", 1fr)", gap: 10, marginTop: 16 }}>
@@ -543,12 +737,12 @@ const ManagementDashboard = () => {
                 background: "var(--nt-surface)", border: "1px solid rgba(15,23,42,0.06)",
               }}>
                 <div style={{ fontSize: 11, color: "var(--nt-text-3)", letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 700 }}>{b.l}</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: "var(--nt-text)", marginTop: 2, letterSpacing: "-0.02em" }}>{b.v}</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: "var(--nt-text)", marginTop: 2, letterSpacing: "-0.02em" }}>{b.v ?? "—"}</div>
                 <span style={{
                   display: "inline-block", padding: "2px 8px", borderRadius: 999,
                   fontSize: 9.5, fontWeight: 800, marginTop: 4,
                   background: c[0], color: c[1],
-                }}>{_frmTier(b.v).toUpperCase()}</span>
+                }}>{b.v === null ? "BELUM ADA DATA" : _frmTier(b.v).toUpperCase()}</span>
               </div>
             );
           })}
@@ -559,7 +753,7 @@ const ManagementDashboard = () => {
       <Modal
         open={zoom === "insight"}
         onClose={() => setZoom(null)}
-        title="Insight & Rekomendasi · AI"
+        title={demo ? "Insight & Rekomendasi · AI Demo" : "Insight & Rekomendasi · Sesi EEG"}
         subtitle={"Rekomendasi berbasis pola data SMK3 · " + dateLabel}
         width={760}
         popDir={zoomDir}
@@ -598,73 +792,13 @@ const ManagementDashboard = () => {
         </div>
       </Modal>
 
-      {/* ── Laporan SMK3 modal — pure report grid, no supervisor sidebar ── */}
-      <Modal
-        open={zoom === "report"}
-        onClose={() => setZoom(null)}
-        title="Laporan SMK3"
-        subtitle="Ringkasan laporan periodik internal · PP No. 50/2012"
-        width={900}
-        popDir={zoomDir}
-        actions={
-          <>
-            <NeuroBtn tone="ghost" onClick={() => window.toast?.("Generate laporan baru, fitur akan datang", { kind: "info" })}>+ Generate Laporan</NeuroBtn>
-            <NeuroBtn tone="primary" onClick={() => setZoom(null)}>Tutup</NeuroBtn>
-          </>
-        }
-      >
-        <div style={{
-          display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14,
-          maxHeight: "62vh", overflowY: "auto", padding: 4, margin: -4,
-        }}>
-          {REPORTS.map((r) => {
-            const isFinal = r.status === "Final";
-            return (
-              <div key={r.id} className="neu-surface frm-report-card" style={{ padding: 20 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div>
-                    <div className="nt-eyebrow" style={{ fontSize: 9 }}>Periode</div>
-                    <div style={{ fontSize: 22, fontWeight: 700, color: "var(--nt-text)", marginTop: 4, letterSpacing: "-0.01em" }}>{r.period}</div>
-                    <div style={{ fontSize: 11, color: "var(--nt-text-3)", marginTop: 2 }}>Diterbitkan {r.date}</div>
-                  </div>
-                  <span style={{
-                    padding: "4px 10px", borderRadius: 999,
-                    background: isFinal
-                      ? "linear-gradient(135deg, #7dd1a1, #a8e0c0)"
-                      : "linear-gradient(135deg, #ffc56a, #ffd791)",
-                    color: "white", fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
-                    boxShadow: isFinal ? "0 3px 8px rgba(125,209,161,0.4)" : "0 3px 8px rgba(255,197,106,0.4)",
-                  }}>{r.status}</span>
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginTop: 18 }}>
-                  <div>
-                    <div style={{ fontSize: 10, color: "var(--nt-text-3)", letterSpacing: "0.12em" }}>PEKERJA</div>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: "var(--nt-text)", marginTop: 4 }}>{r.workers}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 10, color: "var(--nt-text-3)", letterSpacing: "0.12em" }}>INSIDEN</div>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: r.incidents > 15 ? "#ff7a7a" : "var(--nt-text)", marginTop: 4 }}>{r.incidents}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 10, color: "var(--nt-text-3)", letterSpacing: "0.12em" }}>SCORE</div>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: r.score >= 80 ? "#7dd1a1" : r.score >= 70 ? "#ffc56a" : "#ff7a7a", marginTop: 4 }}>{r.score}</div>
-                  </div>
-                </div>
-
-                <button type="button"
-                  onClick={() => window.toast?.("Detail laporan " + r.period + " — buka modul Laporan untuk PDF lengkap", { kind: "info" })}
-                  style={{
-                    marginTop: 16, padding: 0, background: "transparent", border: "none",
-                    fontSize: 11, color: "var(--nt-brand-mid)", fontWeight: 700,
-                    letterSpacing: "0.14em", textTransform: "uppercase", cursor: "pointer",
-                    fontFamily: "inherit",
-                  }}>Lihat laporan →</button>
-              </div>
-            );
-          })}
-        </div>
+      <Modal open={zoom === "report"} onClose={() => { setZoom(null); setArchiveInitialId(null); }}
+        title="Arsip & laporan K3" subtitle="Hasil pengukuran, kualitas sinyal, dan tindak lanjut" width={1020} popDir={zoomDir}
+        actions={<NeuroBtn tone="primary" onClick={() => { setZoom(null); setArchiveInitialId(null); }}>Tutup</NeuroBtn>}>
+        <button type="button" className="archive-back" onClick={() => { setZoom(null); setArchiveInitialId(null); }}>← Kembali ke dashboard</button>
+        <SessionArchiveHub key={zoom === "report" ? "open" : "closed"} initialId={archiveInitialId} />
       </Modal>
+
     </main>
   </div>
   );

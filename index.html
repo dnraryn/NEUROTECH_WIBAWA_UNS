@@ -2,9 +2,17 @@
 <html lang="id">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
   <title>NeuroTech, Monitoring Fatigue, Cognitive Load & K3</title>
   <meta name="description" content="Sistem pemantauan kelelahan mental, beban kognitif, dan K3 berbasis Muse 2 / Muse S." />
+  <meta name="theme-color" content="#0c1931" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="NeuroTech" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/assets/worker-app-192.png" />
+  <script src="pwa-client.js"></script>
 
   <link rel="icon" type="image/png" href="assets/neurotech-logo.png" />
 
@@ -25,7 +33,17 @@
   <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
   <script src="ble-muse.js"></script>
   <script src="ble-muse-dsp.js"></script>
+  <script src="muse-diagnostics.js"></script>
+  <script src="management-data.js"></script>
+  <script src="session-insights.js"></script>
+  <script src="report-export.js"></script>
+  <script src="session-metrics.js"></script>
+  <script src="appcheck-config.js"></script>
+  <script src="ai-support.js"></script>
+  <script src="company-store.js"></script>
   <script src="firebase-init.js"></script>
+  <script src="session-archive.js"></script>
+  <script src="mobile-monitoring.js"></script>
 </head>
 <body>
   <div id="root"></div>
@@ -41,6 +59,8 @@
   <script type="text/babel" src="router.jsx"></script>
   <script type="text/babel" src="primitives.jsx"></script>
   <script type="text/babel" src="mock-data.jsx"></script>
+  <script type="text/babel" src="session-archive-ui.jsx"></script>
+  <script type="text/babel" src="worker-app.jsx"></script>
 
   <!-- Page-level screens (rely on primitives + mock-data) -->
   <!-- worker-screens.jsx also holds the Kondisi (Wellness) + Neurofeedback Audio screens -->
@@ -51,6 +71,7 @@
   <script type="text/babel" src="supervisor-alerts.jsx"></script>
   <script type="text/babel" src="supervisor-schedule.jsx"></script>
   <script type="text/babel" src="supervisor-reports.jsx"></script>
+  <script type="text/babel" src="role-real.jsx"></script>
   <script type="text/babel" src="management-screen.jsx"></script>
   <script type="text/babel" src="landing.jsx"></script>
   <script type="text/babel" src="auth-login.jsx"></script>
@@ -62,6 +83,7 @@
   <script type="text/babel" src="app.jsx"></script>
 
   <!-- Firebase AI Logic (Gemini), ES module, isolated from the compat SDK -->
-  <script type="module" src="ai-gemini.js"></script>
+  <!-- AI loads independently so a slow module CDN does not block Babel's DOM-ready startup. -->
+  <script type="module" async src="ai-gemini.js"></script>
 </body>
 </html>

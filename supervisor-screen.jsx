@@ -19,10 +19,12 @@ let _svLastActive = "overview";
 
 const SupervisorSidebar = ({ active = "overview" }) => {
   const [searchOpen, setSearchOpen] = React.useState(false);
+  const session = window.ntSession?.get(), archive = useSessionArchive();
+  const workers = session ? realWorkerSummaries(archive) : WORKERS;
   const items = [
     { id: "overview", l: "Overview Tim",   to: "/s/overview" },
     { id: "workers",  l: "Pekerja",         to: "/s/workers" },
-    { id: "alerts",   l: "Alert & Insiden", to: "/s/alerts", badge: 3 },
+    { id: "alerts",   l: "Alert & Insiden", to: "/s/alerts", badge: session ? realIncidentRows(archive).reduce((n, e) => n + e.minute.incidents, 0) : 3 },
     { id: "schedule", l: "Jadwal Shift",    to: "/s/schedule" },
     { id: "reports",  l: "Laporan SMK3",    to: "/s/reports" },
   ];
@@ -105,7 +107,7 @@ const SupervisorSidebar = ({ active = "overview" }) => {
         subtitle="Klik nama untuk buka detail."
         width={420}>
         <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 360, overflowY: "auto" }}>
-          {WORKERS.map((w) => (
+          {workers.map((w) => (
             <Link key={w.id} to={`/s/workers/${w.id}`} onClick={() => setSearchOpen(false)}>
               <div style={{
                 padding: "10px 12px", borderRadius: 12,
@@ -145,7 +147,7 @@ const SupervisorSidebar = ({ active = "overview" }) => {
         {items.map((item) => {
           const on = hl === item.id;
           return (
-            <Link key={item.id} to={item.to}
+            <Link key={item.id} to={item.to} aria-label={item.l} aria-current={active === item.id ? "page" : undefined}
               onClick={() => { setHl(item.id); _svLastActive = item.id; }}>
               <div
                 ref={(el) => { btnRefs.current[item.id] = el; }}
@@ -163,7 +165,7 @@ const SupervisorSidebar = ({ active = "overview" }) => {
                   {_SV_ICONS[item.id]}
                 </span>
                 <span className="nt-sb-label" style={{ flex: 1 }}>{item.l}</span>
-                {item.badge && (
+                {item.badge > 0 && (
                   <span className="nt-sb-label" style={{
                     background: on ? "rgba(255,255,255,0.22)" : "#1E3A8A",
                     color: "#fff",
@@ -188,10 +190,10 @@ const SupervisorSidebar = ({ active = "overview" }) => {
             color: "white", fontSize: 12, fontWeight: 800,
             display: "flex", alignItems: "center", justifyContent: "center",
             flexShrink: 0,
-          }}>NF</div>
+          }}>{session ? (session.memberName || "Anggota").split(" ").map((s) => s[0]).slice(0, 2).join("") : "NF"}</div>
           <div className="nt-sb-label" style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--nt-text)" }}>Nadya F.</div>
-            <div style={{ fontSize: 10, color: "var(--nt-text-3)" }}>Supervisor K3</div>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--nt-text)" }}>{session?.memberName || "Nadya F."}</div>
+            <div style={{ fontSize: 10, color: "var(--nt-text-3)" }}>{session ? ROLE_LABEL_ID[session.role] : "Supervisor K3"}</div>
           </div>
         </div>
       </div>
@@ -206,6 +208,7 @@ const SupervisorDashboard = () => {
 
   const pagiWorkers = WORKERS.filter((w) => w.shift === "Pagi");
   const criticalAlert = ALERTS[0]; // Microsleep · Rizky A.
+  const meanFI = pagiWorkers.length ? Math.round(pagiWorkers.reduce((sum, w) => sum + w.fi, 0) / pagiWorkers.length) : null;
 
   return (
   <div className="nt-screen" style={{ padding: "0", display: "grid", gridTemplateColumns: "228px 1fr" }}>
@@ -216,7 +219,7 @@ const SupervisorDashboard = () => {
       {/* Top bar */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
-          <div className="nt-eyebrow" style={{ fontSize: 10 }}>Kamis, 14 Mei 2026 · 11:42</div>
+          <div className="nt-eyebrow" style={{ fontSize: 10 }}>Mode Demo · {DEMO_DAY}</div>
           <div style={{ fontSize: 26, fontWeight: 700, color: "var(--nt-text)", letterSpacing: "-0.01em", marginTop: 4 }}>
             Overview Tim · Shift Pagi
           </div>
@@ -243,14 +246,14 @@ const SupervisorDashboard = () => {
       {/* KPIs row */}
       <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr 1fr", gap: 14 }}>
         <div className="neu-surface" style={{ padding: 18, display: "flex", alignItems: "center", gap: 18 }}>
-          <NeuroGauge value={62} size={120} label="62" sublabel="risk idx" gradient={["#3B82F6", "#60A5FA"]} thickness={14} />
+          <NeuroGauge value={meanFI ?? 0} size={120} label={meanFI === null ? "—" : String(meanFI)} sublabel="rerata FI" gradient={["#3B82F6", "#60A5FA"]} thickness={14} />
           <div style={{ flex: 1 }}>
             <div className="nt-eyebrow" style={{ fontSize: 9 }}>Indeks risiko tim</div>
             <div style={{ fontSize: 22, fontWeight: 700, color: "var(--nt-text)", marginTop: 6, lineHeight: 1.1 }}>
-              Sedang
+              {STATUS_MAP[window.ntSessionInsights.status(meanFI)]?.label || "Belum tersedia"}
             </div>
             <div style={{ fontSize: 11.5, color: "var(--nt-text-2)", marginTop: 6, lineHeight: 1.4 }}>
-              2 pekerja butuh intervensi segera.
+              {pagiWorkers.filter((w) => w.status === "kritis" || w.status === "berisiko").length} pekerja simulasi pada kategori tinggi.
             </div>
             <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
               <StatusPill status="kritis" size="sm" />
@@ -260,9 +263,9 @@ const SupervisorDashboard = () => {
         </div>
 
         {[
-          { l: "Pekerja aktif", v: "12 / 14", sub: "2 belum tersambung", c: "#3B82F6", icon: "👥", to: "/s/workers" },
-          { l: "Alert hari ini", v: "7",       sub: "3 belum ditindak",    c: "#1D4ED8", icon: "🔔", to: "/s/alerts" },
-          { l: "Microsleep",    v: "1",       sub: "Rizky A. · 11:42",    c: "#1E3A8A", icon: "💤", to: "/s/alerts/a-1142" },
+          { l: "Anggota shift pagi", v: `${pagiWorkers.length} / ${WORKERS.length}`, sub: "Roster simulasi", c: "#3B82F6", icon: "👥", to: "/s/workers" },
+          { l: "Alert simulasi", v: String(ALERTS.length), sub: `${ALERTS.filter((a) => !a.action).length} belum ditindak`, c: "#1D4ED8", icon: "🔔", to: "/s/alerts" },
+          { l: "Microsleep", v: String(pagiWorkers.filter((w) => w.microsleep).length), sub: "Indikasi simulasi shift pagi", c: "#1E3A8A", icon: "💤", to: "/s/alerts/a-1142" },
         ].map((k, i) => (
           <Link key={i} to={k.to}>
             <div className="neu-surface nt-card-click" style={{ padding: 16, display: "flex", flexDirection: "column", justifyContent: "space-between", height: "100%" }}>

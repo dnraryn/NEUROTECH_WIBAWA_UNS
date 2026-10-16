@@ -4,10 +4,26 @@
   "description": "",
   "main": "check-syntax.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "node scripts/build-hosting.js",
+    "preview": "node scripts/preview.js",
+    "test": "node --test tests/*.test.js",
+    "check": "node check-syntax.js",
+    "test:security": "node scripts/run-emulators.js test",
+    "emulators": "node scripts/run-emulators.js start"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs"
+  "type": "commonjs",
+  "overrides": {
+    "@grpc/grpc-js": "1.14.6"
+  },
+  "devDependencies": {
+    "@babel/parser": "^7.24.7",
+    "@firebase/rules-unit-testing": "^6.0.0",
+    "esbuild": "0.28.2",
+    "firebase": "^13.0.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  }
 }

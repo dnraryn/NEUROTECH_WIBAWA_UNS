@@ -50,8 +50,9 @@ const Brand = ({ size = 30 }) => (
 // ── Shared navigation helpers ──────────────────────────────────────────────
 const goRegister = () => navigate("/join");   // "Bergabung dengan Kami"
 const goLogin = () => navigate("/login");
-const goDemo = () => {
+const goDemo = async () => {
   sessionStorage.setItem("nt-demo", "1");
+  await window.ntDeviceConnect("demo");
   window.toast?.("Mode demo aktif, tanpa login", { kind: "info" });
   navigate("/w/readiness");
 };
@@ -488,6 +489,10 @@ const LandingPage = () => (
 
         <Reveal delay={400}>
           <div className="nt-landing-cta">
+            <NeuroBtn tone="default" size="lg" onClick={() => navigate("/app")}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 16v4h14v-4" /></svg>
+              Pasang Aplikasi
+            </NeuroBtn>
             <NeuroBtn tone="primary" size="lg" onClick={goRegister}>Bergabung dengan Kami</NeuroBtn>
             <NeuroBtn tone="default" size="lg" onClick={goDemo}>Coba demo →</NeuroBtn>
           </div>

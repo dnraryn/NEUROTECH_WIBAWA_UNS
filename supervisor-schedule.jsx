@@ -218,7 +218,12 @@ const SupervisorSchedule = () => {
                   const on = w.shift === sh;
                   return (
                     <button key={sh}
-                      onClick={() => { window.ntSetWorkerShift(w.id, sh); window.toast?.(`${w.name} → shift ${sh}`, { kind: "success" }); }}
+                      onClick={async () => {
+                        try {
+                          if (!await window.ntSetWorkerShift(w.id, sh)) throw new Error("Pekerja tidak ditemukan.");
+                          window.toast?.(w.name + " → shift " + sh, { kind: "success" });
+                        } catch (error) { window.toast?.(error.message || "Gagal menyimpan shift.", { kind: "danger" }); }
+                      }}
                       style={{
                         padding: "6px 10px", borderRadius: 9, border: "none", cursor: "pointer",
                         fontSize: 11, fontWeight: 700, fontFamily: "inherit",

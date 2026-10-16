@@ -1,38 +1,13 @@
-// ble-muse-dsp.js — real-time signal processing for Muse S EEG.
-//
-// Pipeline (refined from a literature review of Muse-S validated practice
-// and Kaggle drowsiness datasets — see deep-research report 2026-06-05):
-//
-//   1.  2-second Hamming FFT on each channel, recomputed every ~1 s with
-//       50% overlap. Bin resolution = 0.5 Hz, matching Krigolson 2021
-//       (Frontiers Neurosci, Muse hardware, n=1000) and the DROZY drowsy-
-//       driving STFT pipeline.
-//   2.  Band powers — δ (1-4), θ (4-8), α (8-13), β (13-30), γ (30-45 Hz).
-//   3.  Indices (well-established formulas, kept verbatim):
-//         FI  = (θ+α) / β              [Pope/Jap drowsiness ratio]
-//         CLI = θ_frontal / α_posterior [Gevins frontal-theta vs post-α split]
-//         EI  = β / (α+θ)               [Pope I2 engagement index]
-//       The MDPI Sensors 2023 PRISMA review (82 studies, 37 ratios) confirms
-//       these are the most-used formulations — direction is correct.
-//   4.  Personalised baseline: first ~120 s of pairing collects per-user
-//       median of fiRaw / cliRaw / eiRaw + θ/α ratio + β_rel, then persists
-//       to localStorage. All subsequent values are normalised AGAINST this
-//       baseline instead of hard-coded constants — the systematic review
-//       explicitly notes "no standardization exists" for global thresholds.
-//   5.  Microsleep flag — rising θ/α ratio (≥1.5× baseline) for ≥3
-//       consecutive 2-s windows AND β_rel below 0.7× baseline. Coelho et al.
-//       2024 (Sensors 24(8):2625, 50 drivers, 927 events) found θ/α had
-//       r=0.9971 vs visual scoring and 94.7% sensitivity — best single
-//       feature in their bundle.
-//   6.  Artifact rejection — 100 µV peak-to-peak per window discards
-//       blinks / jaw clenches / motion (Krigolson 2021; relaxed from the
-//       paper's 60 µV to keep an always-on workplace monitor usable).
-//   7.  EMA α=0.35 on the displayed indices, 5-window mode filter on the
-//       Brain-Timeline status class.
-//
-// Each clean window mutates CURRENT_WORKER, pushes into WORKER_HISTORY via
-// ntPushHistory, and dispatches `nt-data` so every UI consumer (gauges,
-// Prediksi Kelelahan, Brain Timeline, LiveSparkline) re-renders.
+// Real-time Muse EEG prototype: 256 Hz, 2-second Hamming FFT, 1-45 Hz bands.
+// Each channel is linearly detrended and checked for flatness, ADC clipping,
+// amplitude and gamma contamination. Bad channels are excluded. Frontal-only
+// output has FI/EI, frontal + posterior coverage adds CLI; any usable channel
+// can provide band power. Partial/limited output is provisional and
+// cannot train a baseline or trigger the microsleep heuristic.
+// FI/CLI/EI and risk classes are experimental rules, not a validated classifier.
+// Processing references (not validation of the chosen thresholds):
+// https://brainflow.readthedocs.io/en/stable/Examples.html
+// https://mne.tools/stable/auto_tutorials/preprocessing/15_handling_bad_channels.html
 
 (function () {
   "use strict";
@@ -42,11 +17,20 @@
   var EMIT_MS = 1000;
   var EMA_A = 0.35;
   var EPS = 1e-6;
+  var ALGORITHM_VERSION = "eeg-heuristic-v4";
+  window.ntEEGAlgorithmVersion = ALGORITHM_VERSION;
   // Personal baseline target = ~120 s of clean data. We emit ~every 1 s, so
   // ~120 emitted windows. Stored in localStorage so subsequent pairings
   // skip the calibration step.
   var BASELINE_TARGET = 120;
-  var BASELINE_KEY = "nt-muse-baseline-v1";
+  // Detrending changes spectral features; do not reuse pre-filter baselines.
+  var BASELINE_PREFIX = "nt-muse-baseline-v4:";
+  var BASELINE_MAX_AGE = 24 * 3600000; // Engineering freshness policy, not a clinical threshold.
+  // Engineering defaults for this prototype, pending recorded-headband validation.
+  var FILTER_POLICY = Object.freeze({ cleanP2P: 200, hardP2P: 400, cleanDeviation: 70,
+    hardDeviation: 120, cleanGamma: 25, hardGamma: 45, flatDeviation: 0.5,
+    maxClippedFraction: 0.01, minChannels: 1 });
+  var lastQualityLevel = null, lastChannelSet = null;
 
   // Default fallback baseline — used until the per-user calibration
   // completes. Chosen to keep the FALLBACK indices similar to the old
@@ -100,25 +84,29 @@
     }
   })();
 
-  // Compute band powers (delta/theta/alpha/beta/gamma) in absolute scale.
+  // One-sided periodogram (uV^2/Hz), integrated to band power (uV^2).
   function bandPowers(samples) {
     var re = new Float32Array(WIN);
     var im = new Float32Array(WIN);
     var mean = 0;
     for (var i = 0; i < WIN; i++) mean += samples[i];
     mean /= WIN;
-    for (i = 0; i < WIN; i++) re[i] = (samples[i] - mean) * hamming[i];
-    fft(re, im);
-    var psd = new Float32Array(WIN / 2);
-    for (var k = 0; k < WIN / 2; k++) {
-      psd[k] = (re[k] * re[k] + im[k] * im[k]) / WIN;
+    var windowEnergy = 0;
+    for (i = 0; i < WIN; i++) {
+      re[i] = (samples[i] - mean) * hamming[i];
+      windowEnergy += hamming[i] * hamming[i];
     }
-    var binW = FS / WIN; // = 1 Hz
-    function integ(lo, hi) {
+    fft(re, im);
+    var psd = new Float32Array(WIN / 2 + 1);
+    for (var k = 0; k <= WIN / 2; k++) {
+      psd[k] = (re[k] * re[k] + im[k] * im[k]) / (FS * windowEnergy) * (k > 0 && k < WIN / 2 ? 2 : 1);
+    }
+    var binW = FS / WIN; // = 0.5 Hz
+    function integ(lo, hi, includeHigh) {
       var s = 0;
-      var k0 = Math.max(1, Math.floor(lo / binW));
-      var k1 = Math.min(psd.length - 1, Math.ceil(hi / binW));
-      for (var kk = k0; kk <= k1; kk++) s += psd[kk];
+      var k0 = Math.max(1, Math.ceil(lo / binW));
+      var end = Math.min(psd.length, includeHigh ? Math.floor(hi / binW) + 1 : Math.ceil(hi / binW));
+      for (var kk = k0; kk < end; kk++) s += psd[kk] * binW;
       return s;
     }
     return {
@@ -126,29 +114,100 @@
       theta: integ(4, 8),
       alpha: integ(8, 13),
       beta:  integ(13, 30),
-      gamma: integ(30, 45),
+      gamma: integ(30, 45, true),
     };
+  }
+
+  function prepareChannel(raw) {
+    var n = raw.length, center = (n - 1) / 2, mean = 0, numerator = 0, denominator = 0;
+    var mn = Infinity, mx = -Infinity, clipped = 0;
+    var rail = window.ntMuse?.status?.().protocol === "athena" ? 724 : 999;
+    for (var i = 0; i < n; i++) {
+      mean += raw[i]; mn = Math.min(mn, raw[i]); mx = Math.max(mx, raw[i]);
+      if (Math.abs(raw[i]) >= rail) clipped++;
+      numerator += (i - center) * raw[i]; denominator += (i - center) * (i - center);
+    }
+    mean /= n;
+    var slope = numerator / denominator, clean = new Float32Array(n);
+    var cleanMin = Infinity, cleanMax = -Infinity, energy = 0;
+    for (var j = 0; j < n; j++) {
+      clean[j] = raw[j] - mean - slope * (j - center);
+      cleanMin = Math.min(cleanMin, clean[j]); cleanMax = Math.max(cleanMax, clean[j]);
+      energy += clean[j] * clean[j];
+    }
+    var powers = bandPowers(clean), total = powers.delta + powers.theta + powers.alpha + powers.beta + powers.gamma;
+    var p2p = cleanMax - cleanMin, deviation = Math.sqrt(energy / n);
+    var gamma = total > EPS ? powers.gamma / total * 100 : 0;
+    var state = "good", reasons = [];
+    if (clipped / n > FILTER_POLICY.maxClippedFraction) { state = "bad"; reasons.push("sinyal terpotong pada batas alat"); }
+    if (deviation < FILTER_POLICY.flatDeviation || total <= EPS) { state = "bad"; reasons.push("sinyal datar"); }
+    if (p2p > FILTER_POLICY.hardP2P || deviation > FILTER_POLICY.hardDeviation || gamma > FILTER_POLICY.hardGamma) {
+      state = "bad"; reasons.push("gangguan amplitudo/frekuensi berat");
+    }
+    if (state === "good" && (p2p > FILTER_POLICY.cleanP2P || deviation > FILTER_POLICY.cleanDeviation ||
+        gamma > FILTER_POLICY.cleanGamma || clipped > 0)) {
+      state = "limited"; reasons.push("kualitas terbatas");
+    }
+    return { powers: powers, stats: { peakToPeak: mx - mn, processedPeakToPeak: p2p,
+      deviation: deviation, gamma: gamma, clippedFraction: clipped / n, state: state, reasons: reasons } };
   }
 
   // ── Per-channel ring buffer (~4 s of samples each — 2× WIN) ─────────────
   var buf = { TP9: [], AF7: [], AF8: [], TP10: [] };
-  function pushSamples(channel, samples) {
+  var fresh = { TP9: 0, AF7: 0, AF8: 0, TP10: 0 };
+  var sequence = {};
+  function pushSamples(channel, samples, index, discontinuity) {
     var b = buf[channel];
-    if (!b) return;
-    for (var i = 0; i < samples.length; i++) b.push(samples[i]);
-    while (b.length > WIN * 2) b.shift();
+    if (!b || !samples.length) return false;
+    for (var i = 0; i < samples.length; i++) if (!Number.isFinite(samples[i])) return false;
+    if (discontinuity) {
+      b.length = 0;
+      fresh[channel] = 0;
+      delete sequence[channel];
+      microsleepStreak = 0;
+    }
+    if (typeof index === "number") {
+      var previous = sequence[channel];
+      if (previous === index) return false;
+      if (previous !== undefined && ((previous + 1) & 65535) !== index) {
+        b.length = 0;
+        fresh[channel] = 0;
+        microsleepStreak = 0;
+      }
+      sequence[channel] = index;
+    }
+    for (var j = 0; j < samples.length; j++) b.push(samples[j]);
+    fresh[channel] += samples.length;
+    if (b.length > WIN * 2) b.splice(0, b.length - WIN * 2);
+    return true;
   }
 
-  // ── Per-user baseline ───────────────────────────────────────────────────
-  // baselineBuffer collects the first BASELINE_TARGET clean windows of
-  // ratios; once full we take the median of each and persist. Until then
-  // we fall back to DEFAULT_BASELINE.
+  // Ignore the old shared baseline: its owner cannot be determined.
   var baseline = null;
   var baselineBuffer = [];
-  try {
-    var saved = localStorage.getItem(BASELINE_KEY);
-    if (saved) baseline = JSON.parse(saved);
-  } catch (e) { /* ignore */ }
+  function baselineKey() {
+    var s = window.ntSession && window.ntSession.get();
+    return s && s.code && s.memberId
+      ? BASELINE_PREFIX + encodeURIComponent(s.code) + ":" + encodeURIComponent(s.memberId)
+      : null; // Demo calibration is kept in memory only.
+  }
+  function validBaseline(value) {
+    return value && value.algorithmVersion === ALGORITHM_VERSION && value.sampleRate === FS && value.windowSize === WIN &&
+      ["classic", "athena"].includes(value.protocol) &&
+      (!window.ntMuse?.status?.().protocol || value.protocol === window.ntMuse.status().protocol) &&
+      Number.isFinite(value.ts) && value.ts <= Date.now() + 5000 && Date.now() - value.ts < BASELINE_MAX_AGE &&
+      ["fiRaw", "cliRaw", "eiRaw", "thetaAlpha", "betaRel"].every(function (k) {
+      return Number.isFinite(value[k]) && value[k] > 0;
+    });
+  }
+  function loadBaseline() {
+    baseline = null;
+    try {
+      var key = baselineKey();
+      var saved = key && JSON.parse(localStorage.getItem(key) || "null");
+      if (validBaseline(saved)) baseline = saved;
+    } catch (error) { /* Invalid or inaccessible storage: calibrate again. */ }
+  }
 
   function median(values) {
     if (!values.length) return 0;
@@ -166,8 +225,14 @@
       thetaAlpha: median(baselineBuffer.map(function (b) { return b.thetaAlpha; })),
       betaRel:    median(baselineBuffer.map(function (b) { return b.betaRel; })),
       ts: Date.now(),
+      algorithmVersion: ALGORITHM_VERSION, sampleRate: FS, windowSize: WIN,
+      protocol: window.ntMuse?.status?.().protocol || "unknown",
     };
-    try { localStorage.setItem(BASELINE_KEY, JSON.stringify(baseline)); }
+    // FI and EI are reciprocal features, not independent corroborating measurements.
+    baseline.eiRaw = 1 / baseline.fiRaw;
+    ema = null; statusHistory.length = 0; microsleepStreak = 0;
+    Object.assign(window.ntMuseDSP, { baseline: baseline, baselineProgress: 1, baselineCount: baselineBuffer.length });
+    try { var key = baselineKey(); if (key) localStorage.setItem(key, JSON.stringify(baseline)); }
     catch (e) { /* quota / private mode */ }
     window.dispatchEvent(new CustomEvent("nt-muse-baseline", {
       detail: { baseline: baseline },
@@ -184,7 +249,8 @@
   var statusHistory = [];
   var STATUS_WINDOW = 5;        // ~5 s of context
   var microsleepStreak = 0;
-  var MICROSLEEP_NEEDED = 3;    // ≥3 s of slow-wave dominance before flagging
+  var MICROSLEEP_NEEDED = 3;    // Three overlapping analysis windows, not a measured episode duration.
+  var microsleepLastAt = 0;
   // Cumulative session microsleep events. We count RISING edges (each
   // distinct microsleep episode increments once, regardless of how long it
   // lasts) so the displayed count is monotonic — without this it would
@@ -198,44 +264,74 @@
 
   // ── Derive indices + status from a fresh second of data ─────────────────
   function compute() {
+    if (baseline && !validBaseline(baseline)) {
+      baseline = null; baselineBuffer.length = 0; ema = null; statusHistory.length = 0; microsleepStreak = 0;
+    }
+    var calibrated = !!baseline;
     if (buf.TP9.length < WIN || buf.AF7.length < WIN ||
         buf.AF8.length < WIN || buf.TP10.length < WIN) return null;
-    var p = {
-      TP9:  bandPowers(buf.TP9.slice(-WIN)),
-      AF7:  bandPowers(buf.AF7.slice(-WIN)),
-      AF8:  bandPowers(buf.AF8.slice(-WIN)),
-      TP10: bandPowers(buf.TP10.slice(-WIN)),
-    };
+    var channels = ["TP9", "AF7", "AF8", "TP10"], p = {}, qualityChannels = {};
+    channels.forEach(function (ch) {
+      var prepared = prepareChannel(buf[ch].slice(-WIN));
+      p[ch] = prepared.powers;
+      qualityChannels[ch] = prepared.stats;
+    });
+    var used = channels.filter(function (ch) { return qualityChannels[ch].state !== "bad"; });
+    var front = used.filter(function (ch) { return ch === "AF7" || ch === "AF8"; });
+    var posterior = used.filter(function (ch) { return ch === "TP9" || ch === "TP10"; });
+    var excluded = channels.filter(function (ch) { return used.indexOf(ch) === -1; });
+    var qualityLevel = used.length < FILTER_POLICY.minChannels ? "bad"
+      : excluded.length || used.some(function (ch) { return qualityChannels[ch].state === "limited"; }) ? "limited" : "good";
+    var outputScope = !front.length ? "bands-only" : !posterior.length ? "frontal-only" : "full";
+    window.ntMuseDSP = Object.assign({}, window.ntMuseDSP, {
+      quality: { channels: qualityChannels, checkedAt: Date.now(), level: qualityLevel,
+        usedChannels: used, excludedChannels: excluded, outputScope: outputScope, policy: FILTER_POLICY },
+    });
+    if (qualityLevel === "bad") {
+      signalState(used.length === 0 && channels.every(function (ch) {
+        return qualityChannels[ch].deviation < FILTER_POLICY.flatDeviation;
+      }) ? "no-signal" : "artifact");
+      lastQualityLevel = null;
+      lastChannelSet = null;
+      return null;
+    }
+    function avg(list, band) { return list.length ? list.reduce(function (sum, ch) { return sum + p[ch][band]; }, 0) / list.length : null; }
+    var frontTheta = avg(front, "theta"), frontAlpha = avg(front, "alpha"), frontBeta = avg(front, "beta");
+    var postAlpha = avg(posterior, "alpha"), postTheta = avg(posterior, "theta");
 
-    var frontTheta = (p.AF7.theta + p.AF8.theta) / 2;
-    var frontAlpha = (p.AF7.alpha + p.AF8.alpha) / 2;
-    var frontBeta  = (p.AF7.beta  + p.AF8.beta)  / 2;
-    var postAlpha  = (p.TP9.alpha + p.TP10.alpha) / 2;
-
-    // Raw indices — directions validated by MDPI Sensors 2023 PRISMA review
-    // (82 studies, 37 ratios) and Qi et al. 2020. Magnitudes are subject-
-    // specific, so we log-map AGAINST the personalised baseline (or fall
-    // back to DEFAULT_BASELINE during the first ~120 s of pairing).
-    var fiRaw  = (frontTheta + frontAlpha) / Math.max(EPS, frontBeta);
-    var cliRaw =  frontTheta               / Math.max(EPS, postAlpha);
-    var eiRaw  =  frontBeta                / Math.max(EPS, frontAlpha + frontTheta);
-
+    // Experimental ratios normalized against personal calibration.
+    var fiRaw  = front.length ? (frontTheta + frontAlpha) / Math.max(EPS, frontBeta) : null;
+    var cliRaw = front.length && posterior.length ? frontTheta / Math.max(EPS, postAlpha) : null;
+    var eiRaw  = front.length ? frontBeta / Math.max(EPS, frontAlpha + frontTheta) : null;
     var BL = activeBaseline();
-    var fi  = Math.round(clip(40 + 22 * log2(Math.max(0.5, fiRaw)  / BL.fiRaw),  0, 100));
-    var cli = Math.round(clip(40 + 22 * log2(Math.max(0.5, cliRaw) / BL.cliRaw), 0, 100));
-    var ei  = Math.round(clip(50 + 35 * log2(Math.max(0.2, eiRaw)  / BL.eiRaw),  0, 100));
+    // Protect the logarithm numerically, without replacing small valid ratios.
+    // An absolute floor (0.5 / 0.2) pins scores for baselines below that floor.
+    function index(ratio, base, center, scale) {
+      return Number.isFinite(ratio) && ratio > EPS ? Math.round(clip(center + scale * log2(Math.max(EPS, ratio / base)), 0, 100)) : null;
+    }
+    var fi = index(fiRaw, BL.fiRaw, 40, 22);
+    var cli = index(cliRaw, BL.cliRaw, 40, 22);
+    var ei = index(eiRaw, BL.eiRaw, 50, 35);
+    if ([fi, cli, ei].some(function (v) { return v === null; })) qualityLevel = "limited";
+    outputScope = [fi, cli, ei].every(Number.isFinite) ? "full"
+      : Number.isFinite(fi) || Number.isFinite(ei) ? "frontal-only" : "bands-only";
+    window.ntMuseDSP.quality.level = qualityLevel;
+    window.ntMuseDSP.quality.outputScope = outputScope;
+    var channelSet = used.join(",") + ":" + outputScope;
+    if (lastQualityLevel !== qualityLevel || lastChannelSet !== channelSet) { ema = null; statusHistory.length = 0; microsleepStreak = 0; }
+    lastQualityLevel = qualityLevel;
+    lastChannelSet = channelSet;
 
-    // θ/α ratio (frontal+posterior) — the highest-performing single feature
-    // for microsleep in Coelho et al. 2024 (r=0.9971, 94.7% sensitivity).
-    var thetaAlpha = (frontTheta + postTheta) / Math.max(EPS, frontAlpha + postAlpha);
+    // Relative theta/alpha feature for the existing microsleep heuristic.
+    var thetaAlpha = front.length && posterior.length ? (frontTheta + postTheta) / Math.max(EPS, frontAlpha + postAlpha) : null;
 
     // Relative band power (% of total) — easier to show as a bar height.
     var total = 0, perBand = {};
     ["delta", "theta", "alpha", "beta", "gamma"].forEach(function (k) {
-      perBand[k] = (p.TP9[k] + p.AF7[k] + p.AF8[k] + p.TP10[k]) / 4;
+      perBand[k] = avg(used, k);
       total += perBand[k];
     });
-    if (total <= 0) total = 1;
+    if (!Number.isFinite(total) || total <= EPS) { signalState("no-signal"); return null; }
     var bands = {
       delta: Math.round(perBand.delta / total * 100),
       theta: Math.round(perBand.theta / total * 100),
@@ -244,58 +340,28 @@
       gamma: Math.round(perBand.gamma / total * 100),
     };
 
-    // ── Artifact rejection — distinguish real microsleep from movement.
-    // Head shakes / nods / jaw clenches generate big EMG bursts that look
-    // theta-heavy and collapse beta, which previously triggered false
-    // microsleep flags. Reject any window whose raw amplitude or gamma
-    // content suggests motion before scoring the microsleep heuristic.
-    var maxP2P = 0;  // peak-to-peak across all channels (µV)
-    var maxSig = 0;  // std-dev signal level
-    ["TP9", "AF7", "AF8", "TP10"].forEach(function (ch) {
-      var arr = buf[ch].slice(-WIN);
-      var mn = Infinity, mx = -Infinity, sum = 0, sum2 = 0;
-      for (var ii = 0; ii < arr.length; ii++) {
-        var v = arr[ii];
-        if (v < mn) mn = v;
-        if (v > mx) mx = v;
-        sum += v;
-        sum2 += v * v;
-      }
-      var p2p = mx - mn;
-      var mean = sum / arr.length;
-      var sigma = Math.sqrt(Math.max(0, sum2 / arr.length - mean * mean));
-      if (p2p > maxP2P) maxP2P = p2p;
-      if (sigma > maxSig) maxSig = sigma;
-    });
-    // Movement/EMG signatures. P2P 100 µV mirrors Krigolson 2021's Muse
-    // pipeline ("segments with absolute difference > 60 µV were discarded";
-    // relaxed to 100 µV here so the always-on workplace UI doesn't drop
-    // ~35% of windows). γ-power > 25 % captures jaw clenches.
-    var movementArtifact = (maxP2P > 100) || (maxSig > 60) || (bands.gamma > 25);
+    // Degraded output cannot train calibration or trigger microsleep.
+    window.ntMuseDSP.quality.gamma = perBand.gamma / total * 100;
+    var movementArtifact = qualityLevel !== "good";
 
-    // Microsleep heuristic — RISING θ/α ratio relative to the personal
-    // baseline (≥ 1.5×), with β-collapse (< 0.7× baseline β_rel), for at
-    // least MICROSLEEP_NEEDED consecutive clean windows. Coelho et al. 2024
-    // showed θ/α is robust to alpha-spindle non-monotonicity during the
-    // wake→sleep transition — fixed absolute-α thresholds misfire there.
-    var thetaAlphaUp = thetaAlpha >= 1.5 * BL.thetaAlpha;
-    var betaCollapsed = bands.beta < 0.7 * BL.betaRel;
-    var msInstant = !movementArtifact && thetaAlphaUp && betaCollapsed;
+    var thetaAlphaUp = Number.isFinite(thetaAlpha) && thetaAlpha >= 1.5 * BL.thetaAlpha;
+    var betaCollapsed = perBand.beta / total * 100 < 0.7 * BL.betaRel;
+    var msInstant = calibrated && !movementArtifact && thetaAlphaUp && betaCollapsed;
     if (movementArtifact) microsleepStreak = 0; // movement breaks the streak
-    else microsleepStreak = msInstant ? microsleepStreak + 1 : 0;
+    else if (!msInstant) microsleepStreak = 0;
+    else microsleepStreak = microsleepStreak > 0 && Date.now() - microsleepLastAt <= EMIT_MS * 1.5 ? microsleepStreak + 1 : 1;
+    microsleepLastAt = msInstant ? Date.now() : 0;
     var microsleep = microsleepStreak >= MICROSLEEP_NEEDED;
 
     // Accumulate baseline samples while the user is in their first ~2 min
-    // of clean data. We deliberately skip artifact windows so blinks and
-    // jaw clenches don't poison the baseline. The msInstant flag is also
-    // excluded so a user pairing while already drowsy doesn't anchor their
-    // baseline to a fatigued state.
-    if (!baseline && !movementArtifact && !msInstant) {
+    // of clean data. Calibrate while awake, eyes open. A fallback ratio cannot
+    // determine whether a new user is drowsy and must not prevent calibration.
+    if (!baseline && !movementArtifact && [fiRaw, cliRaw, eiRaw, thetaAlpha].every(function (v) { return Number.isFinite(v) && v > EPS; })) {
       baselineBuffer.push({
-        fiRaw: fiRaw, cliRaw: cliRaw, eiRaw: eiRaw,
-        thetaAlpha: thetaAlpha, betaRel: bands.beta,
+        fiRaw: Math.max(EPS, fiRaw), cliRaw: Math.max(EPS, cliRaw), eiRaw: Math.max(EPS, eiRaw),
+        thetaAlpha: Math.max(EPS, thetaAlpha), betaRel: Math.max(EPS, perBand.beta / total * 100),
       });
-      if (baselineBuffer.length >= BASELINE_TARGET) finalizeBaseline();
+      if (baselineBuffer.length >= BASELINE_TARGET) { finalizeBaseline(); return null; }
     }
 
     // EMA-smooth the running indices so single-window noise doesn't make
@@ -305,24 +371,24 @@
                 beta: bands.beta, gamma: bands.gamma };
     if (!ema) ema = Object.assign({}, raw);
     else Object.keys(raw).forEach(function (k) {
-      ema[k] = ema[k] * (1 - EMA_A) + raw[k] * EMA_A;
+      ema[k] = raw[k] === null ? null : !Number.isFinite(ema[k]) ? raw[k] : ema[k] * (1 - EMA_A) + raw[k] * EMA_A;
     });
 
-    var fiS  = Math.round(ema.fi);
-    var cliS = Math.round(ema.cli);
-    var eiS  = Math.round(ema.ei);
+    var fiS  = Number.isFinite(ema.fi) ? Math.round(ema.fi) : null;
+    var cliS = Number.isFinite(ema.cli) ? Math.round(ema.cli) : null;
+    var eiS  = Number.isFinite(ema.ei) ? Math.round(ema.ei) : null;
 
     // HRV proxy — replaced once we wire PPG. Higher CLI / lower EI ⇒ lower HRV.
-    var hrv = Math.round(clip(78 - cliS * 0.35 + (eiS - 50) * 0.10, 30, 95));
+    var hrv = Number.isFinite(cliS) && Number.isFinite(eiS) ? Math.round(clip(78 - cliS * 0.35 + (eiS - 50) * 0.10, 30, 95)) : null;
 
     // Status thresholds match _statusOf() in mock-data.jsx. Run them
     // through a 5-window mode filter so the Brain Timeline doesn't
     // flicker between classes on every breath / blink.
-    var instant =
+    var instant = !Number.isFinite(fiS) ? null :
       (microsleep || fiS >= 76 || cliS >= 82) ? "kritis"
       : (fiS >= 60 || cliS >= 70)             ? "berisiko"
       : (fiS >= 44 || cliS >= 56)             ? "waspada" : "normal";
-    statusHistory.push(instant);
+    if (instant) statusHistory.push(instant);
     if (statusHistory.length > STATUS_WINDOW) statusHistory.shift();
     // Mode: most-common class in the rolling window. Ties resolve toward
     // the calmer state so a single bad second can't drag the timeline.
@@ -331,7 +397,7 @@
       counts[statusHistory[si]] = (counts[statusHistory[si]] || 0) + 1;
     }
     var order = ["normal", "waspada", "berisiko", "kritis"];
-    var status = order[0], best = 0;
+    var status = instant ? order[0] : null, best = 0;
     for (var oi = 0; oi < order.length; oi++) {
       var c = counts[order[oi]] || 0;
       if (c > best) { best = c; status = order[oi]; }
@@ -340,7 +406,9 @@
     return {
       ts: Date.now(),
       fi: fiS, cli: cliS, ei: eiS, hrv: hrv,
-      microsleep: microsleep, status: status,
+      microsleep: microsleep, status: status, instantStatus: instant, qualityLevel: qualityLevel, outputScope: outputScope,
+      classificationProvisional: !calibrated || qualityLevel !== "good",
+      algorithmVersion: ALGORITHM_VERSION, absoluteBands: perBand,
       bands: {
         delta: Math.round(ema.delta),
         theta: Math.round(ema.theta),
@@ -360,15 +428,23 @@
     w.ei = out.ei;
     w.hrv = out.hrv;
     w.microsleep = out.microsleep;
-    w.status = out.status;
+    w.status = out.status || "unavailable";
+    w.qualityLevel = out.qualityLevel;
+    w.outputScope = out.outputScope;
+    w.classificationProvisional = out.classificationProvisional;
     var d = new Date(out.ts);
     w.t = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+
+    var row = window.WORKERS_BY_ID && window.WORKERS_BY_ID[w.id];
+    if (row && row !== w) Object.assign(row, w);
 
     // Push into the ring buffer the Prediksi Kelelahan / Brain Timeline read.
     if (window.ntPushHistory) {
       window.ntPushHistory(w.id, {
+        source: "muse", quality: out.qualityLevel, provisional: out.classificationProvisional, outputScope: out.outputScope,
         ts: out.ts, fi: out.fi, cli: out.cli, hrv: out.hrv, ei: out.ei,
-        readiness: w.readiness, status: out.status, microsleep: out.microsleep,
+        readiness: w.readiness, status: out.status, instantStatus: out.instantStatus, microsleep: out.microsleep,
+        shift: w.shift, monitoringStartedAt: window.ntMuse?.status?.().connectedAt,
       });
     }
 
@@ -380,7 +456,8 @@
     // Expose the latest snapshot so screens that want raw band powers can
     // read them directly (e.g. the Worker Live EEG Band Power bars).
     window.ntMuseDSP = {
-      last: out, bands: out.bands,
+      quality: window.ntMuseDSP && window.ntMuseDSP.quality,
+      last: out, bands: out.bands, signalState: out.qualityLevel === "limited" ? "limited" : baseline ? "ready" : "calibrating",
       microsleepEvents: msEvents,
       // Calibration status — UI can show "Kalibrasi N/120 s" while baseline
       // is being built. Once `baseline` is non-null, calibration is done.
@@ -399,25 +476,29 @@
   // Allow the UI to force-recalibrate (e.g. a "kalibrasi ulang" button).
   window.ntMuseClearBaseline = function () {
     baseline = null;
-    baselineBuffer.length = 0;
-    try { localStorage.removeItem(BASELINE_KEY); } catch (e) { /* ignore */ }
+    try { var key = baselineKey(); if (key) localStorage.removeItem(key); } catch (error) { /* ignore */ }
+    resetState();
+    var w = window.CURRENT_WORKER;
+    if (w && window.ntHistory) window.ntHistory(w.id).length = 0;
     window.dispatchEvent(new CustomEvent("nt-muse-baseline", { detail: { baseline: null } }));
+    window.dispatchEvent(new CustomEvent("nt-data"));
   };
 
   // Linear-regression slope of FI over the recent ring buffer + ETA to FI=60.
   function predictionFor(workerId) {
     if (!window.ntHistory) return null;
     var hist = window.ntHistory(workerId) || [];
-    var recent = hist.slice(-20);
+    var recent = hist.filter(function (p) { return p.quality === "good" && !p.provisional && Number.isFinite(p.fi); }).slice(-20);
     if (recent.length < 4) return null;
     var n = recent.length;
     var sx = 0, sy = 0, sxy = 0, sxx = 0;
     for (var i = 0; i < n; i++) {
-      sx += i; sy += recent[i].fi; sxy += i * recent[i].fi; sxx += i * i;
+      var x = (recent[i].ts - recent[0].ts) / 1000;
+      sx += x; sy += recent[i].fi; sxy += x * recent[i].fi; sxx += x * x;
     }
     var slope = (n * sxy - sx * sy) / Math.max(EPS, (n * sxx - sx * sx));
     var cur = recent[n - 1].fi;
-    var dtSec = 1; // we emit ~1 / second
+    var dtSec = 1; // Regression x is elapsed seconds.
     if (slope <= 0.05) return { trend: "stabil", slope: slope, current: cur };
     var stepsToBerisiko = (60 - cur) / slope;
     if (cur >= 60) return { trend: "naik", slope: slope, current: cur, etaSec: 0 };
@@ -430,32 +511,51 @@
   // ── Wire up event handlers ──────────────────────────────────────────────
   var lastEmit = 0;
 
+  function signalState(state) {
+    microsleepStreak = 0;
+    window.ntMuseDSP = Object.assign({}, window.ntMuseDSP, { signalState: state });
+    window.dispatchEvent(new CustomEvent("nt-data"));
+  }
   window.addEventListener("nt-muse-eeg", function (e) {
+    if (!window.ntMuseConnected || !window.NT_LIVE) return;
     var d = e && e.detail;
-    if (!d || !d.channel || !d.samples) return;
-    pushSamples(d.channel, d.samples);
+    if (!d || !d.samples || !pushSamples(d.channel, d.samples, d.index, d.discontinuity)) return;
+    var channels = Object.keys(buf);
+    if (!channels.every(function (ch) { return buf[ch].length >= WIN && fresh[ch] >= FS; })) return;
     var now = (window.performance && performance.now) ? performance.now() : Date.now();
     if (now - lastEmit < EMIT_MS) return;
     lastEmit = now;
-    var out = compute();
-    if (out) apply(out);
+    channels.forEach(function (ch) { fresh[ch] = 0; });
+    try {
+      var out = compute();
+      if (out) apply(out);
+    } catch (error) {
+      console.error("[NeuroTech] EEG processing failed:", error);
+      signalState("error");
+    }
   });
 
-  // Reset internal state on every connect/disconnect. We clear the
-  // cumulative microsleep counter and the in-progress baseline buffer,
-  // but PRESERVE the persisted per-user baseline (kept in localStorage) so
-  // re-pairings don't force a 2-minute recalibration every time.
-  window.addEventListener("nt-muse", function () {
-    buf.TP9.length = 0; buf.AF7.length = 0;
-    buf.AF8.length = 0; buf.TP10.length = 0;
+  function resetState() {
+    Object.keys(buf).forEach(function (ch) { buf[ch].length = 0; fresh[ch] = 0; });
+    sequence = {};
     ema = null;
     lastEmit = 0;
     statusHistory.length = 0;
     microsleepStreak = 0;
     msPrev = false;
     msEvents = 0;
+    lastQualityLevel = null;
+    lastChannelSet = null;
     baselineBuffer.length = 0;
-  });
+    window.ntMuseDSP = {
+      last: null, bands: null, predict: null, microsleepEvents: 0,
+      signalState: "waiting", baseline: baseline, baselineProgress: baseline ? 1 : 0,
+      baselineCount: 0, baselineTarget: BASELINE_TARGET,
+    };
+  }
+  function resetForIdentity() { loadBaseline(); resetState(); }
+  window.addEventListener("nt-muse", resetForIdentity);
+  window.addEventListener("nt-session", resetForIdentity);
+  resetForIdentity();
 
-  window.ntMuseDSP = { last: null, bands: null, predict: null };
 })();
