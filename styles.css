@@ -2777,6 +2777,16 @@ body.nt-light .nt-ai-plus {
 .worker-calibration-top output{font-size:29px;line-height:1;font-weight:800;font-variant-numeric:tabular-nums;color:var(--nt-blue);white-space:nowrap}
 .worker-calibration-track{height:9px;overflow:hidden;margin-top:14px;border-radius:999px;background:var(--nt-bg-deep)}.worker-calibration-track span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#2f6eec,#75bcff);transition:width .35s}
 .worker-calibration-card small{display:block;margin-top:9px;font-size:10px;color:var(--nt-text-3);line-height:1.4}
+.worker-signal-details{margin:12px 24px 0;padding:16px;border-radius:16px;background:var(--nt-surface);box-shadow:var(--nt-shadow-out-sm);color:var(--nt-text)}
+.worker-signal-heading,.worker-signal-channel-head,.worker-signal-values{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.worker-signal-heading strong{display:block;font-size:14px}.worker-signal-heading span:not(.worker-signal-dot){display:block;margin-top:3px;font-size:11px;color:var(--nt-text-2)}
+.worker-signal-dot{width:9px;height:9px;flex:none;border-radius:50%;background:#f59e0b}.worker-signal-dot.is-live{background:#22c55e;box-shadow:0 0 8px #22c55e}
+.worker-signal-summary,.worker-signal-tip,.worker-signal-details>p{font-size:11px;line-height:1.5;color:var(--nt-text-2)}
+.worker-signal-list{display:grid;gap:8px;margin-top:12px}.worker-signal-channel{padding:10px 12px;border-radius:12px;background:var(--nt-bg-deep)}
+.worker-signal-channel-head strong{font-size:12px}.worker-signal-channel-head span,.worker-signal-values,.worker-signal-channel small{font-size:10px;color:var(--nt-text-2)}
+.worker-signal-values{margin-top:4px}.worker-signal-channel svg{display:block;width:100%;height:32px;margin-top:6px}.worker-signal-channel small{display:block;margin-top:4px}
+.worker-signal-reconnect{width:100%;min-height:42px;border:0;border-radius:12px;background:#2563eb;color:white;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer}
+@media (min-width:761px){.worker-live>.worker-signal-details{display:none}}
 .worker-theme-card{margin:18px 24px 0;padding:14px 16px;border-radius:16px;background:var(--nt-surface);border:var(--nt-hairline);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;color:var(--nt-text)}
 .worker-theme-card strong{font-size:13px}
 .nt-opening{min-height:100dvh;display:grid;place-items:center;background:radial-gradient(circle at 50% 40%,#153872,#081225 65%);color:#eef6ff}

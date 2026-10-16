@@ -79,9 +79,12 @@ test('radio disconnect freezes monitoring, clears stale DSP, and reconnect has o
   muse.device.gatt.disconnect();
   assert.equal(c.ntMuseConnected, false);
   assert.equal(c.NT_LIVE, false);
+  assert.equal(c.ntMuse.status().lastDisconnect.reason, 'gatt');
+  assert.ok(c.ntMuse.status().lastDisconnect.durationMs >= 0);
   assert.equal(c.ntDeviceStatus().battery, null);
   assert.equal(c.ntMuseDSP.last, null);
   await c.ntDeviceConnect('real');
+  assert.equal(c.ntMuse.status().lastDisconnect, null);
   assert.equal(muse.chars.get('0003').listeners.get('characteristicvaluechanged').size, 1);
 });
 

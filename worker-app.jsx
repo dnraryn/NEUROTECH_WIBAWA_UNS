@@ -49,21 +49,71 @@ const WorkerCalibrationCard = () => {
   React.useEffect(() => {
     const update = () => refresh();
     for (const event of ["nt-data", "nt-device", "nt-muse-baseline"]) window.addEventListener(event, update);
-    return () => { for (const event of ["nt-data", "nt-device", "nt-muse-baseline"]) window.removeEventListener(event, update); };
+    const timer = setInterval(update, 1000);
+    return () => { clearInterval(timer); for (const event of ["nt-data", "nt-device", "nt-muse-baseline"]) window.removeEventListener(event, update); };
   }, []);
   const device = window.ntDeviceStatus?.() || {};
+  const radio = window.ntMuse?.status?.() || {};
   const dsp = window.ntMuseDSP || {};
   if (!device.real || !device.connected || dsp.baseline) return null;
   const target = dsp.baselineTarget || 120;
   const count = Math.min(target, Math.max(0, dsp.baselineCount || 0));
-  const remaining = target - count;
+  const remaining = radio.connectedAt ? Math.max(0, Math.ceil((target * 1000 - (Date.now() - radio.connectedAt)) / 1000)) : target;
   const clock = String(Math.floor(remaining / 60)).padStart(2, "0") + ":" + String(remaining % 60).padStart(2, "0");
   const quality = dsp.quality?.level;
   const paused = quality === "bad" || quality === "limited" || ["artifact", "no-signal", "error"].includes(dsp.signalState);
+  const waiting = remaining === 0 && count < target;
   return <section className="worker-calibration-card" aria-label="Kalibrasi Muse">
-    <div className="worker-calibration-top"><div><strong>Kalibrasi Muse</strong><span>{paused ? "Sinyal belum layak · periksa sensor" : "Duduk tenang, tetap terjaga, mata terbuka"}</span></div><output aria-label="Waktu kalibrasi tersisa">{clock}</output></div>
+    <div className="worker-calibration-top"><div><strong>Kalibrasi Muse</strong><span>{waiting ? "Waktu minimum selesai · menunggu sinyal layak" : paused ? "Sinyal belum layak · periksa sensor" : "Duduk tenang, tetap terjaga, mata terbuka"}</span></div><output aria-label="Waktu minimum kalibrasi tersisa">{clock}</output></div>
     <div className="worker-calibration-track" role="progressbar" aria-label="Kemajuan kalibrasi" aria-valuemin="0" aria-valuemax={target} aria-valuenow={count}><span style={{ width: `${count / target * 100}%` }} /></div>
-    <small>{count}/{target} jendela EEG bersih · hitungan berhenti jika sinyal terganggu</small>
+    <small>{count}/{target} jendela EEG bersih. Waktu berjalan terus; hasil baru aktif setelah semua jendela layak terkumpul.</small>
+  </section>;
+};
+
+const WorkerSignalDetails = () => {
+  const [, refresh] = React.useReducer((n) => n + 1, 0);
+  const [pairing, setPairing] = React.useState(false);
+  React.useEffect(() => {
+    const update = () => refresh();
+    const timer = setInterval(update, 1000);
+    for (const event of ["nt-data", "nt-device"]) window.addEventListener(event, update);
+    return () => { clearInterval(timer); for (const event of ["nt-data", "nt-device"]) window.removeEventListener(event, update); };
+  }, []);
+  const radio = window.ntMuse?.status?.() || {};
+  const dsp = window.ntMuseDSP || {};
+  const disconnected = !radio.connected && radio.lastDisconnect?.reason === "gatt";
+  if ((!radio.connected || dsp.baseline) && !disconnected) return null;
+  const now = Date.now();
+  const receiving = radio.connected && radio.lastEEGAt && now - radio.lastEEGAt < 3000;
+  const qualityFresh = dsp.quality?.checkedAt && now - dsp.quality.checkedAt < 5000;
+  const gaps = dsp.stream?.discontinuities || 0;
+  const reconnect = async () => {
+    if (pairing) return;
+    setPairing(true);
+    try { await window.ntDeviceConnect("real"); }
+    catch (error) { window.toast?.(error?.message || "Muse belum tersambung", { kind: "warn" }); }
+    finally { setPairing(false); }
+  };
+  return <section className="worker-signal-details" aria-label="Detail sinyal Muse saat kalibrasi">
+    <div className="worker-signal-heading"><div><strong>Detail sinyal</strong><span>{disconnected ? "Bluetooth terputus" : receiving ? "EEG masuk · kualitas diperiksa terpisah" : "Menunggu paket EEG baru"}</span></div><span className={receiving ? "worker-signal-dot is-live" : "worker-signal-dot"} /></div>
+    {disconnected ? <><p>Koneksi Bluetooth terputus{radio.lastDisconnect.pageHidden ? " saat aplikasi di latar belakang" : ""}. Kalibrasi perlu dimulai lagi setelah tersambung.</p><button type="button" className="worker-signal-reconnect" disabled={pairing} onClick={reconnect}>{pairing ? "Menghubungkan…" : "Sambungkan Muse lagi"}</button></>
+      : <>
+        <p className="worker-signal-summary">{radio.samples || 0} sampel diterima · {receiving ? "paket terakhir baru saja" : radio.lastEEGAt ? `paket terakhir ${Math.floor((now - radio.lastEEGAt) / 1000)} detik lalu` : "belum ada paket"} · {gaps} jeda paket terdeteksi</p>
+        <div className="worker-signal-list">{["TP9", "AF7", "AF8", "TP10"].map((ch) => {
+          const lastAt = radio.channelLastEEGAt?.[ch] || dsp.stream?.lastSampleAt?.[ch];
+          const fresh = lastAt && now - lastAt < 3000;
+          const q = qualityFresh && fresh ? dsp.quality?.channels?.[ch] : null;
+          const wave = fresh ? window.ntManagement?.waveform?.(window.ntMuse?.readEEG?.(ch)) : null;
+          return <div className="worker-signal-channel" key={ch}>
+            <div className="worker-signal-channel-head"><strong>{ch}</strong><span>{!fresh ? "Tidak ada data baru" : !q ? "Menunggu penilaian" : ({ good: "Layak", limited: "Terbatas", bad: "Tidak dipakai" })[q.state]}</span></div>
+            <div className="worker-signal-values"><span>{radio.channelSamples?.[ch] || 0} sampel</span><span>Puncak-ke-puncak {Number.isFinite(q?.peakToPeak) ? `${q.peakToPeak.toFixed(1)} µV` : "—"}</span></div>
+            <small>Setelah detrend: {Number.isFinite(q?.processedPeakToPeak) ? `${q.processedPeakToPeak.toFixed(1)} µV` : "—"}</small>
+            {wave && <svg role="img" aria-label={`Gelombang EEG ${ch}`} viewBox="0 0 600 32" preserveAspectRatio="none"><line x1="0" y1="16" x2="600" y2="16" stroke="var(--nt-bg-deep)"/><path d={wave.path} fill="none" stroke="#8b5cf6" strokeWidth="1.5"/></svg>}
+            {q?.reasons?.length > 0 && <small>{q.reasons.join(" · ")}</small>}
+          </div>;
+        })}</div>
+        <p className="worker-signal-tip">Jika AF7/AF8 terbatas, rapikan rambut dan pastikan sensor depan menempel pada kulit. Tetap diam dengan mata terbuka. Grafik bergerak berarti paket masuk; indeks belum tentu layak.</p>
+      </>}
   </section>;
 };
 
@@ -80,4 +130,4 @@ const WorkerAppInstall = () => {
     <Link to="/landing" className="worker-app-back">Kembali ke website</Link>
   </div></main>;
 };
-Object.assign(window, { WorkerAppInstall, WorkerAppInstallCard, WorkerCalibrationCard });
+Object.assign(window, { WorkerAppInstall, WorkerAppInstallCard, WorkerCalibrationCard, WorkerSignalDetails });

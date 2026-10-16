@@ -30,6 +30,23 @@ test('moderate EEG above the previous 100 uV limit produces indices and a risk c
   assert.equal(c.ntMuseDSP.last.classificationProvisional, true); // Calibration still in progress.
 });
 
+test('a packet gap invalidates all channel windows until a new synchronized montage arrives', async () => {
+  const { b, c } = await setup();
+  feed(b, { count: 512 });
+  assert.ok(c.ntMuseDSP.quality);
+  const half = wave().slice(0, 256);
+  b.setClock(3000);
+  b.emit('nt-muse-eeg', { channel: 'AF7', samples: half, discontinuity: true });
+  assert.equal(c.ntMuseDSP.stream.discontinuities, 1);
+  assert.equal(c.ntMuseDSP.quality, null);
+  for (const ch of ['TP9', 'AF8', 'TP10']) b.emit('nt-muse-eeg', { channel: ch, samples: half });
+  assert.equal(c.ntMuseDSP.quality, null);
+  b.setClock(4000);
+  for (const ch of ['TP9', 'AF7', 'AF8', 'TP10']) b.emit('nt-muse-eeg', { channel: ch, samples: half });
+  assert.ok(c.ntMuseDSP.quality);
+  assert.equal(c.ntMuseDSP.stream.lastSampleAt.AF7, 4000);
+});
+
 test('linear voltage drift is removed before quality checks and spectral classification', async () => {
   const plain = await setup(), drifting = await setup();
   send(plain.b, {});

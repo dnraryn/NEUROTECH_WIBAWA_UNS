@@ -17,7 +17,8 @@
   };
   var device = null, ctrlChar = null, battery = null;
   var samples = 0, connected = false, connecting = false, attempt = 0;
-  var lastEEGAt = null, connectedAt = null, channelSamples = {}, eegBuffers = {};
+  var lastEEGAt = null, connectedAt = null, channelSamples = {}, channelLastEEGAt = {}, eegBuffers = {};
+  var lastDisconnect = null;
   var protocol = null, controlBuffer = "", lastAthenaEEG = null, athenaGap = false;
   var subscriptions = [];
   var disconnecting = Promise.resolve();
@@ -94,6 +95,7 @@
     samples += decoded.length;
     lastEEGAt = Date.now();
     channelSamples[channel] = (channelSamples[channel] || 0) + decoded.length;
+    channelLastEEGAt[channel] = lastEEGAt;
     var buffer = eegBuffers[channel] || (eegBuffers[channel] = []);
     for (var i = 0; i < decoded.length; i++) buffer.push(decoded[i]);
     if (buffer.length > 256) buffer.splice(0, buffer.length - 256);
@@ -148,7 +150,9 @@
             lastAthenaEEG = now;
             // The mux transport index counts other sensors too, so it is not
             // the classic per-electrode EEG index. Never feed it to that check.
-            channels.forEach(function (ch, i) { emitEEG(ch, decoded[i], { discontinuity: gap }); });
+            // Preserve the gap flag on every channel, but invalidate the shared
+            // montage only once at the beginning of this mux packet.
+            channels.forEach(function (ch, i) { emitEEG(ch, decoded[i], { discontinuity: gap, discontinuityStart: i === 0 }); });
           } else if (tag === 0x88 || tag === 0x98) {
             updateBattery((bytes[start] | (bytes[start + 1] << 8)) / 256);
           }
@@ -163,6 +167,14 @@
   }
   function cleanup(reason) {
     var hadDevice = !!device || connected || connecting;
+    if (reason === "user") lastDisconnect = null;
+    if (hadDevice) {
+      var now = Date.now();
+      lastDisconnect = { reason: reason || "disconnected", at: now,
+        eegAgeMs: lastEEGAt === null ? null : Math.max(0, now - lastEEGAt),
+        durationMs: connectedAt === null ? null : Math.max(0, now - connectedAt),
+        pageHidden: typeof document !== "undefined" && document.visibilityState === "hidden" };
+    }
     attempt++;
     if (device) device.removeEventListener("gattserverdisconnected", onDisconnected);
     subscriptions.forEach(function (s) {
@@ -179,6 +191,7 @@
     lastEEGAt = null;
     connectedAt = null;
     channelSamples = {};
+    channelLastEEGAt = {};
     eegBuffers = {};
     connected = connecting = false;
     setPhase("idle");
@@ -273,6 +286,7 @@
       assertAttempt(id);
       connected = true;
       connectedAt = Date.now();
+      lastDisconnect = null;
       connecting = false;
       setPhase("ready");
       window.dispatchEvent(new CustomEvent("nt-muse", {
@@ -309,7 +323,9 @@
   function status() {
     return { connected: connected, name: device ? device.name : null,
       battery: battery, samples: samples, supported: supported(), protocol: protocol, phase: phase,
-      lastEEGAt: lastEEGAt, connectedAt: connectedAt, channelSamples: Object.assign({}, channelSamples) };
+      lastEEGAt: lastEEGAt, connectedAt: connectedAt,
+      channelSamples: Object.assign({}, channelSamples),
+      channelLastEEGAt: Object.assign({}, channelLastEEGAt), lastDisconnect: lastDisconnect };
   }
   window.ntMuse = { supported: supported, connect: connect, disconnect: disconnect, status: status,
     readEEG: function (channel) { return (eegBuffers[channel] || []).slice(); },

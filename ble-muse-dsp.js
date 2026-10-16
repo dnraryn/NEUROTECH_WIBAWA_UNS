@@ -153,28 +153,33 @@
   var buf = { TP9: [], AF7: [], AF8: [], TP10: [] };
   var fresh = { TP9: 0, AF7: 0, AF8: 0, TP10: 0 };
   var sequence = {};
-  function pushSamples(channel, samples, index, discontinuity) {
+  var stream = { lastSampleAt: {}, discontinuities: 0, lastDiscontinuityAt: null };
+  function pushSamples(channel, samples, index, discontinuity, discontinuityStart) {
     var b = buf[channel];
     if (!b || !samples.length) return false;
     for (var i = 0; i < samples.length; i++) if (!Number.isFinite(samples[i])) return false;
-    if (discontinuity) {
-      b.length = 0;
-      fresh[channel] = 0;
-      delete sequence[channel];
-      microsleepStreak = 0;
-    }
+    var gap = !!discontinuity && discontinuityStart !== false;
     if (typeof index === "number") {
       var previous = sequence[channel];
       if (previous === index) return false;
-      if (previous !== undefined && ((previous + 1) & 65535) !== index) {
-        b.length = 0;
-        fresh[channel] = 0;
-        microsleepStreak = 0;
-      }
+      if (previous !== undefined && ((previous + 1) & 65535) !== index) gap = true;
+    }
+    if (gap) {
+      // A packet gap invalidates the synchronized montage, not just one sensor.
+      Object.keys(buf).forEach(function (ch) { buf[ch].length = 0; fresh[ch] = 0; });
+      sequence = {};
+      stream.discontinuities++;
+      stream.lastDiscontinuityAt = Date.now();
+      microsleepStreak = 0;
+      window.ntMuseDSP = Object.assign({}, window.ntMuseDSP, { quality: null, signalState: "waiting" });
+      window.dispatchEvent(new CustomEvent("nt-data"));
+    }
+    if (typeof index === "number") {
       sequence[channel] = index;
     }
     for (var j = 0; j < samples.length; j++) b.push(samples[j]);
     fresh[channel] += samples.length;
+    stream.lastSampleAt[channel] = Date.now();
     if (b.length > WIN * 2) b.splice(0, b.length - WIN * 2);
     return true;
   }
@@ -337,13 +342,16 @@
     // Accumulate baseline samples while the user is in their first ~2 min
     // of clean data. Calibrate while awake, eyes open. A fallback ratio cannot
     // determine whether a new user is drowsy and must not prevent calibration.
-    if (!baseline && !movementArtifact && [fiRaw, cliRaw, eiRaw, thetaAlpha].every(function (v) { return Number.isFinite(v) && v > EPS; })) {
+    if (!baseline && !movementArtifact && baselineBuffer.length < BASELINE_TARGET &&
+        [fiRaw, cliRaw, eiRaw, thetaAlpha].every(function (v) { return Number.isFinite(v) && v > EPS; })) {
       baselineBuffer.push({
         fiRaw: Math.max(EPS, fiRaw), cliRaw: Math.max(EPS, cliRaw), eiRaw: Math.max(EPS, eiRaw),
         thetaAlpha: Math.max(EPS, thetaAlpha), betaRel: Math.max(EPS, perBand.beta / total * 100),
       });
-      if (baselineBuffer.length >= BASELINE_TARGET) { finalizeBaseline(); return null; }
     }
+    var connectedAt = window.ntMuse?.status?.().connectedAt;
+    if (!baseline && baselineBuffer.length >= BASELINE_TARGET && Number.isFinite(connectedAt) &&
+        Date.now() - connectedAt >= BASELINE_TARGET * 1000) { finalizeBaseline(); return null; }
     if (!baseline) {
       Object.assign(window.ntMuseDSP, {
         baseline: null, baselineCount: baselineBuffer.length,
@@ -444,6 +452,7 @@
     // read them directly (e.g. the Worker Live EEG Band Power bars).
     window.ntMuseDSP = {
       quality: window.ntMuseDSP && window.ntMuseDSP.quality,
+      stream: stream,
       last: out, bands: out.bands, signalState: out.qualityLevel === "limited" ? "limited" : baseline ? "ready" : "calibrating",
       microsleepEvents: msEvents,
       // Calibration status — UI can show "Kalibrasi N/120 s" while baseline
@@ -505,7 +514,7 @@
   window.addEventListener("nt-muse-eeg", function (e) {
     if (!window.ntMuseConnected || !window.NT_LIVE) return;
     var d = e && e.detail;
-    if (!d || !d.samples || !pushSamples(d.channel, d.samples, d.index, d.discontinuity)) return;
+    if (!d || !d.samples || !pushSamples(d.channel, d.samples, d.index, d.discontinuity, d.discontinuityStart)) return;
     var channels = Object.keys(buf);
     if (!channels.every(function (ch) { return buf[ch].length >= WIN && fresh[ch] >= FS; })) return;
     var now = (window.performance && performance.now) ? performance.now() : Date.now();
@@ -524,6 +533,7 @@
   function resetState() {
     Object.keys(buf).forEach(function (ch) { buf[ch].length = 0; fresh[ch] = 0; });
     sequence = {};
+    stream = { lastSampleAt: {}, discontinuities: 0, lastDiscontinuityAt: null };
     ema = null;
     lastEmit = 0;
     statusHistory.length = 0;
@@ -537,6 +547,7 @@
       last: null, bands: null, predict: null, microsleepEvents: 0,
       signalState: "waiting", baseline: baseline, baselineProgress: baseline ? 1 : 0,
       baselineCount: 0, baselineTarget: BASELINE_TARGET,
+      stream: stream,
     };
   }
   function resetForIdentity() { baseline = null; resetState(); }

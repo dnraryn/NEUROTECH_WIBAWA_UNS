@@ -289,6 +289,13 @@ const WorkerLive = () => {
     const timer = setInterval(() => setSignalNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, [muse.real]);
+  React.useEffect(() => {
+    if (muse.real && window.matchMedia?.("(max-width: 760px)")?.matches) {
+      // A visible worker session benefits from keeping the screen awake.
+      // The helper releases this lock when the page is hidden or Muse disconnects.
+      window.ntMobileMonitor?.setKeepAwake(true);
+    }
+  }, [muse.real]);
   const dsp = window.ntMuseDSP || {};
   const liveModel = window.ntManagement.snapshot({ now: Date.now(), device: window.ntMuse?.status?.() || {}, dsp });
   const demoActive = !muse.real && window.NT_LIVE === true;
@@ -385,7 +392,7 @@ const WorkerLive = () => {
       </div>
     </div>
 
-      {!demoActive && (
+      {!demoActive && (dsp.baseline || !muse.real) && (
       <div role="status" style={{ margin: "12px 24px 0", padding: "10px 14px",
         borderRadius: 12, background: "var(--nt-surface)", color: "var(--nt-text-2)",
         fontSize: 12, lineHeight: 1.5 }}>
@@ -394,6 +401,7 @@ const WorkerLive = () => {
     )}
 
     <WorkerCalibrationCard />
+    <WorkerSignalDetails />
 
     {/* MAIN: Cognitive Load gauge + side fatigue gauge — live values */}
     <div className="worker-live-gauges" style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 16, marginTop: 18 }}>
