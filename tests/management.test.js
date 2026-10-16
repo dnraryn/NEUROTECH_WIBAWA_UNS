@@ -8,6 +8,22 @@ function setup() {
 const day = 86400000, now = 40 * day;
 const point = (ts, fi = 40, extra = {}) => ({ source: 'muse', ts, fi, cli: 30, ei: 60, ...extra });
 
+test('a new Muse pairing hides indices and history until its own 120 clean windows complete', () => {
+  const model = setup(), device = { connected: true, lastEEGAt: now };
+  const before = model.snapshot({ now, device, dsp: { baselineTarget: 120, baselineCount: 35,
+    signalState: 'calibrating', last: point(now, 73) }, history: [point(now - 1000, 78)] });
+  assert.equal(before.valid, false);
+  assert.equal(before.latest, null);
+  assert.equal(before.preview.length, 0);
+  assert.equal(before.history.length, 0);
+  assert.match(before.message, /01:25/);
+  const ready = model.snapshot({ now, device, dsp: { baselineTarget: 120, baselineCount: 120,
+    baseline: { ts: now - 500 }, signalState: 'ready', last: point(now, 43) },
+    history: [point(now - 1000, 78), point(now, 43)] });
+  assert.equal(ready.latest.fi, 43);
+  assert.deepEqual(ready.history.map(p => p.fi), [43]);
+});
+
 test('management shows real fresh indices but distinguishes artifacts, stale data and GATT-only connections', () => {
   const model = setup();
   const device = { connected: true, lastEEGAt: now, samples: 1024 };

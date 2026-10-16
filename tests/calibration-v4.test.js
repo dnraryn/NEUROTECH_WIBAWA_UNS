@@ -23,10 +23,17 @@ test('initial high theta cannot trigger microsleep or prevent a clean personal c
  assert.equal(b.c.ntMuseDSP.baselineProgress,1);b.setClock(122000);send(b,wave);
  const out=b.c.ntMuseDSP.last;assert.equal(out.classificationProvisional,false);assert.equal(out.fi,40);assert.equal(out.cli,40);assert.equal(out.ei,50);
 });
-test('expired, future, incompatible-protocol and old-pipeline baselines require recalibration without deleting history',async()=>{
- for(const change of [{ts:-86400000},{ts:1000000},{protocol:'athena'},{algorithmVersion:'eeg-heuristic-v3'},{sampleRate:250}]){const b=await setup({...base(),...change});assert.equal(b.c.ntMuseDSP.baseline,null);assert.ok(b.local.has('nt-muse-baseline-v4:A:one'));}
- const b=await setup(base());assert.ok(b.c.ntMuseDSP.baseline);b.setClock(86402000);feed(b,{count:512});assert.equal(b.c.ntMuseDSP.last.classificationProvisional,true);
+test('old saved baselines never skip a new connection calibration',async()=>{
+ for(const change of [{ts:-86400000},{ts:1000000},{protocol:'athena'},{algorithmVersion:'eeg-heuristic-v3'},{sampleRate:250},{}]){
+  const b=await setup({...base(),...change});assert.equal(b.c.ntMuseDSP.baseline,null);assert.equal(b.c.ntMuseDSP.baselineCount,0);
+  b.setClock(2000);feed(b,{count:512});assert.equal(b.c.ntMuseDSP.baselineCount,1);
+ }
 });
 test('microsleep requires calibrated consecutive windows and a scheduling gap breaks the streak',async()=>{
- const b=await setup(base());for(const ts of [2000,3000,4501,5501,6501]){b.setClock(ts);feed(b,{count:512});assert.equal(b.c.ntMuseDSP.last.microsleep,ts===6501);}
+ const b=await setup(base());for(let i=0;i<120;i++){b.setClock(2000+i*1000);feed(b,{count:512,offset:i*256});}
+ assert.ok(b.c.ntMuseDSP.baseline);
+ const wave=Float32Array.from({length:512},(_,i)=>20*Math.sin(2*Math.PI*6*i/256)+2*Math.sin(2*Math.PI*10*i/256)+Math.sin(2*Math.PI*20*i/256));
+ for(const [ts,expected] of [[122000,false],[123000,false],[124000,true],[126000,false],[127000,false],[128000,true]]){
+  b.setClock(ts);send(b,wave);assert.equal(b.c.ntMuseDSP.last.microsleep,expected);
+ }
 });

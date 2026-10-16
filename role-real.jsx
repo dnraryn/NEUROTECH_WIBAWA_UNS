@@ -66,7 +66,7 @@ const RealSupervisorDashboard = () => {
     <div className="supervisor-kpis">
       {realMetric("Pekerja terdaftar", realMembers().length, `${eligible} sesi dapat dinilai`)}
       {realMetric("Anggota dengan sesi", workerIds.size, `${rows.length} sesi dalam periode ini`)}
-      {realMetric("Rerata indeks FI", archiveNumber(meanFI), `${measured.length} sesi · ${data.provisional ? "termasuk kalibrasi" : "hasil bersih"}`)}
+      {realMetric("Rerata indeks FI", archiveNumber(meanFI), `${measured.length} sesi · ${data.provisional ? "termasuk hasil sementara arsip lama" : "hasil bersih"}`)}
       {realMetric("Indikasi microsleep", incidents, "Perlu tinjauan petugas")}
     </div>
     <div className="supervisor-chart-grid"><SupervisorDailyTrend points={data.trend} /><section className="supervisor-chart-card"><div className="supervisor-section-heading"><h2>Hasil sesi pekerja</h2><span>Sesi terakhir pada periode ini</span></div><div className="supervisor-status-stack" role="img" aria-label={categories.map((c) => `${c.label}: ${c.count}`).join(", ")}>{categories.filter((c) => c.count).map((c) => <span key={c.key} style={{ flex: c.count, background: c.color }} />)}</div><div className="supervisor-status-legend">{categories.map((c) => <div key={c.key}><span><i style={{ background: c.color }} />{c.label}</span><strong>{c.count}</strong></div>)}</div></section></div>
@@ -126,7 +126,7 @@ const RealWorkerHome = () => {
   return <div className="nt-screen worker-home" style={{ padding: "22px 22px 100px", display: "flex", flexDirection: "column", gap: 16 }}>
     <header className="worker-home-header"><div><span>{account?.companyName}</span><h1>Halo, {account?.memberName}</h1></div><AskAIButton variant="plus" /></header>
     <WorkerSessionPanel />
-    <WorkerAppInstallCard />
+    <WorkerCalibrationCard />
     <section className="worker-home-results" aria-label="Hasil sesi pribadi terakhir"><div className="worker-home-section-heading"><h2>Hasil terakhir</h2><Link to="/w/stats" aria-label="Lihat arsip pribadi">Riwayat ↗</Link></div><div className="worker-home-scores">{[["Fatigue", latest?.summary.meanFI, "#2563eb"], ["Beban", latest?.summary.meanCLI, "#8b5cf6"], ["Engagement", latest?.summary.meanEI, "#0891b2"]].map(([label, value, color]) => <div key={label} style={{ "--score-color": color }}><small>{label}</small><strong>{archiveNumber(value)}</strong></div>)}</div><p className="worker-home-caption">{latest ? `${realDate(latest.startedAt)} · ${latest.summary.clean} hasil bersih` : "Belum ada sesi"}</p></section>
     <PersonalSessionSettings />
     <NeuroTabBar active="home" />

@@ -19,12 +19,9 @@
   var EPS = 1e-6;
   var ALGORITHM_VERSION = "eeg-heuristic-v4";
   window.ntEEGAlgorithmVersion = ALGORITHM_VERSION;
-  // Personal baseline target = ~120 s of clean data. We emit ~every 1 s, so
-  // ~120 emitted windows. Stored in localStorage so subsequent pairings
-  // skip the calibration step.
+  // Every pairing collects ~120 clean one-second windows before results are shown.
   var BASELINE_TARGET = 120;
   // Detrending changes spectral features; do not reuse pre-filter baselines.
-  var BASELINE_PREFIX = "nt-muse-baseline-v4:";
   var BASELINE_MAX_AGE = 24 * 3600000; // Engineering freshness policy, not a clinical threshold.
   // Engineering defaults for this prototype, pending recorded-headband validation.
   var FILTER_POLICY = Object.freeze({ cleanP2P: 200, hardP2P: 400, cleanDeviation: 70,
@@ -182,15 +179,9 @@
     return true;
   }
 
-  // Ignore the old shared baseline: its owner cannot be determined.
+  // Calibration belongs to this connection. A new pairing starts fresh.
   var baseline = null;
   var baselineBuffer = [];
-  function baselineKey() {
-    var s = window.ntSession && window.ntSession.get();
-    return s && s.code && s.memberId
-      ? BASELINE_PREFIX + encodeURIComponent(s.code) + ":" + encodeURIComponent(s.memberId)
-      : null; // Demo calibration is kept in memory only.
-  }
   function validBaseline(value) {
     return value && value.algorithmVersion === ALGORITHM_VERSION && value.sampleRate === FS && value.windowSize === WIN &&
       ["classic", "athena"].includes(value.protocol) &&
@@ -199,14 +190,6 @@
       ["fiRaw", "cliRaw", "eiRaw", "thetaAlpha", "betaRel"].every(function (k) {
       return Number.isFinite(value[k]) && value[k] > 0;
     });
-  }
-  function loadBaseline() {
-    baseline = null;
-    try {
-      var key = baselineKey();
-      var saved = key && JSON.parse(localStorage.getItem(key) || "null");
-      if (validBaseline(saved)) baseline = saved;
-    } catch (error) { /* Invalid or inaccessible storage: calibrate again. */ }
   }
 
   function median(values) {
@@ -232,8 +215,6 @@
     baseline.eiRaw = 1 / baseline.fiRaw;
     ema = null; statusHistory.length = 0; microsleepStreak = 0;
     Object.assign(window.ntMuseDSP, { baseline: baseline, baselineProgress: 1, baselineCount: baselineBuffer.length });
-    try { var key = baselineKey(); if (key) localStorage.setItem(key, JSON.stringify(baseline)); }
-    catch (e) { /* quota / private mode */ }
     window.dispatchEvent(new CustomEvent("nt-muse-baseline", {
       detail: { baseline: baseline },
     }));
@@ -363,6 +344,12 @@
       });
       if (baselineBuffer.length >= BASELINE_TARGET) { finalizeBaseline(); return null; }
     }
+    if (!baseline) {
+      Object.assign(window.ntMuseDSP, {
+        baseline: null, baselineCount: baselineBuffer.length,
+        baselineProgress: baselineBuffer.length / BASELINE_TARGET, baselineTarget: BASELINE_TARGET,
+      });
+    }
 
     // EMA-smooth the running indices so single-window noise doesn't make
     // the gauges jitter.
@@ -476,7 +463,6 @@
   // Allow the UI to force-recalibrate (e.g. a "kalibrasi ulang" button).
   window.ntMuseClearBaseline = function () {
     baseline = null;
-    try { var key = baselineKey(); if (key) localStorage.removeItem(key); } catch (error) { /* ignore */ }
     resetState();
     var w = window.CURRENT_WORKER;
     if (w && window.ntHistory) window.ntHistory(w.id).length = 0;
@@ -553,7 +539,7 @@
       baselineCount: 0, baselineTarget: BASELINE_TARGET,
     };
   }
-  function resetForIdentity() { loadBaseline(); resetState(); }
+  function resetForIdentity() { baseline = null; resetState(); }
   window.addEventListener("nt-muse", resetForIdentity);
   window.addEventListener("nt-session", resetForIdentity);
   resetForIdentity();

@@ -4,11 +4,6 @@ const { browser, fakeMuse, feed } = require('./helpers');
 test('small personal spectral ratios normalize around baseline instead of pinning the index', async () => {
   const b = browser(), muse = fakeMuse(b);
   b.load('ble-muse.js'); b.load('ble-muse-dsp.js'); b.load('mock-data.jsx');
-  b.local.set('nt-muse-baseline-v4:A:one', JSON.stringify({
-    fiRaw: 101 / 16, cliRaw: 1 / 100, eiRaw: 16 / 101,
-    thetaAlpha: 1 / 100, betaRel: 16 / 117 * 100,
-    algorithmVersion: "eeg-heuristic-v4", sampleRate: 256, windowSize: 512, protocol: "classic", ts: 1000,
-  }));
   b.c.ntSession.set({ code: 'A', memberId: 'one' });
   await b.c.ntDeviceConnect('real');
   function signal(theta, offset) {
@@ -18,11 +13,13 @@ test('small personal spectral ratios normalize around baseline instead of pinnin
     });
     for (const channel of ['TP9', 'AF7', 'AF8', 'TP10']) b.emit('nt-muse-eeg', { channel, samples });
   }
-  b.setClock(2000); signal(1, 0);
+  for (let i = 0; i < 120; i++) { b.setClock(2000 + i * 1000); signal(1, i * 256); }
+  assert.equal(b.c.ntMuseDSP.baselineProgress, 1);
+  b.setClock(122000); signal(1, 120 * 256);
   assert.ok(Math.abs(b.c.ntMuseDSP.last.cli - 40) <= 2);
   assert.ok(Math.abs(b.c.ntMuseDSP.last.ei - 50) <= 2);
   const first = b.c.ntMuseDSP.last.cli;
-  b.setClock(4000); signal(2, 512);
+  b.setClock(123000); signal(2, 121 * 256);
   assert.ok(b.c.ntMuseDSP.last.cli > first);
   assert.equal(muse.device.gatt.connected, true);
 });
@@ -132,7 +129,7 @@ test('movement and flat EEG do not train baseline or publish fabricated scores',
   assert.equal(c.ntMuseDSP.last, null);
 });
 
-test('calibration persists per company/member and reset removes only the active baseline', async () => {
+test('each Muse pairing recalibrates and a different account cannot inherit its baseline', async () => {
   const { b, c } = setup();
   const member = (memberId, code = 'A') => ({ code, memberId, members: [], role: 'pekerja' });
   c.ntSession.set(member('one'));
@@ -143,19 +140,20 @@ test('calibration persists per company/member and reset removes only the active 
     feed(b, { offset: 512 + (i - 1) * 256 });
   }
   assert.equal(c.ntMuseDSP.baselineProgress, 1);
-  const first = b.local.get('nt-muse-baseline-v4:A:one');
-  assert.ok(first);
+  assert.ok(c.ntMuseDSP.baseline);
   c.ntSession.set(member('two'));
   assert.equal(c.ntMuseDSP.baseline, null);
   c.ntSession.set(member('one', 'B'));
   assert.equal(c.ntMuseDSP.baseline, null);
   c.ntSession.set(member('one'));
-  assert.equal(JSON.stringify(c.ntMuseDSP.baseline), first);
-  b.local.set('nt-muse-baseline-v4:A:two', first);
+  assert.equal(c.ntMuseDSP.baseline, null);
+  b.local.set('nt-muse-baseline-v4:A:one', '{"old":"baseline"}');
   c.ntMuseClearBaseline();
-  assert.equal(b.local.has('nt-muse-baseline-v4:A:one'), false);
-  assert.equal(b.local.has('nt-muse-baseline-v4:A:two'), true);
   assert.equal(c.ntMuseDSP.last, null);
+  await c.ntDeviceDisconnect();
+  await c.ntDeviceConnect('real');
+  assert.equal(c.ntMuseDSP.baseline, null);
+  assert.equal(c.ntMuseDSP.baselineCount, 0);
 });
 
 test('corrupt baselines and EEG received after disconnect cannot poison the next session', async () => {

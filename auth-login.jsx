@@ -85,6 +85,7 @@ const MemberLogin = ({ inviteCode = "", inviteToken = "" }) => {
             {busy ? "Memproses…" : verify ? "Saya sudah verifikasi · lanjut" : register ? "Buat akun & kirim verifikasi" : "Masuk"}
           </button>
         </form>
+        {!verify && !register && !isInvite && <button type="button" className="nt-auth-demo" disabled={busy} onClick={goDemo}>Coba mode demo <span>Simulasi tanpa akun atau Muse</span></button>}
         {verify ? <div className="nt-auth-foot">
           <a onClick={() => run(async () => { await window.ntAuth.resendVerification(); window.toast?.("Email verifikasi dikirim.", { kind: "info" }); })}>Kirim ulang email</a>
           {" · "}<a onClick={() => run(async () => { await window.ntAuth.signOut(); setVerify(false); })}>Ganti akun</a>

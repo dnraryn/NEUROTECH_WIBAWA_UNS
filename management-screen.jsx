@@ -407,7 +407,7 @@ const ManagementDashboard = () => {
             <output aria-label="Klasifikasi EEG" style={{ display: "block", fontSize: 27, lineHeight: 1.2, fontWeight: 800, margin: "8px 0", color: classColors[currentClass] || "var(--nt-text-3)" }}>{live.latest ? classLabels[currentClass] || "—" : "—"}</output>
             {live.latest && currentClass && <div style={{ fontSize: 11, marginBottom: 6 }}>Kategori tren: {classLabels[live.latest.status] || "—"}</div>}
             {live.latest?.outputScope === "frontal-only" && <div style={{ fontSize: 11, marginBottom: 6 }}>Hanya dari Fatigue Index kanal frontal; Cognitive Load belum tersedia.</div>}
-            <div style={{ fontSize: 11, lineHeight: 1.5, color: "var(--nt-text-2)" }}>{live.latest && currentClass ? live.latest.classificationProvisional ? "Sementara: kualitas terbatas atau baseline masih dikalibrasi. Belum menjadi penilaian final." : "Pola sesaat dari aturan indeks. Kategori tren diratakan dari beberapa jendela pengukuran." : "Belum dapat diklasifikasikan. Periksa status sinyal di atas."}</div>
+            <div style={{ fontSize: 11, lineHeight: 1.5, color: "var(--nt-text-2)" }}>{live.latest && currentClass ? live.latest.classificationProvisional ? "Sementara: kualitas sensor terbatas. Periksa sinyal sebelum mengambil keputusan." : "Pola sesaat dari aturan indeks. Kategori tren diratakan dari beberapa jendela pengukuran." : "Belum dapat diklasifikasikan. Periksa status sinyal di atas."}</div>
           </div>
         </div>
         <div className="frm-conclusion" role="region" aria-label="Kesimpulan sesi EEG" style={{ borderRadius: 12, padding: "12px 14px", borderLeft: `4px solid ${live.latest ? classColors[currentClass] || "#2563eb" : "#94a3b8"}`, background: "var(--nt-bg-2)" }}>

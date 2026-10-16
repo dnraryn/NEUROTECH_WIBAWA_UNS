@@ -96,8 +96,12 @@ const resolveRoute = (route) => {
 
 // Full-screen status message (redirect).
 const Splash = ({ text }) => (
-  <div className="app-shell" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
-    <div style={{ color: "var(--nt-text-2)", fontSize: 14, fontWeight: 600 }}>{text}</div>
+  <div className="app-shell nt-opening" role="status">
+    <div className="nt-opening-content">
+      <img src="assets/worker-app-192.png" width="76" height="76" alt="" />
+      <strong>neurotech</strong>
+      <span>{text}</span>
+    </div>
   </div>
 );
 
@@ -332,6 +336,12 @@ const DeviceButton = ({ embedded = false }) => {
 const App = () => {
   const route = useHashRoute();
   const [, bump] = React.useReducer((n) => n + 1, 0);
+  const [opening, setOpening] = React.useState(() => !!window.ntPWA?.state?.().installed);
+  React.useEffect(() => {
+    if (!opening) return;
+    const timer = setTimeout(() => setOpening(false), 1200);
+    return () => clearTimeout(timer);
+  }, [opening]);
 
   // Firebase session is in memory and refreshed from protected documents.
   const session = window.ntSession ? window.ntSession.get() : null;
@@ -437,6 +447,7 @@ const App = () => {
 
   const resolved = resolveRoute(route) || ROUTES["landing"];
   const chromeless = resolved.frame === "auth" || resolved.frame === "landing";
+  if (opening) return <Splash text="Memulai aplikasi…" />;
   if (authLoading && !demo && !chromeless) return <Splash text="Memeriksa sesi…" />;
 
   // Block rendering another persona's screen for a locked-in member.

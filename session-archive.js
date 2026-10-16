@@ -138,6 +138,9 @@
     if (!device.connected) return;
     if (!active && suppressedDevice !== (device.connectedAt || true)) begin();
     if (!active || !result || result.ts === lastResult || result.ts < active.startedAt || result.ts > now() || now() - result.ts >= 3000) return;
+    // Samples count during calibration, but session indices begin only after
+    // a fresh baseline for this pairing is complete.
+    if (window.ntMuseDSP?.baselineTarget && (!window.ntMuseDSP.baseline || result.ts < window.ntMuseDSP.baseline.ts)) return;
     if (!["ready", "limited", "calibrating"].includes(window.ntMuseDSP?.signalState)) return;
     if (now() - active.startedAt > 12 * 3600000) { finish().then(begin).catch(function () {}); return; }
     lastResult = result.ts;
@@ -334,6 +337,14 @@
       // The shared device adapter updates its flags later in this same event.
       Promise.resolve().then(function () { if (ready && !active && window.ntMuseConnected && window.ntMuse?.status?.().connected) begin(); });
     } else finish("interrupted");
+  });
+  window.addEventListener("nt-muse-baseline", function (e) {
+    if (e.detail?.baseline || !active) return;
+    // A manual recalibration starts a separate report, so pre-reset indices
+    // cannot be combined with a newly trained baseline.
+    finish().then(function () {
+      if (ready && window.ntMuseConnected && window.ntMuse?.status?.().connected) begin();
+    }).catch(function () {});
   });
   window.addEventListener("nt-session", loadIdentity);
   window.addEventListener("online", function () { sync(); });

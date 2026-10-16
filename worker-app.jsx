@@ -15,7 +15,7 @@ const useWorkerApp = () => {
   return state;
 };
 
-const WorkerAppInstallCard = ({ always = false }) => {
+const WorkerAppInstallCard = ({ always = false, showUpdates = false }) => {
   const state = useWorkerApp();
   const [help, setHelp] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
@@ -34,13 +34,36 @@ const WorkerAppInstallCard = ({ always = false }) => {
       {!state.installed && <button type="button" onClick={install} disabled={busy}>{busy ? "Membuka…" : "Pasang"}</button>}
       {state.installed && always && <span className="worker-app-installed">Terpasang</span>}
     </div>
-    {state.updateAvailable && <div className="worker-app-update"><span>Versi baru tersedia.</span><button type="button" onClick={() => {
+    {showUpdates && state.updateAvailable && <div className="worker-app-update"><span>Versi baru tersedia.</span><button type="button" onClick={() => {
       try { window.ntPWA.update(); } catch (error) { window.toast?.(error.message, { kind: "info" }); }
     }}>Perbarui aplikasi</button><small>Akhiri sesi dan putuskan Muse dahulu.</small></div>}
     {help && <div className="worker-app-help">
       <p>{ios ? "Di Safari: Bagikan → Tambahkan ke Layar Utama → Tambahkan." : "Di Chrome Android: menu ⋮ → Instal aplikasi atau Tambahkan ke layar utama → Instal."}</p>
       <p>{ios ? "Anda dapat membuka akun dan riwayat di iPhone. Koneksi Muse melalui web belum tersedia di Safari/iPhone; gunakan Chrome Android untuk pengukuran." : "Jika pilihan belum muncul, tunggu sebentar lalu buka menu browser lagi. Gunakan Chrome Android untuk menghubungkan Muse."}</p>
     </div>}
+  </section>;
+};
+
+const WorkerCalibrationCard = () => {
+  const [, refresh] = React.useReducer((n) => n + 1, 0);
+  React.useEffect(() => {
+    const update = () => refresh();
+    for (const event of ["nt-data", "nt-device", "nt-muse-baseline"]) window.addEventListener(event, update);
+    return () => { for (const event of ["nt-data", "nt-device", "nt-muse-baseline"]) window.removeEventListener(event, update); };
+  }, []);
+  const device = window.ntDeviceStatus?.() || {};
+  const dsp = window.ntMuseDSP || {};
+  if (!device.real || !device.connected || dsp.baseline) return null;
+  const target = dsp.baselineTarget || 120;
+  const count = Math.min(target, Math.max(0, dsp.baselineCount || 0));
+  const remaining = target - count;
+  const clock = String(Math.floor(remaining / 60)).padStart(2, "0") + ":" + String(remaining % 60).padStart(2, "0");
+  const quality = dsp.quality?.level;
+  const paused = quality === "bad" || quality === "limited" || ["artifact", "no-signal", "error"].includes(dsp.signalState);
+  return <section className="worker-calibration-card" aria-label="Kalibrasi Muse">
+    <div className="worker-calibration-top"><div><strong>Kalibrasi Muse</strong><span>{paused ? "Sinyal belum layak · periksa sensor" : "Duduk tenang, tetap terjaga, mata terbuka"}</span></div><output aria-label="Waktu kalibrasi tersisa">{clock}</output></div>
+    <div className="worker-calibration-track" role="progressbar" aria-label="Kemajuan kalibrasi" aria-valuemin="0" aria-valuemax={target} aria-valuenow={count}><span style={{ width: `${count / target * 100}%` }} /></div>
+    <small>{count}/{target} jendela EEG bersih · hitungan berhenti jika sinyal terganggu</small>
   </section>;
 };
 
@@ -57,4 +80,4 @@ const WorkerAppInstall = () => {
     <Link to="/landing" className="worker-app-back">Kembali ke website</Link>
   </div></main>;
 };
-Object.assign(window, { WorkerAppInstall, WorkerAppInstallCard });
+Object.assign(window, { WorkerAppInstall, WorkerAppInstallCard, WorkerCalibrationCard });

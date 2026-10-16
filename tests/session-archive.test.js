@@ -12,6 +12,27 @@ async function setup() {
 function output(b, ts, changes={}) {
   b.setClock(ts); b.c.ntMuseDSP={signalState:'ready',last:{ts,qualityLevel:'good',outputScope:'full',fi:30,cli:40,ei:60,microsleep:false,classificationProvisional:false,...changes}}; b.emit('nt-data');
 }
+test('raw samples may arrive during calibration but no report indices are saved before baseline', async () => {
+  const b = await setup(); b.c.ntSessionArchive.begin();
+  b.setClock(2000); b.c.ntMuseDSP = { baselineTarget:120, baselineCount:30, signalState:'calibrating',
+    last:{ts:2000,qualityLevel:'good',outputScope:'full',fi:80,cli:70,ei:20} }; b.emit('nt-data');
+  assert.equal(b.c.ntSessionArchive.state().rows[0].summary.clean,0);
+  b.setClock(3000); b.c.ntMuseDSP = { baselineTarget:120, baselineCount:120, baseline:{ts:3000}, signalState:'ready',
+    last:{ts:2000,qualityLevel:'good',outputScope:'full',fi:80,cli:70,ei:20} }; b.emit('nt-data');
+  assert.equal(b.c.ntSessionArchive.state().rows[0].summary.clean,0);
+  b.setClock(4000); b.c.ntMuseDSP.last = {ts:4000,qualityLevel:'good',outputScope:'full',fi:40,cli:40,ei:50}; b.emit('nt-data');
+  assert.equal(b.c.ntSessionArchive.state().rows[0].summary.clean,1);
+});
+test('manual recalibration starts a separate report instead of mixing two baselines', async () => {
+  const b = await setup(); b.c.ntSessionArchive.begin(); output(b,2000);
+  const first = b.c.ntSessionArchive.state().activeId;
+  b.emit('nt-muse-baseline',{baseline:null}); await settle(); await settle();
+  const state = b.c.ntSessionArchive.state();
+  assert.equal(state.rows.length,2);
+  assert.notEqual(state.activeId,first);
+  assert.equal(state.rows.find(r=>r.id===first).summary.clean,1);
+  assert.equal(state.rows.find(r=>r.id===state.activeId).summary.clean,0);
+});
 test('partial and posterior-only results cannot enter clean report averages; null stays unavailable',async()=>{
   const b=await setup(); b.c.ntSessionArchive.begin();
   output(b,2000); output(b,3000,{qualityLevel:'limited',fi:99,cli:null,outputScope:'frontal-only'});

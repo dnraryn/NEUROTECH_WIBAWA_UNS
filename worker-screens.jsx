@@ -393,6 +393,8 @@ const WorkerLive = () => {
       </div>
     )}
 
+    <WorkerCalibrationCard />
+
     {/* MAIN: Cognitive Load gauge + side fatigue gauge — live values */}
     <div className="worker-live-gauges" style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 16, marginTop: 18 }}>
       <NeuroGauge
@@ -424,7 +426,7 @@ const WorkerLive = () => {
 
     {/* Current status text — drives off w.status (live) */}
     <div style={{ textAlign: "center", marginTop: 14 }}>
-      {hasRealSample && stat ? <><StatusPill status={stat} />{muse.real && dsp.last?.classificationProvisional && <span style={{ fontSize: 11, marginLeft: 8 }}>{dsp.last.outputScope === "frontal-only" ? "Estimasi fatigue parsial · kanal frontal" : "Klasifikasi sementara"}</span>}</> : <span>{hasRealSample ? "Band power tersedia · klasifikasi belum tersedia" : "Menunggu EEG"}</span>}
+      {hasRealSample && stat ? <><StatusPill status={stat} />{muse.real && dsp.last?.classificationProvisional && <span style={{ fontSize: 11, marginLeft: 8 }}>{dsp.last.outputScope === "frontal-only" ? "Estimasi fatigue parsial · kanal frontal" : "Klasifikasi sementara"}</span>}</> : <span>{muse.real && !dsp.baseline ? "Kalibrasi berlangsung" : hasRealSample ? "Band power tersedia · klasifikasi belum tersedia" : "Menunggu EEG"}</span>}
       <div style={{ fontSize: 12.5, color: "var(--nt-text-2)", marginTop: 8, padding: "0 36px", lineHeight: 1.45 }}>
         {hasRealSample ? stCopy : signalMessage}
       </div>

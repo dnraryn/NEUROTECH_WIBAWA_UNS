@@ -38,9 +38,9 @@
     };
     if (!dsp.baseline) return {
       title: "Kalibrasi · sementara" + (latest.outputScope === "frontal-only" ? " (kanal frontal)" : ""),
-      summary: "Indeks awal tersedia; kesimpulan kondisi menunggu baseline pribadi." + (latest.outputScope === "frontal-only" ? " Hasil parsial; beban kognitif belum tersedia." : ""),
+      summary: "Indeks dan kesimpulan menunggu baseline sesi Muse ini." + (latest.outputScope === "frontal-only" ? " beban kognitif belum tersedia." : ""),
       action: "Tetap terjaga, mata terbuka, dan duduk tenang sampai kalibrasi selesai.",
-      note: "Kalibrasi memerlukan 120 jendela bersih. Angka awal belum digunakan untuk deteksi microsleep.", problemChannels: problemChannels,
+      note: "Kalibrasi memerlukan 120 jendela bersih sebelum hasil baru ditampilkan.", problemChannels: problemChannels,
     };
     var provisional = latest.classificationProvisional || dsp.signalState === "limited";
     var currentStatus = labels[latest.instantStatus] ? latest.instantStatus : latest.status;
@@ -59,7 +59,7 @@
         (currentStatus !== latest.status ? "Pola sesaat: " + labels[currentStatus] + ". Kategori tren beberapa jendela terakhir: " + (labels[latest.status] || "belum tersedia") + "."
           : "Kategori dari pola EEG saat ini: " + (labels[currentStatus] || "belum tersedia") + "."),
       action: dsp.signalState === "limited" ? "Perbaiki kontak sensor yang ditandai, duduk tenang, lalu periksa kembali hasil setelah kualitas membaik."
-        : !dsp.baseline ? "Lanjutkan kalibrasi dengan duduk tenang; hasil sementara memakai baseline awal."
+        : !dsp.baseline ? "Lanjutkan kalibrasi dengan duduk tenang sebelum membaca hasil."
         : actions[currentStatus] || "Pantau perubahan indeks pada grafik sesi.",
       note: "Kesimpulan memakai aturan indeks EEG prototipe, belum menjadi penilaian klinis atau keputusan keselamatan kerja.",
       problemChannels: problemChannels,
@@ -67,18 +67,23 @@
   }
   function snapshot(input) {
     var now = input.now, device = input.device || {}, dsp = input.dsp || {};
+    var calibrationRequired = !input.demo && Number.isFinite(dsp.baselineTarget) && dsp.baselineTarget > 0;
+    var baselineReady = !calibrationRequired || !!dsp.baseline;
+    var measurementStart = calibrationRequired ? (dsp.baseline?.ts || Infinity) : -Infinity;
+    var remaining = Math.max(0, (dsp.baselineTarget || 120) - (dsp.baselineCount || 0));
+    var countdown = String(Math.floor(remaining / 60)).padStart(2, "0") + ":" + String(remaining % 60).padStart(2, "0");
     var periodDays = [7, 30, 90, 365][input.period || 0];
     var cutoff = now - periodDays * 86400000;
     var preview = (input.history || []).filter(function (p) {
-      return p.source === "muse" && Number.isFinite(p.ts) && p.ts >= now - 60000 && p.ts <= now &&
+      return p.source === "muse" && Number.isFinite(p.ts) && p.ts >= measurementStart && p.ts >= now - 60000 && p.ts <= now &&
         measuredIndices(p);
     }).slice().sort(function (a, b) { return a.ts - b.ts; });
     var source = (input.history || []).filter(function (p) {
-      return p.source === (input.demo ? "demo" : "muse") && p.quality !== "limited" && Number.isFinite(p.ts) && p.ts <= now && Number.isFinite(p.fi) && p.fi >= 0 && p.fi <= 100;
+      return p.source === (input.demo ? "demo" : "muse") && p.quality !== "limited" && Number.isFinite(p.ts) && p.ts >= measurementStart && p.ts <= now && Number.isFinite(p.fi) && p.fi >= 0 && p.fi <= 100;
     }).slice().sort(function (a, b) { return a.ts - b.ts; });
     var history = source.filter(function (p) { return p.ts >= cutoff; });
     var receiving = !!device.connected && fresh(device.lastEEGAt, now);
-    var valid = receiving && !!dsp.last && fresh(dsp.last.ts, now) &&
+    var valid = receiving && baselineReady && !!dsp.last && dsp.last.ts >= measurementStart && fresh(dsp.last.ts, now) &&
       ["calibrating", "ready", "limited"].includes(dsp.signalState) &&
       (measuredIndices(dsp.last) || (dsp.last.outputScope === "bands-only" && indexKeys.every(function (key) { return dsp.last[key] == null; }) &&
         ["delta", "theta", "alpha", "beta", "gamma"].every(function (key) { return validIndex(dsp.last.bands?.[key]); })));
@@ -108,6 +113,8 @@
     var message = !device.connected ? "Hubungkan Muse untuk memulai pemantauan."
       : !Number.isFinite(device.lastEEGAt) ? "Bluetooth tersambung; menunggu paket EEG."
       : !receiving ? "Aliran EEG berhenti. Periksa headband dan hubungkan ulang."
+      : !baselineReady ? "Kalibrasi " + countdown + " tersisa dari 120 jendela EEG bersih. " +
+        (["artifact", "no-signal", "limited"].includes(dsp.signalState) ? "Sinyal belum layak; periksa sensor dan duduk tenang." : "Tetap terjaga, mata terbuka, dan jaga kontak sensor.")
       : dsp.signalState === "limited" ? (dsp.last?.outputScope === "bands-only" ? "Band power parsial tersedia; indeks menunggu sensor frontal. "
         : dsp.last?.outputScope === "frontal-only" ? "FI dan Engagement parsial tersedia; Cognitive Load menunggu kanal posterior. " : "Kualitas terbatas · hasil dan klasifikasi sementara. ") +
         "Periksa sensor: " + (dsp.quality?.excludedChannels?.join(", ") || "amplitudo/gamma meningkat") + "."
@@ -117,7 +124,7 @@
       : dsp.signalState === "ready" ? "Monitoring EEG aktif; baseline siap."
       : dsp.signalState === "calibrating" ? "Kalibrasi " + (dsp.baselineCount || 0) + "/" + (dsp.baselineTarget || 120) + " · tetap terjaga, mata terbuka."
       : "Menunggu cukup data dari empat sensor EEG.";
-    if (receiving && !valid && ["ready", "limited", "calibrating"].includes(dsp.signalState))
+    if (receiving && baselineReady && !valid && ["ready", "limited", "calibrating"].includes(dsp.signalState))
       message = "Paket EEG diterima, tetapi hasil olahan terbaru belum tersedia. Menunggu jendela baru yang lengkap dari empat sensor.";
     var assessment = conclusion(valid ? dsp.last : null, dsp, message);
     return { history: history, preview: preview, heatRows: heatRows, incidents: incidents, incidentSeries: incidentSeries,
