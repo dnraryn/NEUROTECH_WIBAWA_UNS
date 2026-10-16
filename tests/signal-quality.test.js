@@ -26,7 +26,8 @@ test('moderate EEG above the previous 100 uV limit produces indices and a risk c
   assert.equal(c.ntMuseDSP.quality.level, 'good');
   assert.ok(c.ntMuseDSP.last);
   assert.ok(['normal', 'waspada', 'berisiko', 'kritis'].includes(c.ntMuseDSP.last.status));
-  assert.equal(c.ntMuseDSP.baselineCount, 1);
+  assert.equal(c.ntMuseDSP.calibration.stage, 'stabilization');
+  assert.equal(c.ntMuseDSP.baselineCount, 0);
   assert.equal(c.ntMuseDSP.last.classificationProvisional, true); // Calibration still in progress.
 });
 
@@ -143,7 +144,8 @@ test('moderate amplitude warnings do not train baseline or trigger microsleep', 
   }
   b.setClock(7000); send(b, {});
   assert.equal(c.ntMuseDSP.signalState, 'calibrating');
-  assert.equal(c.ntMuseDSP.baselineCount, 1);
+  assert.equal(c.ntMuseDSP.calibration.stage, 'stabilization');
+  assert.equal(c.ntMuseDSP.baselineCount, 0);
 });
 
 test('moderate gamma contamination is labelled limited even when amplitude is low', async () => {

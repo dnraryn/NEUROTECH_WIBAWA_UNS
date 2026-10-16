@@ -8,16 +8,16 @@ function setup() {
 const day = 86400000, now = 40 * day;
 const point = (ts, fi = 40, extra = {}) => ({ source: 'muse', ts, fi, cli: 30, ei: 60, ...extra });
 
-test('a new Muse pairing hides indices and history until its own 120 clean windows complete', () => {
+test('a new Muse pairing hides indices and history until its own baseline is valid', () => {
   const model = setup(), device = { connected: true, lastEEGAt: now };
-  const before = model.snapshot({ now, device, dsp: { baselineTarget: 120, baselineCount: 35,
+  const before = model.snapshot({ now, device, dsp: { baselineTarget: 40, baselineCount: 35,
     signalState: 'calibrating', last: point(now, 73) }, history: [point(now - 1000, 78)] });
   assert.equal(before.valid, false);
   assert.equal(before.latest, null);
   assert.equal(before.preview.length, 0);
   assert.equal(before.history.length, 0);
-  assert.match(before.message, /01:25/);
-  const ready = model.snapshot({ now, device, dsp: { baselineTarget: 120, baselineCount: 120,
+  assert.match(before.message, /5 jendela/);
+  const ready = model.snapshot({ now, device, dsp: { baselineTarget: 40, baselineCount: 40,
     baseline: { ts: now - 500 }, signalState: 'ready', last: point(now, 43) },
     history: [point(now - 1000, 78), point(now, 43)] });
   assert.equal(ready.latest.fi, 43);
@@ -30,7 +30,7 @@ test('management shows real fresh indices but distinguishes artifacts, stale dat
   const dsp = { last: point(now), signalState: 'calibrating', baselineCount: 3 };
   const result = model.snapshot({ now, device, dsp });
   assert.equal(result.latest.fi, 40); assert.equal(result.valid, true);
-  assert.match(result.message, /3\/120/);
+  assert.match(result.message, /3\/40/);
   const artifact = model.snapshot({ now, device, dsp: { ...dsp, signalState: 'artifact' } });
   assert.equal(artifact.receiving, true); assert.equal(artifact.latest, null);
   assert.match(artifact.message, /terganggu/);

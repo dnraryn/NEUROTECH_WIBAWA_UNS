@@ -17,7 +17,7 @@
   };
   var device = null, ctrlChar = null, battery = null;
   var samples = 0, connected = false, connecting = false, attempt = 0;
-  var lastEEGAt = null, connectedAt = null, channelSamples = {}, channelLastEEGAt = {}, eegBuffers = {};
+  var lastEEGAt = null, connectedAt = null, channelSamples = {}, channelLastEEGAt = {}, channelRateHz = {}, rateEpoch = {}, eegBuffers = {};
   var lastDisconnect = null;
   var protocol = null, controlBuffer = "", lastAthenaEEG = null, athenaGap = false;
   var subscriptions = [];
@@ -96,6 +96,12 @@
     lastEEGAt = Date.now();
     channelSamples[channel] = (channelSamples[channel] || 0) + decoded.length;
     channelLastEEGAt[channel] = lastEEGAt;
+    if (!rateEpoch[channel]) rateEpoch[channel] = { at: lastEEGAt, count: channelSamples[channel] };
+    else if (lastEEGAt - rateEpoch[channel].at >= 2000) {
+      channelRateHz[channel] = Math.round((channelSamples[channel] - rateEpoch[channel].count) /
+        ((lastEEGAt - rateEpoch[channel].at) / 1000));
+      rateEpoch[channel] = { at: lastEEGAt, count: channelSamples[channel] };
+    }
     var buffer = eegBuffers[channel] || (eegBuffers[channel] = []);
     for (var i = 0; i < decoded.length; i++) buffer.push(decoded[i]);
     if (buffer.length > 256) buffer.splice(0, buffer.length - 256);
@@ -192,6 +198,8 @@
     connectedAt = null;
     channelSamples = {};
     channelLastEEGAt = {};
+    channelRateHz = {};
+    rateEpoch = {};
     eegBuffers = {};
     connected = connecting = false;
     setPhase("idle");
@@ -325,9 +333,14 @@
       battery: battery, samples: samples, supported: supported(), protocol: protocol, phase: phase,
       lastEEGAt: lastEEGAt, connectedAt: connectedAt,
       channelSamples: Object.assign({}, channelSamples),
-      channelLastEEGAt: Object.assign({}, channelLastEEGAt), lastDisconnect: lastDisconnect };
+      channelLastEEGAt: Object.assign({}, channelLastEEGAt),
+      channelRateHz: Object.assign({}, channelRateHz), lastDisconnect: lastDisconnect };
   }
   window.ntMuse = { supported: supported, connect: connect, disconnect: disconnect, status: status,
     readEEG: function (channel) { return (eegBuffers[channel] || []).slice(); },
     get battery() { return battery; } };
+  // Reserved interface: Athena IMU packets are not decoded until paired
+  // device recordings validate their tags, timing and scale on this preset.
+  window.ntMuseMotion = Object.freeze({ supported: function () { return false; },
+    latest: function () { return null; } });
 })();

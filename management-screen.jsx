@@ -420,7 +420,7 @@ const ManagementDashboard = () => {
         </div>
         <div style={{ fontSize: 11, lineHeight: 1.6, color: "var(--nt-text-2)" }}>
           Sensor yang dipakai: {dsp.quality?.usedChannels?.join(", ") || "—"}. {dsp.quality?.excludedChannels?.length ? `Sensor yang dikecualikan: ${dsp.quality.excludedChannels.join(", ")}. ` : ""}
-          Kalibrasi: {dsp.baseline ? "baseline siap" : `${dsp.baselineCount || 0}/${dsp.baselineTarget || 120} jendela bersih`}. Skala indeks 0–100; hasil bersifat estimasi.
+          Kalibrasi: {dsp.baseline ? "baseline siap" : `${dsp.baselineCount || 0}/${dsp.baselineTarget || 40} jendela bersih`}. Skala indeks 0–100; hasil bersifat estimasi.
         </div>
         <div aria-label="Grafik indeks sesi" style={{ paddingTop: 10, borderTop: "1px solid var(--nt-bg-deep)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>

@@ -13,13 +13,13 @@ test('small personal spectral ratios normalize around baseline instead of pinnin
     });
     for (const channel of ['TP9', 'AF7', 'AF8', 'TP10']) b.emit('nt-muse-eeg', { channel, samples });
   }
-  for (let i = 0; i < 120; i++) { b.setClock(2000 + i * 1000); signal(1, i * 256); }
+  for (let i = 0; i < 124; i++) { b.setClock(2000 + i * 1000); signal(1, i * 256); }
   assert.equal(b.c.ntMuseDSP.baselineProgress, 1);
-  b.setClock(122000); signal(1, 120 * 256);
+  b.setClock(126000); signal(1, 124 * 256);
   assert.ok(Math.abs(b.c.ntMuseDSP.last.cli - 40) <= 2);
   assert.ok(Math.abs(b.c.ntMuseDSP.last.ei - 50) <= 2);
   const first = b.c.ntMuseDSP.last.cli;
-  b.setClock(123000); signal(2, 121 * 256);
+  b.setClock(127000); signal(2, 125 * 256);
   assert.ok(b.c.ntMuseDSP.last.cli > first);
   assert.equal(muse.device.gatt.connected, true);
 });
@@ -138,7 +138,7 @@ test('each Muse pairing recalibrates and a different account cannot inherit its 
   c.ntSession.set(member('one'));
   await c.ntDeviceConnect('real');
   b.setClock(2000); feed(b, { count: 512 });
-  for (let i = 1; i < 120; i++) {
+  for (let i = 1; i < 124; i++) {
     b.setClock(2000 + i * 1000);
     feed(b, { offset: 512 + (i - 1) * 256 });
   }

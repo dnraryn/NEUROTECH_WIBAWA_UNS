@@ -344,6 +344,29 @@ const WorkerLive = () => {
     kritis:   "Kondisi kritis. Hentikan tugas safety-critical dan lapor supervisor.",
   }[stat] || "Pantau kondisi Anda sepanjang shift.";
 
+  // The two-minute worker phase is a signal check, not a score screen.
+  // Keep it tied to connection/calibration time, even when EEG is rejected.
+  const calibrationStartedAt = dsp.calibration?.startedAt || window.ntMuse?.status?.().connectedAt;
+  const timedCalibration = muse.real && window.ntDeviceStatus?.().connected && !dsp.baseline &&
+    Number.isFinite(calibrationStartedAt) && signalNow - calibrationStartedAt < 120000;
+  if (timedCalibration) return (
+    <div className="nt-screen worker-live worker-calibration-screen" style={{ paddingBottom: 100 }}>
+      <NeuroStatusBar time="11:42" />
+      <div className="worker-calibration-nav">
+        <Link to="/w/readiness" aria-label="Kembali ke beranda"><NeuroIconBtn size={40}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+        </NeuroIconBtn></Link>
+        <strong>KALIBRASI MUSE</strong>
+        <AskAIButton variant="plus" />
+      </div>
+      <p className="worker-calibration-intro">Detail EEG langsung selama 2 menit. Pakai Muse dengan sensor menempel, duduk tenang, dan buka mata.</p>
+      <WorkerCalibrationCard />
+      <WorkerSignalDetails />
+      <WorkerSessionArchive />
+      <NeuroTabBar active="brain" />
+    </div>
+  );
+
   return (
   <div className="nt-screen worker-live" style={{ paddingBottom: 100 }}>
     <NeuroStatusBar time="11:42" />
@@ -401,7 +424,8 @@ const WorkerLive = () => {
     )}
 
     <WorkerCalibrationCard />
-    <WorkerSignalDetails />
+    {muse.real && !dsp.baseline && <details className="worker-signal-collapse"><summary>Detail sinyal Muse</summary><WorkerSignalDetails /></details>}
+    {!muse.real && <WorkerSignalDetails />}
 
     {/* MAIN: Cognitive Load gauge + side fatigue gauge — live values */}
     <div className="worker-live-gauges" style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 16, marginTop: 18 }}>

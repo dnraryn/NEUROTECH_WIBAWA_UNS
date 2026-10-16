@@ -9,14 +9,19 @@ function setup() {
     deviation: 50, gamma: 28, clippedFraction: 0,
     reasons: ['kualitas terbatas', 'SECRET_FROM_UNTRUSTED_FIELD'], raw: 'RAW_SECRET' };
   b.c.ntMuse = { status: () => ({ connected: true, protocol: 'athena', name: 'PRIVATE_DEVICE_NAME',
-    samples: counts.TP9 * 4, channelSamples: counts, lastEEGAt: 1000, token: 'AUTH_SECRET' }),
+    samples: counts.TP9 * 4, channelSamples: counts, channelRateHz: { AF7: 255 },
+    lastEEGAt: 1000, token: 'AUTH_SECRET' }),
     readEEG: () => ['RAW_SECRET'] };
   b.c.ntMuseDSP = { signalState: 'limited', quality: { level: 'limited',
     usedChannels: ['TP9', 'AF7', 'AF8'], excludedChannels: ['TP10'],
     channels: { TP9: q, AF7: q, AF8: q, TP10: q }, secret: 'AUTH_SECRET' },
     last: { ts: 1000, fi: 93, cli: 40, ei: 0, status: 'kritis', classificationProvisional: true,
       bands: { raw: 'RAW_SECRET' } }, baselineCount: 3, baselineTarget: 120,
-    baseline: null, secret: 'AUTH_SECRET' };
+    baseline: null, stream: { discontinuities: 2, lastDiscontinuityAt: 900 },
+    calibration: { stage: 'baseline', outcome: 'incomplete', policyVersion: 'baseline-quality-v2',
+      acceptedWindows: 30, rejectedWindows: 4, acceptedDurationSec: 30, rejectedDurationSec: 4,
+      availabilityPercent: 88, independentWindows: 15, lastUsableAt: 1000, deviceRateVerified: true,
+      stability: { fiRaw: 0.2, secret: 'AUTH_SECRET' } }, secret: 'AUTH_SECRET' };
   let contents = '', writes = 0, fail = false;
   b.c.showSaveFilePicker = async () => ({ name: 'neurotech-diagnostics.json',
     async createWritable() {
@@ -35,6 +40,13 @@ test('diagnostics writes only allowed runtime measurements and actual per-channe
   let saved = JSON.parse(f.contents);
   assert.equal(saved.recording, true);
   assert.equal(saved.frames[0].result.ei, 0);
+  assert.equal(saved.frames[0].discontinuities, 2);
+  assert.equal(saved.frames[0].calibration.stage, 'baseline');
+  assert.equal(saved.frames[0].calibration.acceptedWindows, 30);
+  assert.equal(saved.frames[0].calibration.stabilityLog2Spread.fiRaw, 0.2);
+  assert.equal(saved.frames[0].observedDeviceRateHz.AF7, 255);
+  assert.ok(saved.frames[0].anonymousParticipantId);
+  assert.ok(saved.frames[0].anonymousSessionId);
   for (const word of ['PRIVATE_DEVICE_NAME', 'AUTH_SECRET', 'RAW_SECRET', 'SECRET_FROM_UNTRUSTED_FIELD'])
     assert.equal(f.contents.includes(word), false, word);
   for (const channel of Object.keys(f.counts)) f.counts[channel] += 512;

@@ -19,12 +19,18 @@
   var EPS = 1e-6;
   var ALGORITHM_VERSION = "eeg-heuristic-v4";
   window.ntEEGAlgorithmVersion = ALGORITHM_VERSION;
-  // Every pairing collects ~120 clean one-second windows before results are shown.
-  var BASELINE_TARGET = 120;
+  // A two-minute wall-clock calibration, with a smaller quality-controlled
+  // baseline quota. Forty overlapping 1-second analysis windows are NOT forty
+  // independent observations; separate non-overlapping 2-second epochs below.
+  var BASELINE_TARGET = 40;
+  var CALIBRATION_MS = 120000;
+  var CALIBRATION_POLICY = Object.freeze({ version: "baseline-quality-v2", stabilizationWindows: 3,
+    independentSpacingMs: 2000, minIndependentWindows: 20, maxLog2Spread: 1.0,
+    minObservedRateHz: 192, maxObservedRateHz: 320 });
   // Detrending changes spectral features; do not reuse pre-filter baselines.
   var BASELINE_MAX_AGE = 24 * 3600000; // Engineering freshness policy, not a clinical threshold.
   // Engineering defaults for this prototype, pending recorded-headband validation.
-  var FILTER_POLICY = Object.freeze({ cleanP2P: 200, hardP2P: 400, cleanDeviation: 70,
+  var FILTER_POLICY = Object.freeze({ version: "signal-quality-v1", cleanP2P: 200, hardP2P: 400, cleanDeviation: 70,
     hardDeviation: 120, cleanGamma: 25, hardGamma: 45, flatDeviation: 0.5,
     maxClippedFraction: 0.01, minChannels: 1 });
   var lastQualityLevel = null, lastChannelSet = null;
@@ -171,7 +177,9 @@
       stream.discontinuities++;
       stream.lastDiscontinuityAt = Date.now();
       microsleepStreak = 0;
-      window.ntMuseDSP = Object.assign({}, window.ntMuseDSP, { quality: null, signalState: "waiting" });
+      rejectCalibration("Jeda paket Bluetooth; menunggu jendela EEG baru");
+      window.ntMuseDSP = Object.assign({}, window.ntMuseDSP, { quality: null, signalState: "waiting",
+        inferenceStatus: "INSUFFICIENT_SIGNAL" });
       window.dispatchEvent(new CustomEvent("nt-data"));
     }
     if (typeof index === "number") {
@@ -187,8 +195,43 @@
   // Calibration belongs to this connection. A new pairing starts fresh.
   var baseline = null;
   var baselineBuffer = [];
+  var calibration = null;
+  function newCalibration() {
+    return { stage: "device-check", outcome: "incomplete", startedAt: Date.now(), stabilizationCount: 0,
+      acceptedWindows: 0, rejectedWindows: 0, independentWindows: 0,
+      lastUsableAt: null, reason: "Menunggu empat kanal EEG", stability: null, deviceRateVerified: false };
+  }
+  function calibrationView() {
+    var total = calibration.acceptedWindows + calibration.rejectedWindows;
+    return { stage: calibration.stage, outcome: calibration.outcome,
+      startedAt: calibration.startedAt,
+      stabilizationCount: calibration.stabilizationCount,
+      stabilizationTarget: CALIBRATION_POLICY.stabilizationWindows,
+      acceptedWindows: calibration.acceptedWindows, rejectedWindows: calibration.rejectedWindows,
+      acceptedDurationSec: calibration.acceptedWindows, rejectedDurationSec: calibration.rejectedWindows,
+      availabilityPercent: total ? Math.round(calibration.acceptedWindows / total * 100) : null,
+      independentWindows: calibration.independentWindows, lastUsableAt: calibration.lastUsableAt,
+      deviceRateVerified: calibration.deviceRateVerified,
+      reason: calibration.reason, stability: calibration.stability,
+      policyVersion: CALIBRATION_POLICY.version };
+  }
+  function publishCalibration() {
+    Object.assign(window.ntMuseDSP, { calibration: calibrationView(), baseline: baseline,
+      baselineCount: Math.min(baselineBuffer.length, BASELINE_TARGET), baselineTarget: BASELINE_TARGET,
+      baselineProgress: baseline ? 1 : Math.min(1, baselineBuffer.length / BASELINE_TARGET) });
+  }
+  function rejectCalibration(reason) {
+    if (baseline) return;
+    calibration.rejectedWindows++;
+    if (calibration.stage === "stabilization") calibration.stabilizationCount = 0;
+    calibration.reason = reason;
+    calibration.outcome = "incomplete";
+    publishCalibration();
+  }
   function validBaseline(value) {
     return value && value.algorithmVersion === ALGORITHM_VERSION && value.sampleRate === FS && value.windowSize === WIN &&
+      value.calibrationVersion === CALIBRATION_POLICY.version &&
+      value.connectionStartedAt === window.ntMuse?.status?.().connectedAt &&
       ["classic", "athena"].includes(value.protocol) &&
       (!window.ntMuse?.status?.().protocol || value.protocol === window.ntMuse.status().protocol) &&
       Number.isFinite(value.ts) && value.ts <= Date.now() + 5000 && Date.now() - value.ts < BASELINE_MAX_AGE &&
@@ -204,25 +247,128 @@
     return s.length % 2 ? s[m] : 0.5 * (s[m - 1] + s[m]);
   }
 
+  function independentEpochs() {
+    var selected = [], last = -Infinity;
+    baselineBuffer.forEach(function (point) {
+      if (point.ts - last >= CALIBRATION_POLICY.independentSpacingMs) {
+        selected.push(point); last = point.ts;
+      }
+    });
+    return selected;
+  }
+  function baselineStability(points) {
+    var result = {};
+    ["fiRaw", "cliRaw", "thetaAlpha", "betaRel"].forEach(function (key) {
+      var logs = points.map(function (point) { return Math.log(point[key]) / Math.LN2; });
+      var center = median(logs);
+      var sorted = logs.slice().sort(function (a, b) { return a - b; });
+      var q25 = sorted[Math.floor((sorted.length - 1) * 0.25)];
+      var q75 = sorted[Math.ceil((sorted.length - 1) * 0.75)];
+      // MAD alone can miss two alternating signal modes when one slightly
+      // outnumbers the other. The interquartile spread catches that pattern.
+      result[key] = Math.max(median(logs.map(function (value) { return Math.abs(value - center); })),
+        (q75 - q25) / 1.349);
+    });
+    return result;
+  }
+
   function finalizeBaseline() {
     if (baselineBuffer.length < BASELINE_TARGET) return;
+    var independent = independentEpochs();
+    calibration.independentWindows = independent.length;
+    calibration.stability = independent.length ? baselineStability(independent) : null;
+    if (independent.length < CALIBRATION_POLICY.minIndependentWindows) {
+      calibration.reason = "Data EEG independen belum cukup";
+      calibration.outcome = "insufficient-data";
+      publishCalibration();
+      return;
+    }
+    if (Object.keys(calibration.stability).some(function (key) {
+      return !Number.isFinite(calibration.stability[key]) || calibration.stability[key] > CALIBRATION_POLICY.maxLog2Spread;
+    })) {
+      calibration.reason = "Baseline belum stabil; tetap duduk tenang";
+      calibration.outcome = "unstable";
+      publishCalibration();
+      return;
+    }
     baseline = {
-      fiRaw:      median(baselineBuffer.map(function (b) { return b.fiRaw; })),
-      cliRaw:     median(baselineBuffer.map(function (b) { return b.cliRaw; })),
-      eiRaw:      median(baselineBuffer.map(function (b) { return b.eiRaw; })),
-      thetaAlpha: median(baselineBuffer.map(function (b) { return b.thetaAlpha; })),
-      betaRel:    median(baselineBuffer.map(function (b) { return b.betaRel; })),
+      fiRaw:      median(independent.map(function (b) { return b.fiRaw; })),
+      cliRaw:     median(independent.map(function (b) { return b.cliRaw; })),
+      eiRaw:      median(independent.map(function (b) { return b.eiRaw; })),
+      thetaAlpha: median(independent.map(function (b) { return b.thetaAlpha; })),
+      betaRel:    median(independent.map(function (b) { return b.betaRel; })),
       ts: Date.now(),
       algorithmVersion: ALGORITHM_VERSION, sampleRate: FS, windowSize: WIN,
       protocol: window.ntMuse?.status?.().protocol || "unknown",
+      connectionStartedAt: window.ntMuse?.status?.().connectedAt || null,
+      calibrationVersion: CALIBRATION_POLICY.version,
+      independentWindows: independent.length,
+      deviceRateVerified: calibration.deviceRateVerified,
     };
     // FI and EI are reciprocal features, not independent corroborating measurements.
     baseline.eiRaw = 1 / baseline.fiRaw;
     ema = null; statusHistory.length = 0; microsleepStreak = 0;
-    Object.assign(window.ntMuseDSP, { baseline: baseline, baselineProgress: 1, baselineCount: baselineBuffer.length });
+    calibration.stage = "complete";
+    calibration.outcome = "success";
+    calibration.reason = "Baseline pribadi siap";
+    publishCalibration();
     window.dispatchEvent(new CustomEvent("nt-muse-baseline", {
       detail: { baseline: baseline },
     }));
+  }
+  function acceptCalibration(features) {
+    calibration.acceptedWindows++;
+    calibration.lastUsableAt = Date.now();
+    if (baseline) { publishCalibration(); return false; }
+    if (calibration.stage === "device-check") {
+      var transport = window.ntMuse?.status?.() || {};
+      var channels = ["TP9", "AF7", "AF8", "TP10"];
+      if (["classic", "athena"].indexOf(transport.protocol) < 0) {
+        calibration.reason = "Protokol Muse belum terverifikasi";
+        publishCalibration();
+        return false;
+      }
+      // Direct synthetic EEG events have no transport counters. Real BLE must
+      // demonstrate a plausible rolling rate on all four channels first.
+      if (channels.every(function (ch) { return transport.channelSamples?.[ch] > 0; })) {
+        if (!channels.every(function (ch) {
+          var rate = transport.channelRateHz?.[ch];
+          return Number.isFinite(rate) && rate >= CALIBRATION_POLICY.minObservedRateHz &&
+            rate <= CALIBRATION_POLICY.maxObservedRateHz;
+        })) {
+          calibration.reason = "Memeriksa laju 256 Hz pada empat kanal";
+          publishCalibration();
+          return false;
+        }
+        calibration.deviceRateVerified = true;
+      }
+      calibration.stage = "stabilization";
+      calibration.reason = "Empat kanal terdeteksi; menunggu sinyal stabil";
+    } else if (calibration.stage === "stabilization") {
+      calibration.stabilizationCount++;
+      if (calibration.stabilizationCount >= CALIBRATION_POLICY.stabilizationWindows) {
+        calibration.stage = "baseline";
+        calibration.reason = "Duduk tenang, mata terbuka, pandang satu titik";
+      }
+    } else {
+      baselineBuffer.push(Object.assign({ ts: Date.now() }, features));
+      if (baselineBuffer.length > BASELINE_TARGET * 3) baselineBuffer.shift();
+      calibration.independentWindows = independentEpochs().length;
+      if (baselineBuffer.length >= BASELINE_TARGET) {
+        calibration.stage = "validation";
+        if (Date.now() - calibration.startedAt >= CALIBRATION_MS) {
+          finalizeBaseline();
+          if (baseline) return true;
+        } else {
+          calibration.reason = "Menunggu akhir fase dua menit";
+        }
+      } else if (Date.now() - calibration.startedAt >= CALIBRATION_MS) {
+        calibration.outcome = "insufficient-data";
+        calibration.reason = "Fase dua menit selesai; EEG bersih belum cukup untuk baseline";
+      }
+    }
+    publishCalibration();
+    return false;
   }
   function activeBaseline() { return baseline || DEFAULT_BASELINE; }
 
@@ -252,6 +398,7 @@
   function compute() {
     if (baseline && !validBaseline(baseline)) {
       baseline = null; baselineBuffer.length = 0; ema = null; statusHistory.length = 0; microsleepStreak = 0;
+      calibration = newCalibration();
     }
     var calibrated = !!baseline;
     if (buf.TP9.length < WIN || buf.AF7.length < WIN ||
@@ -271,9 +418,11 @@
     var outputScope = !front.length ? "bands-only" : !posterior.length ? "frontal-only" : "full";
     window.ntMuseDSP = Object.assign({}, window.ntMuseDSP, {
       quality: { channels: qualityChannels, checkedAt: Date.now(), level: qualityLevel,
-        usedChannels: used, excludedChannels: excluded, outputScope: outputScope, policy: FILTER_POLICY },
+        usedChannels: used, excludedChannels: excluded, outputScope: outputScope, policy: FILTER_POLICY,
+        contactQuality: null, estimatedFromEEG: true, inferenceEligible: false },
     });
     if (qualityLevel === "bad") {
+      rejectCalibration("Semua kanal ditolak oleh pemeriksaan sinyal");
       signalState(used.length === 0 && channels.every(function (ch) {
         return qualityChannels[ch].deviation < FILTER_POLICY.flatDeviation;
       }) ? "no-signal" : "artifact");
@@ -303,6 +452,7 @@
       : Number.isFinite(fi) || Number.isFinite(ei) ? "frontal-only" : "bands-only";
     window.ntMuseDSP.quality.level = qualityLevel;
     window.ntMuseDSP.quality.outputScope = outputScope;
+    window.ntMuseDSP.quality.inferenceEligible = calibrated && qualityLevel === "good" && outputScope === "full";
     var channelSet = used.join(",") + ":" + outputScope;
     if (lastQualityLevel !== qualityLevel || lastChannelSet !== channelSet) { ema = null; statusHistory.length = 0; microsleepStreak = 0; }
     lastQualityLevel = qualityLevel;
@@ -317,7 +467,10 @@
       perBand[k] = avg(used, k);
       total += perBand[k];
     });
-    if (!Number.isFinite(total) || total <= EPS) { signalState("no-signal"); return null; }
+    if (!Number.isFinite(total) || total <= EPS) {
+      rejectCalibration("Daya EEG tidak cukup untuk dianalisis");
+      signalState("no-signal"); return null;
+    }
     var bands = {
       delta: Math.round(perBand.delta / total * 100),
       theta: Math.round(perBand.theta / total * 100),
@@ -339,24 +492,21 @@
     microsleepLastAt = msInstant ? Date.now() : 0;
     var microsleep = microsleepStreak >= MICROSLEEP_NEEDED;
 
-    // Accumulate baseline samples while the user is in their first ~2 min
-    // of clean data. Calibrate while awake, eyes open. A fallback ratio cannot
-    // determine whether a new user is drowsy and must not prevent calibration.
-    if (!baseline && !movementArtifact && baselineBuffer.length < BASELINE_TARGET &&
-        [fiRaw, cliRaw, eiRaw, thetaAlpha].every(function (v) { return Number.isFinite(v) && v > EPS; })) {
-      baselineBuffer.push({
+    // Only full, clean montage windows train the personal baseline. The first
+    // clean window verifies the device and three more stabilize the signal.
+    var eligible = !movementArtifact && [fiRaw, cliRaw, eiRaw, thetaAlpha].every(function (v) {
+      return Number.isFinite(v) && v > EPS;
+    });
+    if (eligible) {
+      if (acceptCalibration({
         fiRaw: Math.max(EPS, fiRaw), cliRaw: Math.max(EPS, cliRaw), eiRaw: Math.max(EPS, eiRaw),
         thetaAlpha: Math.max(EPS, thetaAlpha), betaRel: Math.max(EPS, perBand.beta / total * 100),
-      });
-    }
-    var connectedAt = window.ntMuse?.status?.().connectedAt;
-    if (!baseline && baselineBuffer.length >= BASELINE_TARGET && Number.isFinite(connectedAt) &&
-        Date.now() - connectedAt >= BASELINE_TARGET * 1000) { finalizeBaseline(); return null; }
-    if (!baseline) {
-      Object.assign(window.ntMuseDSP, {
-        baseline: null, baselineCount: baselineBuffer.length,
-        baselineProgress: baselineBuffer.length / BASELINE_TARGET, baselineTarget: BASELINE_TARGET,
-      });
+      })) return null;
+    } else if (!baseline) {
+      var frontAffected = ["AF7", "AF8"].filter(function (ch) { return qualityChannels[ch].state !== "good"; });
+      rejectCalibration(frontAffected.length ?
+        "EEG " + frontAffected.join("/") + " terganggu; periksa pemasangan sensor dan kurangi gerakan" :
+        "Kualitas EEG terbatas; periksa sensor dan kurangi gerakan");
     }
 
     // EMA-smooth the running indices so single-window noise doesn't make
@@ -453,13 +603,15 @@
     window.ntMuseDSP = {
       quality: window.ntMuseDSP && window.ntMuseDSP.quality,
       stream: stream,
+      calibration: calibrationView(),
       last: out, bands: out.bands, signalState: out.qualityLevel === "limited" ? "limited" : baseline ? "ready" : "calibrating",
+      inferenceStatus: !baseline ? "CALIBRATING" : out.qualityLevel === "good" ? "ELIGIBLE" : "PROVISIONAL",
       microsleepEvents: msEvents,
-      // Calibration status — UI can show "Kalibrasi N/120 s" while baseline
-      // is being built. Once `baseline` is non-null, calibration is done.
+      // The two-minute timer is independent of the clean-window count.
+      // Once `baseline` is non-null, the quality gate has passed.
       baseline: baseline,
-      baselineProgress: baseline ? 1 : (baselineBuffer.length / BASELINE_TARGET),
-      baselineCount: baselineBuffer.length,
+      baselineProgress: baseline ? 1 : Math.min(1, baselineBuffer.length / BASELINE_TARGET),
+      baselineCount: Math.min(baselineBuffer.length, BASELINE_TARGET),
       baselineTarget: BASELINE_TARGET,
       // Linear-fit slope across the last ~20 history entries → used by the
       // Prediksi Kelelahan card to estimate ETA.
@@ -508,7 +660,8 @@
 
   function signalState(state) {
     microsleepStreak = 0;
-    window.ntMuseDSP = Object.assign({}, window.ntMuseDSP, { signalState: state });
+    window.ntMuseDSP = Object.assign({}, window.ntMuseDSP, { signalState: state,
+      inferenceStatus: "INSUFFICIENT_SIGNAL" });
     window.dispatchEvent(new CustomEvent("nt-data"));
   }
   window.addEventListener("nt-muse-eeg", function (e) {
@@ -543,11 +696,13 @@
     lastQualityLevel = null;
     lastChannelSet = null;
     baselineBuffer.length = 0;
+    calibration = newCalibration();
     window.ntMuseDSP = {
       last: null, bands: null, predict: null, microsleepEvents: 0,
-      signalState: "waiting", baseline: baseline, baselineProgress: baseline ? 1 : 0,
+      signalState: "waiting", inferenceStatus: "INSUFFICIENT_SIGNAL", baseline: baseline, baselineProgress: baseline ? 1 : 0,
       baselineCount: 0, baselineTarget: BASELINE_TARGET,
       stream: stream,
+      calibration: calibrationView(),
     };
   }
   function resetForIdentity() { baseline = null; resetState(); }

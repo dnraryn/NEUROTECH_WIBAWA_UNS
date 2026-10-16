@@ -55,18 +55,22 @@ const WorkerCalibrationCard = () => {
   const device = window.ntDeviceStatus?.() || {};
   const radio = window.ntMuse?.status?.() || {};
   const dsp = window.ntMuseDSP || {};
-  if (!device.real || !device.connected || dsp.baseline) return null;
-  const target = dsp.baselineTarget || 120;
+  if (!device.real || !device.connected) return null;
+  if (dsp.baseline) return Date.now() - dsp.baseline.ts < 30000 ?
+    <section className="worker-calibration-card" aria-label="Kalibrasi Muse berhasil"><strong>Kalibrasi berhasil</strong><small>Baseline pribadi aktif · {dsp.baseline.independentWindows || 0} jendela EEG tidak tumpang tindih dinilai.</small></section> : null;
+  const target = dsp.baselineTarget || 40;
   const count = Math.min(target, Math.max(0, dsp.baselineCount || 0));
-  const remaining = radio.connectedAt ? Math.max(0, Math.ceil((target * 1000 - (Date.now() - radio.connectedAt)) / 1000)) : target;
+  const startedAt = dsp.calibration?.startedAt || radio.connectedAt;
+  const remaining = startedAt ? Math.max(0, Math.ceil((120000 - (Date.now() - startedAt)) / 1000)) : 120;
   const clock = String(Math.floor(remaining / 60)).padStart(2, "0") + ":" + String(remaining % 60).padStart(2, "0");
-  const quality = dsp.quality?.level;
-  const paused = quality === "bad" || quality === "limited" || ["artifact", "no-signal", "error"].includes(dsp.signalState);
-  const waiting = remaining === 0 && count < target;
+  const cal = dsp.calibration || {};
+  const stageLabels = { "device-check": "Periksa perangkat", stabilization: "Stabilisasi sinyal", baseline: "Baseline mata terbuka", validation: "Validasi baseline" };
+  const waiting = remaining === 0 && !dsp.baseline;
   return <section className="worker-calibration-card" aria-label="Kalibrasi Muse">
-    <div className="worker-calibration-top"><div><strong>Kalibrasi Muse</strong><span>{waiting ? "Waktu minimum selesai · menunggu sinyal layak" : paused ? "Sinyal belum layak · periksa sensor" : "Duduk tenang, tetap terjaga, mata terbuka"}</span></div><output aria-label="Waktu minimum kalibrasi tersisa">{clock}</output></div>
+    <div className="worker-calibration-top"><div><strong>{waiting ? "Live Monitor terbuka" : stageLabels[cal.stage] || "Kalibrasi Muse"}</strong><span>{waiting ? `${cal.reason || "Baseline belum cukup"}. Indeks menunggu EEG layak.` : cal.reason || "Duduk tenang, mata terbuka"}</span></div><output aria-label="Waktu kalibrasi tersisa">{waiting ? "Selesai" : clock}</output></div>
     <div className="worker-calibration-track" role="progressbar" aria-label="Kemajuan kalibrasi" aria-valuemin="0" aria-valuemax={target} aria-valuenow={count}><span style={{ width: `${count / target * 100}%` }} /></div>
-    <small>{count}/{target} jendela EEG bersih. Waktu berjalan terus; hasil baru aktif setelah semua jendela layak terkumpul.</small>
+    <small>{count}/{target} jendela baseline bersih · {cal.independentWindows || 0} tidak tumpang tindih. {waiting ? "Pantauan berlangsung; hasil muncul setelah baseline layak." : cal.stage === "stabilization" ? `${cal.stabilizationCount || 0}/${cal.stabilizationTarget || 3} jendela stabil.` : "Hasil aktif setelah validasi selesai."}</small>
+    {cal.outcome === "unstable" && <button type="button" className="worker-signal-reconnect" onClick={() => window.ntMuseClearBaseline?.()}>Ulangi kalibrasi</button>}
   </section>;
 };
 
@@ -87,6 +91,7 @@ const WorkerSignalDetails = () => {
   const receiving = radio.connected && radio.lastEEGAt && now - radio.lastEEGAt < 3000;
   const qualityFresh = dsp.quality?.checkedAt && now - dsp.quality.checkedAt < 5000;
   const gaps = dsp.stream?.discontinuities || 0;
+  const cal = dsp.calibration || {};
   const reconnect = async () => {
     if (pairing) return;
     setPairing(true);
@@ -99,6 +104,7 @@ const WorkerSignalDetails = () => {
     {disconnected ? <><p>Koneksi Bluetooth terputus{radio.lastDisconnect.pageHidden ? " saat aplikasi di latar belakang" : ""}. Kalibrasi perlu dimulai lagi setelah tersambung.</p><button type="button" className="worker-signal-reconnect" disabled={pairing} onClick={reconnect}>{pairing ? "Menghubungkan…" : "Sambungkan Muse lagi"}</button></>
       : <>
         <p className="worker-signal-summary">{radio.samples || 0} sampel diterima · {receiving ? "paket terakhir baru saja" : radio.lastEEGAt ? `paket terakhir ${Math.floor((now - radio.lastEEGAt) / 1000)} detik lalu` : "belum ada paket"} · {gaps} jeda paket terdeteksi</p>
+        <p className="worker-signal-summary">Jendela diterima {cal.acceptedWindows || 0} · ditolak {cal.rejectedWindows || 0} · ketersediaan {Number.isFinite(cal.availabilityPercent) ? `${cal.availabilityPercent}%` : "—"}. {cal.lastUsableAt ? `EEG layak terakhir ${Math.max(0, Math.floor((now - cal.lastUsableAt) / 1000))} detik lalu.` : "Belum ada EEG layak."}</p>
         <div className="worker-signal-list">{["TP9", "AF7", "AF8", "TP10"].map((ch) => {
           const lastAt = radio.channelLastEEGAt?.[ch] || dsp.stream?.lastSampleAt?.[ch];
           const fresh = lastAt && now - lastAt < 3000;
@@ -106,7 +112,7 @@ const WorkerSignalDetails = () => {
           const wave = fresh ? window.ntManagement?.waveform?.(window.ntMuse?.readEEG?.(ch)) : null;
           return <div className="worker-signal-channel" key={ch}>
             <div className="worker-signal-channel-head"><strong>{ch}</strong><span>{!fresh ? "Tidak ada data baru" : !q ? "Menunggu penilaian" : ({ good: "Layak", limited: "Terbatas", bad: "Tidak dipakai" })[q.state]}</span></div>
-            <div className="worker-signal-values"><span>{radio.channelSamples?.[ch] || 0} sampel</span><span>Puncak-ke-puncak {Number.isFinite(q?.peakToPeak) ? `${q.peakToPeak.toFixed(1)} µV` : "—"}</span></div>
+            <div className="worker-signal-values"><span>{radio.channelSamples?.[ch] || 0} sampel · {Number.isFinite(radio.channelRateHz?.[ch]) ? `${radio.channelRateHz[ch]} Hz` : "laju belum tersedia"}</span><span>Puncak-ke-puncak {Number.isFinite(q?.peakToPeak) ? `${q.peakToPeak.toFixed(1)} µV` : "—"}</span></div>
             <small>Setelah detrend: {Number.isFinite(q?.processedPeakToPeak) ? `${q.processedPeakToPeak.toFixed(1)} µV` : "—"}</small>
             {wave && <svg role="img" aria-label={`Gelombang EEG ${ch}`} viewBox="0 0 600 32" preserveAspectRatio="none"><line x1="0" y1="16" x2="600" y2="16" stroke="var(--nt-bg-deep)"/><path d={wave.path} fill="none" stroke="#8b5cf6" strokeWidth="1.5"/></svg>}
             {q?.reasons?.length > 0 && <small>{q.reasons.join(" · ")}</small>}

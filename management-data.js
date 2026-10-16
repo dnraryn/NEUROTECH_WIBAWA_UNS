@@ -40,7 +40,7 @@
       title: "Kalibrasi · sementara" + (latest.outputScope === "frontal-only" ? " (kanal frontal)" : ""),
       summary: "Indeks dan kesimpulan menunggu baseline sesi Muse ini." + (latest.outputScope === "frontal-only" ? " beban kognitif belum tersedia." : ""),
       action: "Tetap terjaga, mata terbuka, dan duduk tenang sampai kalibrasi selesai.",
-      note: "Kalibrasi memerlukan 120 jendela bersih sebelum hasil baru ditampilkan.", problemChannels: problemChannels,
+      note: "Kalibrasi dua menit memerlukan minimal 40 jendela EEG bersih dan baseline yang stabil sebelum hasil baru ditampilkan.", problemChannels: problemChannels,
     };
     var provisional = latest.classificationProvisional || dsp.signalState === "limited";
     var currentStatus = labels[latest.instantStatus] ? latest.instantStatus : latest.status;
@@ -70,8 +70,7 @@
     var calibrationRequired = !input.demo && Number.isFinite(dsp.baselineTarget) && dsp.baselineTarget > 0;
     var baselineReady = !calibrationRequired || !!dsp.baseline;
     var measurementStart = calibrationRequired ? (dsp.baseline?.ts || Infinity) : -Infinity;
-    var remaining = Math.max(0, (dsp.baselineTarget || 120) - (dsp.baselineCount || 0));
-    var countdown = String(Math.floor(remaining / 60)).padStart(2, "0") + ":" + String(remaining % 60).padStart(2, "0");
+    var remaining = Math.max(0, (dsp.baselineTarget || 40) - (dsp.baselineCount || 0));
     var periodDays = [7, 30, 90, 365][input.period || 0];
     var cutoff = now - periodDays * 86400000;
     var preview = (input.history || []).filter(function (p) {
@@ -113,7 +112,9 @@
     var message = !device.connected ? "Hubungkan Muse untuk memulai pemantauan."
       : !Number.isFinite(device.lastEEGAt) ? "Bluetooth tersambung; menunggu paket EEG."
       : !receiving ? "Aliran EEG berhenti. Periksa headband dan hubungkan ulang."
-      : !baselineReady ? "Kalibrasi " + countdown + " tersisa dari 120 jendela EEG bersih. " +
+      : !baselineReady && dsp.calibration ? "Kalibrasi " + (dsp.baselineCount || 0) + "/" +
+        (dsp.baselineTarget || 40) + " jendela baseline · " + (dsp.calibration.reason || "menunggu data EEG layak") + "."
+      : !baselineReady ? "Kalibrasi: " + remaining + " jendela EEG bersih belum terkumpul. " +
         (["artifact", "no-signal", "limited"].includes(dsp.signalState) ? "Sinyal belum layak; periksa sensor dan duduk tenang." : "Tetap terjaga, mata terbuka, dan jaga kontak sensor.")
       : dsp.signalState === "limited" ? (dsp.last?.outputScope === "bands-only" ? "Band power parsial tersedia; indeks menunggu sensor frontal. "
         : dsp.last?.outputScope === "frontal-only" ? "FI dan Engagement parsial tersedia; Cognitive Load menunggu kanal posterior. " : "Kualitas terbatas · hasil dan klasifikasi sementara. ") +
@@ -122,7 +123,7 @@
       : dsp.signalState === "no-signal" ? "Sinyal belum dapat dinilai. Periksa kontak sensor."
       : dsp.signalState === "error" ? "Pemrosesan EEG gagal. Hubungkan ulang Muse."
       : dsp.signalState === "ready" ? "Monitoring EEG aktif; baseline siap."
-      : dsp.signalState === "calibrating" ? "Kalibrasi " + (dsp.baselineCount || 0) + "/" + (dsp.baselineTarget || 120) + " · tetap terjaga, mata terbuka."
+      : dsp.signalState === "calibrating" ? "Kalibrasi " + (dsp.baselineCount || 0) + "/" + (dsp.baselineTarget || 40) + " · tetap terjaga, mata terbuka."
       : "Menunggu cukup data dari empat sensor EEG.";
     if (receiving && baselineReady && !valid && ["ready", "limited", "calibrating"].includes(dsp.signalState))
       message = "Paket EEG diterima, tetapi hasil olahan terbaru belum tersedia. Menunggu jendela baru yang lengkap dari empat sensor.";
