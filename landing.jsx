@@ -100,10 +100,37 @@ const FOOT_COLS = [
 // ── Navbar ─────────────────────────────────────────────────────────────────
 const LandingNav = () => {
   const [openMenu, setOpenMenu] = React.useState(null);
+  const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [mobileSection, setMobileSection] = React.useState(null);
+  const navRef = React.useRef(null);
+  React.useEffect(() => {
+    if (!mobileOpen) return;
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setMobileOpen(false);
+    };
+    const closeOutside = (event) => {
+      if (!navRef.current?.contains(event.target)) setMobileOpen(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    document.addEventListener("pointerdown", closeOutside);
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener("pointerdown", closeOutside);
+    };
+  }, [mobileOpen]);
+  const visit = (item) => {
+    setOpenMenu(null);
+    setMobileOpen(false);
+    setMobileSection(null);
+    if (item.route) navigate(item.route);
+    else if (item.section) goSection(item.section);
+    else if (item.page) navigate("/p/" + item.page);
+    else goPage(item.label);
+  };
   return (
-    <nav className="nt-nav">
+    <nav className="nt-nav" ref={navRef} aria-label="Navigasi utama">
       <div className="nt-nav-inner">
-        <a onClick={() => navigate("/landing")} style={{ cursor: "pointer", display: "flex" }}>
+        <a onClick={() => visit({ route: "/landing" })} style={{ cursor: "pointer", display: "flex" }}>
           <Brand size={30} />
         </a>
 
@@ -133,13 +160,7 @@ const LandingNav = () => {
                       <a
                         key={l.label}
                         className="nt-nav-drop-link"
-                        onClick={() => {
-                          if (l.route) navigate(l.route);
-                          else if (l.section) goSection(l.section);
-                          else if (l.page) navigate("/p/" + l.page);
-                          else goPage(l.label);
-                          setOpenMenu(null);
-                        }}
+                        onClick={() => visit(l)}
                       >
                         <span className="nt-nav-drop-title">{l.label}</span>
                         <span className="nt-nav-drop-desc">{l.desc}</span>
@@ -152,13 +173,18 @@ const LandingNav = () => {
               <button
                 key={item.label}
                 className="nt-nav-link"
-                onClick={() => (item.route ? navigate(item.route) : item.page ? navigate("/p/" + item.page) : goSection(item.section))}
+                onClick={() => visit(item)}
               >
                 {item.label}
               </button>
             )
           ))}
         </div>
+
+        <button className="nt-nav-install" onClick={() => visit({ route: "/app" })}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 16v4h14v-4" /></svg>
+          <span>Pasang Aplikasi</span>
+        </button>
 
         <div className="nt-nav-actions">
           <button className="nt-nav-icon" title="Basis pengetahuan"
@@ -178,7 +204,49 @@ const LandingNav = () => {
           </button>
           <NeuroBtn tone="primary" size="sm" onClick={goRegister}>Bergabung</NeuroBtn>
         </div>
+        <button
+          className="nt-nav-mobile-toggle"
+          type="button"
+          aria-label={mobileOpen ? "Tutup menu" : "Buka menu"}
+          aria-controls="nt-mobile-navigation"
+          aria-expanded={mobileOpen}
+          onClick={() => { setMobileOpen(!mobileOpen); setMobileSection(null); }}
+        >
+          {mobileOpen ? <span aria-hidden="true">×</span> : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>}
+        </button>
       </div>
+      {mobileOpen && (
+        <div className="nt-nav-mobile-panel" id="nt-mobile-navigation">
+          {NAV_MENU.map((item) => item.links ? (
+            <div className="nt-nav-mobile-group" key={item.label}>
+              <button
+                type="button"
+                className="nt-nav-mobile-link"
+                aria-expanded={mobileSection === item.label}
+                onClick={() => setMobileSection(mobileSection === item.label ? null : item.label)}
+              >
+                {item.label}<span aria-hidden="true">{mobileSection === item.label ? "−" : "+"}</span>
+              </button>
+              {mobileSection === item.label && (
+                <div className="nt-nav-mobile-submenu">
+                  {item.links.map((link) => (
+                    <button type="button" key={link.label} onClick={() => visit(link)}>
+                      <strong>{link.label}</strong><span>{link.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <button type="button" key={item.label} className="nt-nav-mobile-link" onClick={() => visit(item)}>{item.label}</button>
+          ))}
+          <div className="nt-nav-mobile-actions">
+            <button type="button" onClick={() => visit({ page: slugify("Basis Pengetahuan") })}>Basis pengetahuan</button>
+            <button type="button" onClick={() => visit({ route: "/login" })}>Masuk</button>
+            <button type="button" onClick={() => visit({ route: "/join" })}>Bergabung</button>
+          </div>
+        </div>
+      )}
     </nav>
   );
 };
@@ -489,10 +557,6 @@ const LandingPage = () => (
 
         <Reveal delay={400}>
           <div className="nt-landing-cta">
-            <NeuroBtn tone="default" size="lg" onClick={() => navigate("/app")}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 16v4h14v-4" /></svg>
-              Pasang Aplikasi
-            </NeuroBtn>
             <NeuroBtn tone="primary" size="lg" onClick={goRegister}>Bergabung dengan Kami</NeuroBtn>
             <NeuroBtn tone="default" size="lg" onClick={goDemo}>Coba demo →</NeuroBtn>
           </div>
