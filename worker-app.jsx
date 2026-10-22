@@ -85,7 +85,7 @@ const WorkerSignalDetails = () => {
   const radio = window.ntMuse?.status?.() || {};
   const dsp = window.ntMuseDSP || {};
   const disconnected = !radio.connected && radio.lastDisconnect?.reason === "gatt";
-  if ((!radio.connected || dsp.baseline) && !disconnected) return null;
+  if (!radio.connected && !disconnected) return null;
   const now = Date.now();
   const receiving = radio.connected && radio.lastEEGAt && now - radio.lastEEGAt < 3000;
   const qualityFresh = dsp.quality?.checkedAt && now - dsp.quality.checkedAt < 5000;
@@ -98,7 +98,7 @@ const WorkerSignalDetails = () => {
     catch (error) { window.toast?.(error?.message || "Muse belum tersambung", { kind: "warn" }); }
     finally { setPairing(false); }
   };
-  return <section className="worker-signal-details" aria-label="Detail sinyal Muse saat kalibrasi">
+  return <section className="worker-signal-details" aria-label="Detail sinyal Muse">
     <div className="worker-signal-heading"><div><strong>Detail sinyal</strong><span>{disconnected ? "Bluetooth terputus" : receiving ? "EEG masuk · kualitas diperiksa terpisah" : "Menunggu paket EEG baru"}</span></div><span className={receiving ? "worker-signal-dot is-live" : "worker-signal-dot"} /></div>
     {disconnected ? <><p>Koneksi Bluetooth terputus{radio.lastDisconnect.pageHidden ? " saat aplikasi di latar belakang" : ""}. Kalibrasi perlu dimulai lagi setelah tersambung.</p><button type="button" className="worker-signal-reconnect" disabled={pairing} onClick={reconnect}>{pairing ? "Menghubungkan…" : "Sambungkan Muse lagi"}</button></>
       : <>

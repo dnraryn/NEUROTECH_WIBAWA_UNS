@@ -422,7 +422,6 @@ const WorkerLive = () => {
     )}
 
     <WorkerCalibrationCard />
-    {muse.real && !dsp.baseline && <details className="worker-signal-collapse"><summary>Detail sinyal Muse</summary><WorkerSignalDetails /></details>}
     {!muse.real && <WorkerSignalDetails />}
 
     {/* MAIN: Cognitive Load gauge + side fatigue gauge — live values */}
@@ -477,40 +476,23 @@ const WorkerLive = () => {
       </div>
     </div>
 
-    {/* Action: take micro break */}
-    <div style={{ padding: "14px 24px 0", display: "flex", gap: 10 }}>
-      <button
-        onClick={() => setBreakModal(true)}
-        style={{
-          flex: 1,
-          padding: "14px 16px",
-          borderRadius: 18,
-          border: "none",
-          background: breakTimer !== null
-            ? "linear-gradient(135deg, #7dd1a1, #a8e0c0)"
-            : "linear-gradient(135deg, #3B82F6, #2563EB)",
-          color: "white",
-          fontWeight: 700, fontSize: 13.5,
-          letterSpacing: "0.04em",
-          boxShadow: "0 10px 24px rgba(58,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.32)",
-          cursor: "pointer"
-        }}>
+    {muse.real && <details open className="worker-signal-collapse"><summary>Detail sinyal Muse</summary><WorkerSignalDetails /></details>}
+
+    <div className="worker-live-options" aria-label="Opsi pemantauan">
+      <button type="button" onClick={() => setBreakModal(true)}>
         {breakTimer !== null
-          ? `Istirahat Mikro · ${Math.floor(breakTimer / 60)}:${String(breakTimer % 60).padStart(2, "0")}`
-          : "Mulai Istirahat Mikro · 3:00"}
+          ? `Istirahat ${Math.floor(breakTimer / 60)}:${String(breakTimer % 60).padStart(2, "0")}`
+          : "Pengingat istirahat"}
       </button>
-      <Link to="/w/stats">
-        <NeuroIconBtn size={48}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-        </NeuroIconBtn>
-      </Link>
+      {breakTimer !== null && <button type="button" onClick={() => setBreakTimer(null)}>Hentikan pengingat</button>}
+      <Link to="/w/stats">Riwayat sesi</Link>
     </div>
 
     <Modal
       open={breakModal}
       onClose={() => setBreakModal(false)}
       title="Mulai istirahat mikro?"
-      subtitle="Tutup mata 3 menit, jauhkan dari layar. Supervisor akan diberi tahu Anda sedang istirahat mikro."
+      subtitle="Pengingat pribadi selama 3 menit. Pemantauan EEG tetap berjalan. Pengingat ini tidak mengirim notifikasi ke supervisor."
       tone="default"
       actions={
         <>
