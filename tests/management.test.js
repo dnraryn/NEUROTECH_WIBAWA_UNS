@@ -8,6 +8,40 @@ function setup() {
 const day = 86400000, now = 40 * day;
 const point = (ts, fi = 40, extra = {}) => ({ source: 'muse', ts, fi, cli: 30, ei: 60, ...extra });
 
+test('live fatigue outlook shows a first value and extrapolates four timestamped provisional FI points', () => {
+  const model = setup();
+  const rows = [0, 1, 2, 3].map(i => point(now - 3000 + i * 1000, 40 + i * 2,
+    { quality: 'limited', provisional: true }));
+  const first = model.fatigueOutlook(rows.slice(0, 1), now - 3000);
+  assert.equal(first.current, 40);
+  assert.equal(first.ready, false);
+  const result = model.fatigueOutlook(rows, now);
+  assert.equal(result.ready, true);
+  assert.equal(result.trend, 'naik');
+  assert.equal(result.projection, 62);
+  assert.equal(result.provisional, true);
+  assert.equal(model.fatigueOutlook(rows, now + 3000).current, null);
+  assert.equal(model.fatigueOutlook([...rows, point(now, 99, {source:'demo',quality:'good'})],now).current,46);
+  assert.equal(model.fatigueOutlook([rows[0], rows[0], rows[1], rows[2]], now).ready, false);
+  const withGap = [...rows, point(now + 5000, 52, {quality:'good'})];
+  assert.equal(model.fatigueOutlook(withGap, now + 5000).count, 1);
+  assert.equal(model.fatigueOutlook([...rows, point(now + 1000, null, {quality:'bad'})], now + 1000).current, null);
+});
+
+test('preview history supplies provisional trends after preparation and resets when the personal baseline activates', () => {
+  const model = setup();
+  const history = [0, 1, 2, 3].map(i => point(now - 3000 + i * 1000, 40 + i, {quality:'good'}));
+  const dsp = { baselineTarget:40, baselineCount:4, calibration:{startedAt:now-65000}, signalState:'calibrating', last:history[3] };
+  const data = model.snapshot({now,device:{connected:true,lastEEGAt:now},dsp,history});
+  assert.equal(data.preview.length,4);
+  assert.ok(data.preview.every(p=>p.quality==='limited' && p.provisional));
+  assert.equal(model.fatigueOutlook(data.preview,now).ready,true);
+  assert.equal(data.history.length,0);
+  const calibrated = model.snapshot({now,device:{connected:true,lastEEGAt:now},dsp:{...dsp,baseline:{ts:now-500}},history});
+  assert.equal(calibrated.preview.length,1);
+  assert.equal(model.fatigueOutlook(calibrated.preview,now).ready,false);
+});
+
 test('one minute opens experimental indices and indications without admitting them to clean reports', () => {
   const model = setup(), startedAt = now - 60000;
   const device = { connected: true, lastEEGAt: now };

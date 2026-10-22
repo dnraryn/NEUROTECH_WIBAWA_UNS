@@ -78,9 +78,10 @@
     var periodDays = [7, 30, 90, 365][input.period || 0];
     var cutoff = now - periodDays * 86400000;
     var preview = (input.history || []).filter(function (p) {
-      return p.source === "muse" && Number.isFinite(p.ts) && p.ts >= measurementStart && p.ts >= now - 60000 && p.ts <= now &&
+      return p.source === "muse" && Number.isFinite(p.ts) && p.ts >= displayStart && p.ts >= now - 60000 && p.ts <= now &&
         measuredIndices(p);
-    }).slice().sort(function (a, b) { return a.ts - b.ts; });
+    }).map(function (p) { return uncalibratedPreview ? Object.assign({}, p, { quality: "limited", provisional: true }) : p;
+    }).sort(function (a, b) { return a.ts - b.ts; });
     var source = (input.history || []).filter(function (p) {
       return p.source === (input.demo ? "demo" : "muse") && p.quality !== "limited" && Number.isFinite(p.ts) && p.ts >= measurementStart && p.ts <= now && Number.isFinite(p.fi) && p.fi >= 0 && p.fi <= 100;
     }).slice().sort(function (a, b) { return a.ts - b.ts; });
@@ -178,5 +179,32 @@
     }).join("");
     return { path: path, peakToPeak: Math.max.apply(null, values) - Math.min.apply(null, values) };
   }
-  window.ntManagement = { snapshot: snapshot, csv: csv, trend: trend, waveform: waveform };
+  // A short linear extrapolation of the displayed FI, not a validated fatigue forecast.
+  function fatigueOutlook(points, now, source) {
+    var recent = [], expectedSource = source || "muse";
+    (points || []).filter(function (p) {
+      return p.source === expectedSource && Number.isFinite(p.ts) && p.ts <= now && p.ts >= now - 60000;
+    }).slice().sort(function (a, b) { return a.ts - b.ts; }).forEach(function (p) {
+      if (!validIndex(p.fi) || !["good", "limited"].includes(p.quality)) { recent = []; return; }
+      var previous = recent[recent.length - 1];
+      if (previous && (p.ts - previous.ts > 1500 || p.outputScope !== previous.outputScope)) recent = [];
+      if (previous && p.ts === previous.ts) recent.pop();
+      recent.push(p);
+    });
+    recent = recent.slice(-20);
+    var last = recent[recent.length - 1];
+    if (!last || !fresh(last.ts, now)) return { ready: false, count: 0, current: null, points: [], projection: null };
+    var result = { ready: false, count: recent.length, current: last.fi, points: recent, projection: null,
+      provisional: recent.some(function (p) { return p.provisional || p.quality === "limited"; }) };
+    if (recent.length < 4 || last.ts - recent[0].ts < 3000) return result;
+    var sx = 0, sy = 0, sxx = 0, sxy = 0, n = recent.length;
+    recent.forEach(function (p) { var x = (p.ts - recent[0].ts) / 1000;
+      sx += x; sy += p.fi; sxx += x * x; sxy += x * p.fi; });
+    var slope = (n * sxy - sx * sy) / (n * sxx - sx * sx);
+    result.ready = true;
+    result.trend = slope > 0.05 ? "naik" : slope < -0.05 ? "turun" : "stabil";
+    result.projection = Math.round(Math.max(0, Math.min(100, last.fi + slope * 8)));
+    return result;
+  }
+  window.ntManagement = { snapshot: snapshot, csv: csv, trend: trend, waveform: waveform, fatigueOutlook: fatigueOutlook };
 })();

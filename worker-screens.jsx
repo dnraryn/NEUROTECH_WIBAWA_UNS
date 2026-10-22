@@ -297,7 +297,8 @@ const WorkerLive = () => {
     }
   }, [muse.real]);
   const dsp = window.ntMuseDSP || {};
-  const liveModel = window.ntManagement.snapshot({ now: Date.now(), device: window.ntMuse?.status?.() || {}, dsp });
+  const liveModel = window.ntManagement.snapshot({ now: Date.now(), device: window.ntMuse?.status?.() || {}, dsp,
+    history: window.ntHistory?.(w.id) || [] });
   const demoActive = !muse.real && window.NT_LIVE === true;
   const hasRealSample = demoActive || liveModel.valid;
   const metrics = muse.real ? liveModel.latest || {} : demoActive ? w : {};
@@ -502,66 +503,36 @@ const WorkerLive = () => {
       }
     />
 
-    {/* Prediksi Kelelahan — tren FI dari ring-buffer (real DSP if paired) */}
     {(() => {
-      const w = CURRENT_WORKER;
-      const hist = (window.ntHistory && w && w.id ? window.ntHistory(w.id) : []) || [];
-      const recent = (muse.real ? hist.filter((p) => dsp.baseline && p.ts >= dsp.baseline.ts && !p.provisional && p.quality === "good") : hist).slice(-20);
-      if (recent.length < 4) {
-        return (
-          <div className="neu-surface" style={{ margin: "14px 24px 0", padding: "14px 18px" }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--nt-text)", marginBottom: 4 }}>Prediksi Kelelahan</div>
-            <div style={{ fontSize: 11.5, color: "var(--nt-text-3)" }}>Mengumpulkan data live… kembali lagi sebentar.</div>
-          </div>
-        );
-      }
-      const fi = recent.map((h) => h.fi);
-      // Compute slope per minute using REAL time deltas between samples, so
-      // it works for both the mock engine (1.5 s/tick) and the DSP (1 s/tick).
-      const tSpanMs = Math.max(1, (recent[recent.length - 1].ts || 0) - (recent[0].ts || 0));
-      const fiDelta = fi[fi.length - 1] - fi[0];
-      const fiPerMin = (fiDelta / tSpanMs) * 60000;
-      const slope = fiDelta / (fi.length - 1);
-      // Prefer the DSP's own slope/ETA when a Muse is paired (more accurate
-      // because it uses the actual EEG-derived FI not the smoothed history).
-      const dspPred = (muse.real && window.ntMuseDSP && window.ntMuseDSP.predict) || null;
-      const rising = dspPred ? dspPred.trend === "naik" : fiPerMin > 0.2;
-      const eta = dspPred && rising
-        ? Math.max(1, Math.round((dspPred.etaSec || 0) / 60))
-        : (rising ? Math.max(1, Math.round((60 - (w.fi || 0)) / fiPerMin)) : null);
-      const W = 280, H = 64, projN = 8;
-      const all = [...fi];
-      for (let i = 1; i <= projN; i++) all.push(Math.max(0, Math.min(100, fi[fi.length - 1] + slope * i)));
-      const mn = Math.min(...all), mx = Math.max(...all);
-      const span = Math.max(8, mx - mn);
-      const xs = (i) => (i / (all.length - 1)) * W;
-      const ys = (v) => H - ((v - mn) / span) * H * 0.82 - H * 0.09;
-      const pts = all.map((v, i) => `${xs(i).toFixed(1)},${ys(v).toFixed(1)}`).join(" ");
-      const splitX = xs(fi.length - 1);
-      const ty = ys(60);
-      return (
-        <div className="neu-surface" style={{ margin: "14px 24px 0", padding: "14px 18px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--nt-text)" }}>Prediksi Kelelahan</div>
-            <span style={{ fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", fontWeight: 700, color: rising ? "#ff9d5c" : "#7dd1a1" }}>
-              {rising ? "Tren naik" : "Tren stabil"}
-            </span>
-          </div>
-          <div style={{ fontSize: 12, color: "var(--nt-text-2)", lineHeight: 1.45, marginBottom: 8 }}>
-            {rising && eta
-              ? `Dengan tren ini, kamu diperkirakan masuk zona Berisiko dalam ~${eta} menit. Sempatkan istirahat mikro.`
-              : "Tren membaik atau stabil. Ritme kamu sudah pas — lanjutkan dengan jeda berkala."}
-          </div>
-          <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: "block", width: "100%", maxWidth: W }}>
-            <line x1="0" y1={ty} x2={W} y2={ty} stroke="rgba(255,157,92,0.45)" strokeDasharray="3 3" />
-            <polyline points={pts} fill="none" stroke={rising ? "#ff9d5c" : "#7dd1a1"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            <line x1={splitX} y1="0" x2={splitX} y2={H} stroke="var(--nt-text-3)" strokeOpacity="0.3" strokeDasharray="2 2" />
-          </svg>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9.5, color: "var(--nt-text-3)", marginTop: 4 }}>
-            <span>20 tick lalu</span><span>sekarang</span><span>+8 proyeksi</span>
-          </div>
+      const hist = demoActive ? (window.ntHistory?.(w.id) || []).map((p) => ({ ...p, quality: "good" })) : liveModel.preview;
+      const outlook = window.ntManagement.fatigueOutlook(hasRealSample ? hist : [], Date.now(), demoActive ? "demo" : "muse");
+      const points = outlook.points;
+      const W = 280, H = 80;
+      const first = points[0]?.ts || signalNow;
+      const last = points[points.length - 1];
+      const end = (last?.ts || first) + (outlook.ready ? 8000 : 0);
+      const x = (ts) => (ts - first) / Math.max(1000, end - first) * W;
+      const y = (fi) => H - 6 - fi / 100 * (H - 12);
+      const measured = points.map((p) => `${x(p.ts).toFixed(1)},${y(p.fi).toFixed(1)}`).join(" ");
+      return <section className="neu-surface" aria-label="Prediksi kelelahan" style={{ margin: "14px 24px 0", padding: "14px 18px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 13, fontWeight: 700 }}>
+          <span>Prediksi Kelelahan</span><span style={{ fontSize: 11 }}>{outlook.ready ? `Tren ${outlook.trend}` : outlook.current !== null ? "FI terbaru" : "Sinyal belum terbaca"}</span>
         </div>
-      );
+        <p style={{ fontSize: 12, color: "var(--nt-text-2)", lineHeight: 1.5 }}>
+          {outlook.current !== null ? `FI saat ini ${outlook.current}/100` : signalMessage}
+          {outlook.ready ? ` | Proyeksi +8 detik: ${outlook.projection}/100` : outlook.current !== null ? ` | ${outlook.count}/4 hasil untuk membaca tren` : ""}
+        </p>
+        {last && <svg role="img" aria-label="Tren FI dan proyeksi delapan detik" viewBox={`0 0 ${W} ${H}`} style={{ display: "block", width: "100%", height: 80 }}>
+          <line x1="0" y1={y(0)} x2={W} y2={y(0)} stroke="var(--nt-text-3)" strokeOpacity="0.3" />
+          <polyline points={measured} fill="none" stroke="var(--nt-blue)" strokeWidth="2" strokeDasharray={outlook.provisional ? "4 3" : undefined} />
+          <circle cx={x(last.ts)} cy={y(last.fi)} r="3" fill="var(--nt-blue)" />
+          {outlook.ready && <line x1={x(last.ts)} y1={y(last.fi)} x2={W} y2={y(outlook.projection)} stroke="#f59e0b" strokeWidth="2" strokeDasharray="4 3" />}
+        </svg>}
+        <small style={{ display: "block", marginTop: 8, fontSize: 10, lineHeight: 1.5, color: "var(--nt-text-3)" }}>
+          {demoActive ? "Simulasi. " : outlook.provisional ? "Indikasi sementara. " : ""}
+          {outlook.ready ? "Proyeksi linier pola FI, bukan kepastian kondisi kelelahan." : "Tren tampil setelah empat hasil berurutan; tidak perlu menunggu beberapa menit."}
+        </small>
+      </section>;
     })()}
 
     <NeuroTabBar active="brain" />
