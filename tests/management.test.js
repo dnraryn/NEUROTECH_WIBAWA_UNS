@@ -8,7 +8,7 @@ function setup() {
 const day = 86400000, now = 40 * day;
 const point = (ts, fi = 40, extra = {}) => ({ source: 'muse', ts, fi, cli: 30, ei: 60, ...extra });
 
-test('one minute opens fresh uncalibrated estimates without admitting them to clean reports or verdicts', () => {
+test('one minute opens experimental indices and indications without admitting them to clean reports', () => {
   const model = setup(), startedAt = now - 60000;
   const device = { connected: true, lastEEGAt: now };
   const dsp = { baselineTarget: 40, baselineCount: 5, baseline: null,
@@ -21,9 +21,11 @@ test('one minute opens fresh uncalibrated estimates without admitting them to cl
   assert.equal(result.latest.fi, 63);
   assert.equal(result.latest.cli, 30);
   assert.equal(result.latest.classificationProvisional, true);
-  assert.equal(result.latest.status, null);
+  assert.equal(result.latest.status, 'berisiko');
   assert.equal(result.latest.microsleep, false);
-  assert.match(result.conclusion.title, /belum terkalibrasi/);
+  assert.match(result.conclusion.title, /Indikasi sementara: Berisiko/);
+  assert.match(result.conclusion.summary, /acuan umum/);
+  assert.match(result.conclusion.note, /eksperimental/);
   assert.equal(result.history.length, 0);
   assert.equal(result.incidents, 0);
   assert.equal(result.preview[0].quality, 'limited');
@@ -35,6 +37,10 @@ test('one minute opens fresh uncalibrated estimates without admitting them to cl
   const partial = model.snapshot({ now, device, dsp: { ...dsp, last: { ...dsp.last, cli: null, outputScope: 'frontal-only' } } });
   assert.equal(partial.latest.cli, null);
   assert.equal(partial.latest.fi, 63);
+  const bandsOnly = model.snapshot({ now, device, dsp: { ...dsp, last: { ...dsp.last,
+    fi: null, cli: null, ei: null, outputScope: 'bands-only', bands: { delta: 10, theta: 20, alpha: 40, beta: 20, gamma: 10 } } } });
+  assert.equal(bandsOnly.latest.status, null);
+  assert.equal(bandsOnly.latest.instantStatus, null);
 });
 
 test('a new Muse pairing hides indices and history until its own baseline is valid', () => {
@@ -175,7 +181,7 @@ test('limited and calibrating conclusions identify provisional output and actual
   input.dsp = { signalState: 'calibrating', last: point(now, 40, { status: 'normal' }) };
   const calibrating = model.snapshot(input);
   assert.match(calibrating.conclusion.title, /sementara/);
-  assert.match(calibrating.conclusion.action, /kalibrasi/);
+  assert.match(calibrating.conclusion.action, /Pantau/);
 });
 
 test('rejected or expired results do not remain a current conclusion while new packets arrive', () => {

@@ -37,10 +37,10 @@
       problemChannels: problemChannels,
     };
     if (!dsp.baseline) return {
-      title: "Estimasi sementara" + (latest.outputScope === "frontal-only" ? " (kanal frontal)" : "") + " · belum terkalibrasi",
-      summary: "Indeks memakai acuan umum karena baseline pribadi belum siap. Kesimpulan kelelahan belum tersedia." + (latest.cli == null ? " beban kognitif belum tersedia." : ""),
-      action: "Perbaiki sensor yang ditandai; kalibrasi pribadi berlanjut otomatis.",
-      note: "Hasil sementara tidak masuk laporan bersih atau deteksi microsleep.", problemChannels: problemChannels,
+      title: "Indikasi sementara" + (latest.outputScope === "frontal-only" ? " (kanal frontal)" : "") + ": " + (labels[latest.instantStatus || latest.status] || "Indeks tersedia"),
+      summary: "Pola indeks memakai acuan umum." + (latest.cli == null ? " beban kognitif belum tersedia." : ""),
+      action: "Pantau perubahan indeks dan kualitas sinyal.",
+      note: "Estimasi eksperimental dengan acuan umum, bukan penilaian klinis. Tidak masuk laporan bersih atau deteksi microsleep.", problemChannels: problemChannels,
     };
     var provisional = latest.classificationProvisional || dsp.signalState === "limited";
     var currentStatus = labels[latest.instantStatus] ? latest.instantStatus : latest.status;
@@ -117,7 +117,7 @@
     var message = !device.connected ? "Hubungkan Muse untuk memulai pemantauan."
       : !Number.isFinite(device.lastEEGAt) ? "Bluetooth tersambung; menunggu paket EEG."
       : !receiving ? "Aliran EEG berhenti. Periksa headband dan hubungkan ulang."
-      : uncalibratedPreview && valid ? "Estimasi sementara dari kanal layak; baseline pribadi belum siap. Kalibrasi berlanjut otomatis."
+      : uncalibratedPreview ? (valid ? "Live Monitor aktif · indikasi sementara dari pola indeks." : "Sinyal belum terbaca. Periksa sensor yang ditandai.")
       : !baselineReady && dsp.calibration ? "Kalibrasi " + (dsp.baselineCount || 0) + "/" +
         (dsp.baselineTarget || 40) + " jendela baseline · " + (dsp.calibration.reason || "menunggu data EEG layak") + "."
       : !baselineReady ? "Kalibrasi: " + remaining + " jendela EEG bersih belum terkumpul. " +
@@ -134,7 +134,9 @@
     if (receiving && baselineReady && !valid && ["ready", "limited", "calibrating"].includes(dsp.signalState))
       message = "Paket EEG diterima, tetapi hasil olahan terbaru belum tersedia. Menunggu jendela baru yang lengkap dari empat sensor.";
     var latest = valid ? (uncalibratedPreview ? Object.assign({}, dsp.last, {
-      status: null, instantStatus: null, classificationProvisional: true, microsleep: false,
+      status: validIndex(dsp.last.fi) ? dsp.last.status : null,
+      instantStatus: validIndex(dsp.last.fi) ? dsp.last.instantStatus : null,
+      classificationProvisional: true, microsleep: false,
     }) : dsp.last) : null;
     var assessment = conclusion(latest, dsp, message);
     return { history: history, preview: preview, heatRows: heatRows, incidents: incidents, incidentSeries: incidentSeries,

@@ -134,7 +134,7 @@ Pada mode Sesi perangkat ini, halaman Fatigue Risk Management memakai ringkasan 
 2. Masuk sebagai anggota yang akan dipantau dan buka layar Live.
 3. Pilih Hubungkan Muse (BLE). Kegagalan pairing tidak beralih otomatis ke simulasi.
 4. Pasang TP9, AF7, AF8, TP10; status Live menunjukkan sinyal, gangguan gerakan, dan kalibrasi.
-5. Setelah Muse tersambung, Live pekerja menampilkan persiapan **01:00** dan detail empat sensor. Kalibrasi mengumpulkan minimal 40 jendela bersih dan 20 jendela independen. Setelah satu menit Live Monitor terbuka: bila baseline belum siap, indeks dari kanal yang layak memakai acuan umum dan diberi label **Estimasi sementara - belum terkalibrasi**, tanpa kesimpulan kategori atau deteksi microsleep. Hasil ini tidak masuk laporan bersih. Kanal yang ditolak tidak dipakai; jika semua kanal buruk tidak ada indeks. Kalibrasi pribadi berlanjut otomatis.
+5. Setelah Muse tersambung, Live pekerja menampilkan persiapan **01:00** dan detail empat sensor. Kalibrasi mengumpulkan minimal 40 jendela bersih dan 20 jendela independen. Setelah satu menit Live Monitor terbuka: bila baseline belum siap, indeks dari kanal yang layak memakai acuan umum dan diberi label **Indikasi sementara**, dengan kategori pola indeks eksperimental berdasarkan acuan umum; deteksi microsleep tetap memerlukan baseline pribadi. Hasil ini tidak masuk laporan bersih. Kanal yang ditolak tidak dipakai; jika semua kanal buruk tidak ada indeks. Kalibrasi pribadi berlanjut otomatis.
 6. Setiap koneksi Muse memulai baseline baru. Reset manual juga tersedia melalui Profil > Kalibrasi baseline.
 7. Saat alat terputus, monitoring berhenti. Logout menghentikan streaming dan membersihkan sesi.
 

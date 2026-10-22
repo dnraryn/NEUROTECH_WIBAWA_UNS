@@ -357,7 +357,7 @@ const WorkerLive = () => {
         <strong>KALIBRASI MUSE</strong>
         <AskAIButton variant="plus" />
       </div>
-      <p className="worker-calibration-intro">Persiapan 1 menit sambil memeriksa sinyal. Setelah itu Live Monitor terbuka; hasil yang belum terkalibrasi ditandai sementara.</p>
+      <p className="worker-calibration-intro">Persiapan 1 menit sambil memeriksa sinyal. Setelah itu Live Monitor terbuka; indeks dan indikasi pola ditampilkan dari sinyal yang tersedia.</p>
       <WorkerCalibrationCard />
       <WorkerSignalDetails />
       <WorkerSessionArchive />
@@ -455,7 +455,7 @@ const WorkerLive = () => {
 
     {/* Current status text — drives off w.status (live) */}
     <div style={{ textAlign: "center", marginTop: 14 }}>
-      {hasRealSample && stat ? <><StatusPill status={stat} />{muse.real && dsp.last?.classificationProvisional && <span style={{ fontSize: 11, marginLeft: 8 }}>{dsp.last.outputScope === "frontal-only" ? "Estimasi fatigue parsial · kanal frontal" : "Klasifikasi sementara"}</span>}</> : <span>{muse.real && !dsp.baseline ? (hasRealSample ? "Estimasi sementara - belum terkalibrasi" : "Belum cukup sinyal") : hasRealSample ? "Band power tersedia · klasifikasi belum tersedia" : "Menunggu EEG"}</span>}
+      {hasRealSample && stat ? <><StatusPill status={stat} />{muse.real && dsp.last?.classificationProvisional && <span style={{ fontSize: 11, marginLeft: 8 }}>{dsp.last.outputScope === "frontal-only" ? "Estimasi fatigue parsial · kanal frontal" : "Indikasi sementara"}</span>}</> : <span>{muse.real && !dsp.baseline ? (hasRealSample ? "Indikasi sementara" : "Sinyal belum terbaca") : hasRealSample ? "Band power tersedia · klasifikasi belum tersedia" : "Menunggu EEG"}</span>}
       <div style={{ fontSize: 12.5, color: "var(--nt-text-2)", marginTop: 8, padding: "0 36px", lineHeight: 1.45 }}>
         {hasRealSample ? stCopy : signalMessage}
       </div>

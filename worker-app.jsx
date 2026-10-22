@@ -56,20 +56,19 @@ const WorkerCalibrationCard = () => {
   const radio = window.ntMuse?.status?.() || {};
   const dsp = window.ntMuseDSP || {};
   if (!device.real || !device.connected) return null;
-  if (dsp.baseline) return Date.now() - dsp.baseline.ts < 30000 ?
-    <section className="worker-calibration-card" aria-label="Kalibrasi Muse berhasil"><strong>Kalibrasi berhasil</strong><small>Baseline pribadi aktif · {dsp.baseline.independentWindows || 0} jendela EEG tidak tumpang tindih dinilai.</small></section> : null;
+  if (dsp.baseline) return null;
   const target = dsp.baselineTarget || 40;
   const count = Math.min(target, Math.max(0, dsp.baselineCount || 0));
   const cal = dsp.calibration || {};
   const startedAt = cal.startedAt || radio.connectedAt;
+  if (Number.isFinite(startedAt) && Date.now() - startedAt >= 60000) return null;
   const remaining = Number.isFinite(startedAt) ? Math.max(0, Math.ceil((60000 - (Date.now() - startedAt)) / 1000)) : 60;
   const clock = `${String(Math.floor(remaining / 60)).padStart(2, "0")}:${String(remaining % 60).padStart(2, "0")}`;
   const stageLabels = { "device-check": "Periksa perangkat", stabilization: "Stabilisasi sinyal", baseline: "Baseline mata terbuka", validation: "Validasi baseline" };
   return <section className="worker-calibration-card" aria-label="Kalibrasi Muse">
-    <div className="worker-calibration-top"><div><strong>{remaining ? stageLabels[cal.stage] || "Persiapan Muse" : "Live Monitor aktif"}</strong><span>{remaining ? cal.reason || "Duduk tenang, mata terbuka" : "Baseline belum siap. Indeks dari kanal layak ditampilkan sebagai estimasi sementara."}</span></div><output aria-label="Waktu persiapan tersisa">{remaining ? clock : `${count}/${target}`}</output></div>
+    <div className="worker-calibration-top"><div><strong>{stageLabels[cal.stage] || "Persiapan Muse"}</strong><span>{cal.reason || "Duduk tenang, mata terbuka"}</span></div><output aria-label="Waktu persiapan tersisa">{clock}</output></div>
     <div className="worker-calibration-track" role="progressbar" aria-label="Kemajuan kalibrasi" aria-valuemin="0" aria-valuemax={target} aria-valuenow={count}><span style={{ width: `${count / target * 100}%` }} /></div>
-    <small>{count}/{target} jendela bersih. {remaining ? "Persiapan selesai setelah satu menit, meski baseline belum lengkap." : "Kalibrasi berlanjut otomatis. Sinyal yang ditolak tidak menghasilkan indeks."}</small>
-    {cal.outcome === "unstable" && <button type="button" className="worker-signal-reconnect" onClick={() => window.ntMuseClearBaseline?.()}>Ulangi kalibrasi</button>}
+    <small>{count}/{target} jendela bersih. Live Monitor terbuka setelah satu menit.</small>
   </section>;
 };
 
