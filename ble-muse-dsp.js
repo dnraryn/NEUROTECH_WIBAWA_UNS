@@ -19,12 +19,12 @@
   var EPS = 1e-6;
   var ALGORITHM_VERSION = "eeg-heuristic-v4";
   window.ntEEGAlgorithmVersion = ALGORITHM_VERSION;
-  // A two-minute wall-clock calibration, with a smaller quality-controlled
+  // One-minute preparation; incomplete baselines remain explicitly provisional.
   // baseline quota. Forty overlapping 1-second analysis windows are NOT forty
   // independent observations; separate non-overlapping 2-second epochs below.
   var BASELINE_TARGET = 40;
-  var CALIBRATION_MS = 120000;
-  var CALIBRATION_POLICY = Object.freeze({ version: "baseline-quality-v2", stabilizationWindows: 3,
+  var CALIBRATION_MS = 60000;
+  var CALIBRATION_POLICY = Object.freeze({ version: "baseline-quality-v3", stabilizationWindows: 3,
     independentSpacingMs: 2000, minIndependentWindows: 20, maxLog2Spread: 1.0,
     minObservedRateHz: 192, maxObservedRateHz: 320 });
   // Detrending changes spectral features; do not reuse pre-filter baselines.
@@ -359,12 +359,7 @@
         if (Date.now() - calibration.startedAt >= CALIBRATION_MS) {
           finalizeBaseline();
           if (baseline) return true;
-        } else {
-          calibration.reason = "Menunggu akhir fase dua menit";
-        }
-      } else if (Date.now() - calibration.startedAt >= CALIBRATION_MS) {
-        calibration.outcome = "insufficient-data";
-        calibration.reason = "Fase dua menit selesai; EEG bersih belum cukup untuk baseline";
+        } else calibration.reason = "Data cukup; menunggu akhir persiapan satu menit";
       }
     }
     publishCalibration();
@@ -607,7 +602,7 @@
       last: out, bands: out.bands, signalState: out.qualityLevel === "limited" ? "limited" : baseline ? "ready" : "calibrating",
       inferenceStatus: !baseline ? "CALIBRATING" : out.qualityLevel === "good" ? "ELIGIBLE" : "PROVISIONAL",
       microsleepEvents: msEvents,
-      // The two-minute timer is independent of the clean-window count.
+      // The one-minute preparation is independent of the clean-window count.
       // Once `baseline` is non-null, the quality gate has passed.
       baseline: baseline,
       baselineProgress: baseline ? 1 : Math.min(1, baselineBuffer.length / BASELINE_TARGET),

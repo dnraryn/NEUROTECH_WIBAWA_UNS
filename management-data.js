@@ -37,10 +37,10 @@
       problemChannels: problemChannels,
     };
     if (!dsp.baseline) return {
-      title: "Kalibrasi · sementara" + (latest.outputScope === "frontal-only" ? " (kanal frontal)" : ""),
-      summary: "Indeks dan kesimpulan menunggu baseline sesi Muse ini." + (latest.outputScope === "frontal-only" ? " beban kognitif belum tersedia." : ""),
-      action: "Tetap terjaga, mata terbuka, dan duduk tenang sampai kalibrasi selesai.",
-      note: "Kalibrasi dua menit memerlukan minimal 40 jendela EEG bersih dan baseline yang stabil sebelum hasil baru ditampilkan.", problemChannels: problemChannels,
+      title: "Estimasi sementara" + (latest.outputScope === "frontal-only" ? " (kanal frontal)" : "") + " · belum terkalibrasi",
+      summary: "Indeks memakai acuan umum karena baseline pribadi belum siap. Kesimpulan kelelahan belum tersedia." + (latest.cli == null ? " beban kognitif belum tersedia." : ""),
+      action: "Perbaiki sensor yang ditandai; kalibrasi pribadi berlanjut otomatis.",
+      note: "Hasil sementara tidak masuk laporan bersih atau deteksi microsleep.", problemChannels: problemChannels,
     };
     var provisional = latest.classificationProvisional || dsp.signalState === "limited";
     var currentStatus = labels[latest.instantStatus] ? latest.instantStatus : latest.status;
@@ -70,6 +70,10 @@
     var calibrationRequired = !input.demo && Number.isFinite(dsp.baselineTarget) && dsp.baselineTarget > 0;
     var baselineReady = !calibrationRequired || !!dsp.baseline;
     var measurementStart = calibrationRequired ? (dsp.baseline?.ts || Infinity) : -Infinity;
+    var preparationStart = dsp.calibration?.startedAt;
+    var preparing = calibrationRequired && Number.isFinite(preparationStart) && now - preparationStart < 60000;
+    var uncalibratedPreview = calibrationRequired && !dsp.baseline && Number.isFinite(preparationStart) && now - preparationStart >= 60000;
+    var displayStart = uncalibratedPreview ? preparationStart + 60000 : measurementStart;
     var remaining = Math.max(0, (dsp.baselineTarget || 40) - (dsp.baselineCount || 0));
     var periodDays = [7, 30, 90, 365][input.period || 0];
     var cutoff = now - periodDays * 86400000;
@@ -82,14 +86,15 @@
     }).slice().sort(function (a, b) { return a.ts - b.ts; });
     var history = source.filter(function (p) { return p.ts >= cutoff; });
     var receiving = !!device.connected && fresh(device.lastEEGAt, now);
-    var valid = receiving && baselineReady && !!dsp.last && dsp.last.ts >= measurementStart && fresh(dsp.last.ts, now) &&
+    var valid = receiving && !preparing && (baselineReady || uncalibratedPreview) && !!dsp.last && dsp.last.ts >= displayStart && fresh(dsp.last.ts, now) &&
       ["calibrating", "ready", "limited"].includes(dsp.signalState) &&
       (measuredIndices(dsp.last) || (dsp.last.outputScope === "bands-only" && indexKeys.every(function (key) { return dsp.last[key] == null; }) &&
         ["delta", "theta", "alpha", "beta", "gamma"].every(function (key) { return validIndex(dsp.last.bands?.[key]); })));
     // The current measurement remains visible if member history has not yet
     // been populated. It is only a preview and never becomes a clean report row.
     if (!input.demo && valid && measuredIndices(dsp.last) && !preview.some(function (p) { return p.ts === dsp.last.ts; })) {
-      preview.push(Object.assign({}, dsp.last, { source: "muse", quality: dsp.last.qualityLevel || dsp.quality?.level }));
+      preview.push(Object.assign({}, dsp.last, { source: "muse", quality: uncalibratedPreview ? "limited" : dsp.last.qualityLevel || dsp.quality?.level,
+        provisional: uncalibratedPreview || dsp.last.classificationProvisional }));
       preview.sort(function (a, b) { return a.ts - b.ts; });
     }
     var bins = shifts.map(function () { return Array.from({ length: 8 }, function () { return []; }); });
@@ -112,6 +117,7 @@
     var message = !device.connected ? "Hubungkan Muse untuk memulai pemantauan."
       : !Number.isFinite(device.lastEEGAt) ? "Bluetooth tersambung; menunggu paket EEG."
       : !receiving ? "Aliran EEG berhenti. Periksa headband dan hubungkan ulang."
+      : uncalibratedPreview && valid ? "Estimasi sementara dari kanal layak; baseline pribadi belum siap. Kalibrasi berlanjut otomatis."
       : !baselineReady && dsp.calibration ? "Kalibrasi " + (dsp.baselineCount || 0) + "/" +
         (dsp.baselineTarget || 40) + " jendela baseline · " + (dsp.calibration.reason || "menunggu data EEG layak") + "."
       : !baselineReady ? "Kalibrasi: " + remaining + " jendela EEG bersih belum terkumpul. " +
@@ -127,12 +133,15 @@
       : "Menunggu cukup data dari empat sensor EEG.";
     if (receiving && baselineReady && !valid && ["ready", "limited", "calibrating"].includes(dsp.signalState))
       message = "Paket EEG diterima, tetapi hasil olahan terbaru belum tersedia. Menunggu jendela baru yang lengkap dari empat sensor.";
-    var assessment = conclusion(valid ? dsp.last : null, dsp, message);
+    var latest = valid ? (uncalibratedPreview ? Object.assign({}, dsp.last, {
+      status: null, instantStatus: null, classificationProvisional: true, microsleep: false,
+    }) : dsp.last) : null;
+    var assessment = conclusion(latest, dsp, message);
     return { history: history, preview: preview, heatRows: heatRows, incidents: incidents, incidentSeries: incidentSeries,
-      receiving: receiving, valid: valid, message: message, latest: valid ? dsp.last : null, conclusion: assessment,
+      receiving: receiving, valid: valid, message: message, latest: latest, conclusion: assessment,
       monitorHours: (device.samples || 0) / (4 * 256 * 3600),
       lini: [{ l: "Sesi Muse", v: valid ? dsp.last.fi : null }],
-      insight: { tier: valid ? ({ normal: "low", waspada: "medium", berisiko: "high", kritis: "critical" }[dsp.last.instantStatus || dsp.last.status] || "medium") : "medium",
+      insight: { tier: valid && !uncalibratedPreview ? ({ normal: "low", waspada: "medium", berisiko: "high", kritis: "critical" }[dsp.last.instantStatus || dsp.last.status] || "medium") : "medium",
         icon: "•", t: valid ? assessment.title + ": " + assessment.summary : message,
         d: assessment.action } };
   }

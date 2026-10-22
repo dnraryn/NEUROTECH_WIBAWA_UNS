@@ -12,6 +12,20 @@ async function setup() {
 function output(b, ts, changes={}) {
   b.setClock(ts); b.c.ntMuseDSP={signalState:'ready',last:{ts,qualityLevel:'good',outputScope:'full',fi:30,cli:40,ei:60,microsleep:false,classificationProvisional:false,...changes}}; b.emit('nt-data');
 }
+
+test('uncalibrated preview after one minute remains outside saved report indices and incidents', async () => {
+  const b = await setup(); b.c.ntSessionArchive.begin();
+  b.setClock(65000);
+  b.c.ntMuseDSP = { baselineTarget: 40, baselineCount: 8, baseline: null,
+    calibration: { startedAt: 1000 }, signalState: 'limited',
+    last: { ts: 65000, qualityLevel: 'good', outputScope: 'full', fi: 80, cli: 70, ei: 20,
+      classificationProvisional: true, microsleep: false } };
+  b.emit('nt-data');
+  const summary = b.c.ntSessionArchive.state().rows[0].summary;
+  assert.equal(summary.clean, 0);
+  assert.equal(summary.incidents, 0);
+  assert.equal(summary.meanFI, null);
+});
 test('raw samples may arrive during calibration but no report indices are saved before baseline', async () => {
   const b = await setup(); b.c.ntSessionArchive.begin();
   b.setClock(2000); b.c.ntMuseDSP = { baselineTarget:120, baselineCount:30, signalState:'calibrating',

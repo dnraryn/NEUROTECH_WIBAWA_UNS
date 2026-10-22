@@ -35,24 +35,24 @@ test('calibration verifies streams, stabilizes, collects independent epochs and 
   const dsp = b.c.ntMuseDSP;
   assert.equal(dsp.calibration.stage, 'complete');
   assert.equal(dsp.calibration.outcome, 'success');
-  assert.equal(dsp.baseline.calibrationVersion, 'baseline-quality-v2');
-  assert.ok(dsp.baseline.independentWindows >= 40);
+  assert.equal(dsp.baseline.calibrationVersion, 'baseline-quality-v3');
+  assert.ok(dsp.baseline.independentWindows >= 20);
   assert.equal(dsp.calibration.acceptedWindows, 124);
   assert.equal(dsp.calibration.rejectedWindows, 0);
   assert.equal(dsp.calibration.availabilityPercent, 100);
 });
 
-test('forty clean baseline windows cannot unlock scores before the two-minute timer', async () => {
+test('clean baseline waits one minute, then unlocks without a two-minute wait', async () => {
   const b = await setup();
   for (let i = 0; i < 44; i++) clean(b, i);
   assert.equal(b.c.ntMuseDSP.baselineCount, 40);
   assert.equal(b.c.ntMuseDSP.baselineProgress, 1);
   assert.equal(b.c.ntMuseDSP.baseline, null);
-  assert.equal(b.c.ntMuseDSP.calibration.stage, 'validation');
-  b.setClock(122000);
+  b.setClock(61000);
   feed(b, { count: 512, offset: 44 * 256 });
   assert.equal(b.c.ntMuseDSP.calibration.outcome, 'success');
   assert.ok(b.c.ntMuseDSP.baseline);
+  assert.ok(b.c.ntMuseDSP.baseline.ts < 120000);
 });
 
 test('poor signal restarts stabilization without training baseline; packet gaps invalidate progress windows', async () => {

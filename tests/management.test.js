@@ -8,6 +8,35 @@ function setup() {
 const day = 86400000, now = 40 * day;
 const point = (ts, fi = 40, extra = {}) => ({ source: 'muse', ts, fi, cli: 30, ei: 60, ...extra });
 
+test('one minute opens fresh uncalibrated estimates without admitting them to clean reports or verdicts', () => {
+  const model = setup(), startedAt = now - 60000;
+  const device = { connected: true, lastEEGAt: now };
+  const dsp = { baselineTarget: 40, baselineCount: 5, baseline: null,
+    calibration: { startedAt }, signalState: 'limited',
+    last: point(now, 63, { classificationProvisional: true, status: 'berisiko', instantStatus: 'berisiko' }) };
+  const before = model.snapshot({ now: now - 1, device: { ...device, lastEEGAt: now - 1 },
+    dsp: { ...dsp, last: point(now - 1) } });
+  assert.equal(before.valid, false);
+  const result = model.snapshot({ now, device, dsp, history: [dsp.last] });
+  assert.equal(result.latest.fi, 63);
+  assert.equal(result.latest.cli, 30);
+  assert.equal(result.latest.classificationProvisional, true);
+  assert.equal(result.latest.status, null);
+  assert.equal(result.latest.microsleep, false);
+  assert.match(result.conclusion.title, /belum terkalibrasi/);
+  assert.equal(result.history.length, 0);
+  assert.equal(result.incidents, 0);
+  assert.equal(result.preview[0].quality, 'limited');
+  for (const state of ['artifact', 'no-signal', 'waiting', 'error']) {
+    assert.equal(model.snapshot({ now, device, dsp: { ...dsp, signalState: state } }).valid, false);
+  }
+  assert.equal(model.snapshot({ now: now + 4000, device, dsp }).valid, false);
+  assert.equal(model.snapshot({ now, device, dsp: { ...dsp, calibration: { startedAt: now } } }).valid, false);
+  const partial = model.snapshot({ now, device, dsp: { ...dsp, last: { ...dsp.last, cli: null, outputScope: 'frontal-only' } } });
+  assert.equal(partial.latest.cli, null);
+  assert.equal(partial.latest.fi, 63);
+});
+
 test('a new Muse pairing hides indices and history until its own baseline is valid', () => {
   const model = setup(), device = { connected: true, lastEEGAt: now };
   const before = model.snapshot({ now, device, dsp: { baselineTarget: 40, baselineCount: 35,

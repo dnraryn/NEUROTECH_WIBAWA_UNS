@@ -76,7 +76,7 @@
         elapsedMs: age(now, calibration.startedAt),
         stage: known(calibration.stage, ["device-check", "stabilization", "baseline", "validation", "complete"]),
         outcome: known(calibration.outcome, ["incomplete", "insufficient-data", "unstable", "success"]),
-        policyVersion: known(calibration.policyVersion, ["baseline-quality-v2"]),
+        policyVersion: known(calibration.policyVersion, ["baseline-quality-v2", "baseline-quality-v3"]),
         acceptedWindows: finite(calibration.acceptedWindows), rejectedWindows: finite(calibration.rejectedWindows),
         acceptedDurationSec: finite(calibration.acceptedDurationSec), rejectedDurationSec: finite(calibration.rejectedDurationSec),
         availabilityPercent: finite(calibration.availabilityPercent),

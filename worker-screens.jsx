@@ -344,12 +344,10 @@ const WorkerLive = () => {
     kritis:   "Kondisi kritis. Hentikan tugas safety-critical dan lapor supervisor.",
   }[stat] || "Pantau kondisi Anda sepanjang shift.";
 
-  // The two-minute worker phase is a signal check, not a score screen.
-  // Keep it tied to connection/calibration time, even when EEG is rejected.
-  const calibrationStartedAt = dsp.calibration?.startedAt || window.ntMuse?.status?.().connectedAt;
-  const timedCalibration = muse.real && window.ntDeviceStatus?.().connected && !dsp.baseline &&
-    Number.isFinite(calibrationStartedAt) && signalNow - calibrationStartedAt < 120000;
-  if (timedCalibration) return (
+  const preparationStart = dsp.calibration?.startedAt || window.ntMuse?.status?.().connectedAt;
+  const calibrating = muse.real && window.ntDeviceStatus?.().connected &&
+    Number.isFinite(preparationStart) && signalNow - preparationStart < 60000;
+  if (calibrating) return (
     <div className="nt-screen worker-live worker-calibration-screen" style={{ paddingBottom: 100 }}>
       <NeuroStatusBar time="11:42" />
       <div className="worker-calibration-nav">
@@ -359,7 +357,7 @@ const WorkerLive = () => {
         <strong>KALIBRASI MUSE</strong>
         <AskAIButton variant="plus" />
       </div>
-      <p className="worker-calibration-intro">Detail EEG langsung selama 2 menit. Pakai Muse dengan sensor menempel, duduk tenang, dan buka mata.</p>
+      <p className="worker-calibration-intro">Persiapan 1 menit sambil memeriksa sinyal. Setelah itu Live Monitor terbuka; hasil yang belum terkalibrasi ditandai sementara.</p>
       <WorkerCalibrationCard />
       <WorkerSignalDetails />
       <WorkerSessionArchive />
@@ -458,7 +456,7 @@ const WorkerLive = () => {
 
     {/* Current status text — drives off w.status (live) */}
     <div style={{ textAlign: "center", marginTop: 14 }}>
-      {hasRealSample && stat ? <><StatusPill status={stat} />{muse.real && dsp.last?.classificationProvisional && <span style={{ fontSize: 11, marginLeft: 8 }}>{dsp.last.outputScope === "frontal-only" ? "Estimasi fatigue parsial · kanal frontal" : "Klasifikasi sementara"}</span>}</> : <span>{muse.real && !dsp.baseline ? "Kalibrasi berlangsung" : hasRealSample ? "Band power tersedia · klasifikasi belum tersedia" : "Menunggu EEG"}</span>}
+      {hasRealSample && stat ? <><StatusPill status={stat} />{muse.real && dsp.last?.classificationProvisional && <span style={{ fontSize: 11, marginLeft: 8 }}>{dsp.last.outputScope === "frontal-only" ? "Estimasi fatigue parsial · kanal frontal" : "Klasifikasi sementara"}</span>}</> : <span>{muse.real && !dsp.baseline ? (hasRealSample ? "Estimasi sementara - belum terkalibrasi" : "Belum cukup sinyal") : hasRealSample ? "Band power tersedia · klasifikasi belum tersedia" : "Menunggu EEG"}</span>}
       <div style={{ fontSize: 12.5, color: "var(--nt-text-2)", marginTop: 8, padding: "0 36px", lineHeight: 1.45 }}>
         {hasRealSample ? stCopy : signalMessage}
       </div>
@@ -526,7 +524,7 @@ const WorkerLive = () => {
     {(() => {
       const w = CURRENT_WORKER;
       const hist = (window.ntHistory && w && w.id ? window.ntHistory(w.id) : []) || [];
-      const recent = hist.slice(-20);
+      const recent = (muse.real ? hist.filter((p) => dsp.baseline && p.ts >= dsp.baseline.ts && !p.provisional && p.quality === "good") : hist).slice(-20);
       if (recent.length < 4) {
         return (
           <div className="neu-surface" style={{ margin: "14px 24px 0", padding: "14px 18px" }}>
