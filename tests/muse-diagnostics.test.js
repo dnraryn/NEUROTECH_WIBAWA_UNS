@@ -34,6 +34,18 @@ function setup() {
     failWrites() { fail = true; } };
 }
 
+test('portable mobile diagnostic export is anonymous and includes only allowed disconnect context', () => {
+  const {b}=setup();
+  b.c.ntMuse.status=()=>({connected:false,lastDisconnect:{reason:'gatt',at:900,eegAgeMs:20,durationMs:800,pageHidden:true,token:'AUTH_SECRET'}});
+  const exported=b.c.ntMuseDiagnostics.exportSnapshot();
+  assert.equal(exported.frames[0].disconnect.reason,'gatt');
+  assert.equal(exported.frames[0].disconnect.pageHidden,true);
+  assert.ok(exported.frames[0].anonymousSessionId);
+  assert.equal(b.c.ntMuseDiagnostics.status().active,false);
+  assert.ok(!JSON.stringify(exported).includes('SECRET'));
+  assert.ok(!JSON.stringify(exported).includes('PRIVATE_DEVICE_NAME'));
+});
+
 test('diagnostics writes only allowed runtime measurements and actual per-channel rates', async () => {
   const f = setup();
   await f.b.c.ntMuseDiagnostics.start();

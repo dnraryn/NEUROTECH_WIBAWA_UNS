@@ -360,6 +360,7 @@ const WorkerLive = () => {
       </div>
       <p className="worker-calibration-intro">Persiapan 1 menit sambil memeriksa sinyal. Setelah itu Live Monitor terbuka; indeks dan indikasi pola ditampilkan dari sinyal yang tersedia.</p>
       <WorkerCalibrationCard />
+    <WorkerSignalStatus />
       <WorkerSignalDetails />
       <WorkerSessionArchive />
       <NeuroTabBar active="brain" />
@@ -423,6 +424,7 @@ const WorkerLive = () => {
     )}
 
     <WorkerCalibrationCard />
+    <WorkerSignalStatus />
     {!muse.real && <WorkerSignalDetails />}
 
     {/* MAIN: Cognitive Load gauge + side fatigue gauge — live values */}

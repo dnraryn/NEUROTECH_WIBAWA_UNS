@@ -228,7 +228,8 @@
       }
       await refreshCloud(s, generation);
     } catch (ignore) {
-      if (generation === epoch) cloudError = "Belum tersinkron ke Firebase. Salinan perangkat tetap tersedia; periksa koneksi dan aturan akses lalu coba lagi.";
+      if (generation === epoch) cloudError = "Belum tersinkron ke Firebase. " +
+        (storage === "device" ? "Salinan perangkat tetap tersedia; coba lagi saat koneksi pulih." : "Sesi masih di memori; ekspor CSV sebelum menutup halaman.");
     } finally {
       if (generation === epoch) {
         syncing = false; emit();
@@ -282,8 +283,10 @@
   }
   async function review(id, note) {
     var s = session(), row = localState().rows.find(function (r) { return r.id === id; });
+    var generation = epoch;
     if (!row || row.status === "recording") throw new Error("Selesaikan sesi sebelum meninjau laporan.");
-    if (!note.trim() || note.length > 1000) throw new Error("Isi evaluasi dan tindak lanjut, maksimal 1.000 karakter.");
+    if (row.review) throw new Error("Evaluasi yang sudah tersimpan tidak dapat ditimpa.");
+    if (typeof note !== "string" || !note.trim() || note.length > 1000) throw new Error("Isi evaluasi dan tindak lanjut, maksimal 1.000 karakter.");
     if (row.source === "demo" && !s) {
       reviews[id] = { status: "reviewed", note: note.trim(), reviewedAt: now(), reviewerUid: "demo" };
       var local = records.find(function (r) { return r.id === id; }); local._demoReview = reviews[id]; changed(local); await persist(local); emit(); return;
@@ -292,7 +295,8 @@
     if (!cloudEnabled() || !row.synced) throw new Error("Peninjauan resmi tersedia setelah sesi tersinkron ke Firebase. Pratinjau ini menyimpan sesi di perangkat.");
     await cloudCollection("sessionReviews", s).doc(id).set({ schemaVersion: 1, sessionId: id, ownerUid: row.ownerUid,
       reviewerUid: s.uid, status: "reviewed", note: note.trim(), updatedAt: window.firebase.firestore.FieldValue.serverTimestamp() });
-    await refreshCloud(s, epoch); emit();
+    if (generation !== epoch) return;
+    await refreshCloud(s, generation); emit();
   }
   async function loadIdentity() {
     var previous = active, previousNamespace = namespace;

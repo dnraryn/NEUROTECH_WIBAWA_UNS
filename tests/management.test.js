@@ -8,6 +8,20 @@ function setup() {
 const day = 86400000, now = 40 * day;
 const point = (ts, fi = 40, extra = {}) => ({ source: 'muse', ts, fi, cli: 30, ei: 60, ...extra });
 
+test('signal reliability separates fresh sensor quality from personal calibration without inventing confidence percentages', () => {
+  const model = setup(), channels=['TP9','AF7','AF8','TP10'];
+  const device={connected:true,lastEEGAt:now,channelLastEEGAt:Object.fromEntries(channels.map(ch=>[ch,now]))};
+  const dsp={quality:{checkedAt:now,level:'good',usedChannels:channels,channels:Object.fromEntries(channels.map(ch=>[ch,{state:'good'}]))}};
+  const fallback=model.signalReliability(device,dsp,now);
+  assert.equal(fallback.used.length,4); assert.equal(fallback.kind,'limited'); assert.match(fallback.basis,/umum/);
+  assert.equal(model.signalReliability(device,{...dsp,baseline:{ts:now}},now).kind,'good');
+  const stale=model.signalReliability(device,dsp,now+4000);
+  assert.equal(stale.used.length,0);assert.equal(stale.label,'Menunggu EEG');
+  const missing=model.signalReliability({...device,channelLastEEGAt:{AF7:now}},dsp,now);
+  assert.equal(missing.used.length,1); assert.equal(missing.label,'Sinyal terbatas');
+  assert.equal(model.signalReliability({...device,connected:false},dsp,now).used.length,0);
+});
+
 test('live fatigue outlook shows a first value and extrapolates four timestamped provisional FI points', () => {
   const model = setup();
   const rows = [0, 1, 2, 3].map(i => point(now - 3000 + i * 1000, 40 + i * 2,

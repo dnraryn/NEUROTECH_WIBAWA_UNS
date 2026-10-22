@@ -100,6 +100,7 @@ test('a rejected server transaction never marks the device record synced or expo
   await b.c.ntSessionArchive.sync();
   const state=b.c.ntSessionArchive.state(); assert.equal(state.rows[0].synced,false);
   assert.match(state.cloudError,/Belum tersinkron/); assert.ok(!state.cloudError.includes('private-provider-detail'));
+  assert.match(state.cloudError,/memori/);assert.ok(!state.cloudError.includes('Salinan perangkat tetap tersedia'));
 });
 test('logout clears private records immediately and ignores a previous identity\'s delayed cloud acknowledgement',async()=>{
   const b=await setup(); b.c.ntSession.set({uid:'one',code:'A',memberId:'one'}); await settle();
@@ -179,4 +180,40 @@ test('periodic cloud updates include received samples even if no acceptable EEG 
   b.setClock(62000); b.tick(); for (let i = 0; i < 5; i++) await settle();
   assert.equal(writes.length, 2); assert.equal(writes[1].receivedSamples, 3);
   assert.equal(writes[1].minutes.length, 0);
+});
+
+test('offline upload preserves local completion and an online retry uploads without duplicating the session', async () => {
+  const {b,writes}=await cloudSetup();
+  b.c.ntSessionArchive.begin(); for(let i=0;i<5;i++) await settle();
+  const original=b.c.NT_FIREBASE.db.runTransaction;
+  b.c.NT_FIREBASE.db.runTransaction=async()=>{throw Error('offline');};
+  output(b,3000);await b.c.ntSessionArchive.finish();for(let i=0;i<5;i++) await settle();
+  assert.equal(b.c.ntSessionArchive.state().rows[0].synced,false);
+  assert.equal(b.c.ntSessionArchive.state().storage,'device');
+  b.c.NT_FIREBASE.db.runTransaction=original;b.emit('online');for(let i=0;i<10;i++) await settle();
+  const rows=b.c.ntSessionArchive.state().rows;
+  assert.equal(rows.length,1);assert.equal(rows[0].status,'completed');assert.equal(rows[0].synced,true);
+  assert.equal(writes[writes.length-1].status,'completed');
+});
+
+test('review notes remain immutable and record reviewer and timestamp in demo', async () => {
+  const b=await setup();const row=await b.c.ntSessionArchive.demo();
+  await b.c.ntSessionArchive.review(row.id,'Tindakan: Pantau ulang. Evaluasi dicatat.');
+  const review=b.c.ntSessionArchive.state().rows.find(r=>r.id===row.id).review;
+  assert.equal(review.reviewerUid,'demo');assert.ok(review.reviewedAt);
+  await assert.rejects(b.c.ntSessionArchive.review(row.id,'overwrite'),/tidak dapat ditimpa/);
+});
+
+test('a review completing after logout cannot start listeners for the previous account', async () => {
+  const {b}=await cloudSetup();b.c.ntSessionArchive.begin();await b.c.ntSessionArchive.finish();
+  for(let i=0;i<10;i++) await settle();
+  const row=b.c.ntSessionArchive.state().rows[0];assert.equal(row.synced,true);
+  b.c.ntSession.set({uid:'one',code:'A',memberId:'one',role:'supervisor'});
+  let release,calls=0;const gate=new Promise(resolve=>{release=resolve;});
+  const original=b.c.NT_FIREBASE.db.collection;
+  b.c.NT_FIREBASE.db.collection=(...args)=>{calls++;const company=original(...args);return{doc:(id)=>{
+    const record=company.doc(id);return{collection:(name)=>{const query=record.collection(name);query.doc=()=>({set:()=>gate});return query;}};}};};
+  const pending=b.c.ntSessionArchive.review(row.id,'Tinjauan petugas.');
+  const before=calls;b.c.ntSession.clear();await settle();release();await pending;
+  assert.equal(calls,before);assert.equal(b.c.ntSessionArchive.state().rows.length,0);
 });

@@ -35,6 +35,7 @@
       deviceRates[channel] = finite(device.channelRateHz && device.channelRateHz[channel]);
       var q = quality.channels && quality.channels[channel] || {};
       channels[channel] = {
+        sampleAgeMs: age(now, device.channelLastEEGAt?.[channel] || dsp.stream?.lastSampleAt?.[channel]),
         state: known(q.state, ["good", "limited", "bad"]),
         peakToPeakUv: finite(q.peakToPeak),
         processedPeakToPeakUv: finite(q.processedPeakToPeak),
@@ -52,6 +53,14 @@
       at: new Date(now).toISOString(), connected: device.connected === true,
       protocol: known(device.protocol, ["classic", "athena"]),
       firmwareIdentifier: null, motionAvailable: window.ntMuseMotion?.supported?.() === true,
+      online: window.navigator.onLine !== false,
+      pageHidden: window.document?.visibilityState === "hidden",
+      disconnect: device.lastDisconnect ? {
+        reason: known(device.lastDisconnect.reason, ["gatt", "user", "error", "disconnected"]),
+        ageMs: age(now, device.lastDisconnect.at),
+        eegAgeMs: finite(device.lastDisconnect.eegAgeMs), durationMs: finite(device.lastDisconnect.durationMs),
+        pageHidden: device.lastDisconnect.pageHidden === true,
+      } : null,
       algorithmVersion: known(window.ntEEGAlgorithmVersion, ["eeg-heuristic-v4"]),
       signalPolicyVersion: known(quality.policy?.version, ["signal-quality-v1"]),
       totalSamples: finite(device.samples), channelSamples: counts, samplesPerSecond: rates,
@@ -173,5 +182,19 @@
 
   window.addEventListener("nt-session", function () { stop(); });
   window.addEventListener("pagehide", function () { stop(); });
-  window.ntMuseDiagnostics = { start: start, stop: stop, status: status, snapshot: snapshot };
+  function exportSnapshot() {
+    var record = snapshot();
+    record.anonymousParticipantId = record.anonymousParticipantId || randomId();
+    record.anonymousSessionId = record.anonymousSessionId || randomId();
+    return { schemaVersion: 1, recording: false, updatedAt: record.at, frames: [record] };
+  }
+  function download() {
+    var content = JSON.stringify(exportSnapshot(), null, 2);
+    var url = window.URL.createObjectURL(new Blob([content], { type: "application/json" }));
+    var link = window.document.createElement("a");
+    link.href = url; link.download = FILE_NAME;
+    window.document.body.appendChild(link); link.click(); link.remove();
+    setTimeout(function () { window.URL.revokeObjectURL(url); }, 1000);
+  }
+  window.ntMuseDiagnostics = { start: start, stop: stop, status: status, snapshot: snapshot, exportSnapshot: exportSnapshot, download: download };
 })();

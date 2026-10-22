@@ -72,6 +72,14 @@ const WorkerCalibrationCard = () => {
   </section>;
 };
 
+const WorkerSignalStatus = () => {
+  const info = window.ntManagement.signalReliability(window.ntMuse?.status?.() || {}, window.ntMuseDSP || {}, Date.now());
+  return <section className={`worker-signal-status is-${info.kind}`} aria-label="Kualitas dan acuan hasil" role="status">
+    <strong>{info.label}</strong><span>{info.used.length}/{info.total} sensor dipakai</span>
+    <span>{info.basis}</span><small>{info.action}</small>
+  </section>;
+};
+
 const WorkerSignalDetails = () => {
   const [, refresh] = React.useReducer((n) => n + 1, 0);
   const [pairing, setPairing] = React.useState(false);
@@ -118,6 +126,11 @@ const WorkerSignalDetails = () => {
         })}</div>
         <p className="worker-signal-tip">Jika AF7/AF8 terbatas, rapikan rambut dan pastikan sensor depan menempel pada kulit. Tetap diam dengan mata terbuka. Grafik bergerak berarti paket masuk; indeks belum tentu layak.</p>
       </>}
+    <button type="button" className="frm-button" onClick={() => {
+      try { window.ntMuseDiagnostics.download(); }
+      catch (error) { window.toast?.("Diagnostik belum dapat diunduh. Coba buka melalui Chrome.", { kind: "warn" }); }
+    }}>Unduh diagnostik sinyal</button>
+    <small className="worker-signal-tip">Berisi status sensor dan koneksi; tanpa identitas akun atau EEG mentah.</small>
   </section>;
 };
 
@@ -134,4 +147,4 @@ const WorkerAppInstall = () => {
     <Link to="/landing" className="worker-app-back">Kembali ke website</Link>
   </div></main>;
 };
-Object.assign(window, { WorkerAppInstall, WorkerAppInstallCard, WorkerCalibrationCard, WorkerSignalDetails });
+Object.assign(window, { WorkerAppInstall, WorkerAppInstallCard, WorkerCalibrationCard, WorkerSignalDetails, WorkerSignalStatus });

@@ -206,5 +206,21 @@
     result.projection = Math.round(Math.max(0, Math.min(100, last.fi + slope * 8)));
     return result;
   }
-  window.ntManagement = { snapshot: snapshot, csv: csv, trend: trend, waveform: waveform, fatigueOutlook: fatigueOutlook };
+  function signalReliability(device, dsp, now) {
+    var quality = dsp.quality || {}, timestamps = device.channelLastEEGAt || dsp.stream?.lastSampleAt || {};
+    var current = fresh(quality.checkedAt, now);
+    var used = channels.filter(function (ch) {
+      return current && fresh(timestamps[ch], now) && quality.usedChannels?.includes(ch) &&
+        ["good", "limited"].includes(quality.channels?.[ch]?.state);
+    });
+    var connected = device.connected === true, receiving = connected && fresh(device.lastEEGAt, now);
+    var good = receiving && used.length === 4 && quality.level === "good";
+    return { used: receiving ? used : [], total: 4,
+      label: !connected ? "Muse terputus" : !receiving ? "Menunggu EEG" : !used.length ? "Sinyal belum layak" : good ? "Sinyal baik" : "Sinyal terbatas",
+      basis: dsp.baseline ? "Acuan pribadi" : "Acuan umum - hasil sementara",
+      kind: good && dsp.baseline ? "good" : receiving && used.length ? "limited" : "unavailable",
+      action: !connected ? "Hubungkan Muse." : !receiving ? "Pastikan Muse menyala dan halaman tetap terbuka."
+        : used.length < 4 ? "Periksa sensor yang ditandai pada detail sinyal." : "Pantau perubahan pola indeks." };
+  }
+  window.ntManagement = { snapshot: snapshot, csv: csv, trend: trend, waveform: waveform, fatigueOutlook: fatigueOutlook, signalReliability: signalReliability };
 })();
