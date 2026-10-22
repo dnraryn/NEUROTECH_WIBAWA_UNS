@@ -18,6 +18,7 @@ const AlertRows = ({rows,staff=false}) => {
 };
 const WorkerAlertInbox = () => {
   const state=useWorkerAlerts();
+  if(state.ready&&!state.error&&!state.rows.length) return <div className="worker-inbox-quiet" aria-label="Pesan petugas K3"><VisualIcon name="message" size={18}/><span>Tidak ada pesan baru</span></div>;
   return <section className="worker-inbox" aria-label="Pesan petugas K3"><div className="worker-home-section-heading"><h2>Pesan K3</h2><span>{state.rows.filter(r=>!r.acknowledgedAt&&!r.resolvedAt).length} baru</span></div>
     {state.error ? <p role="status">{state.error} <button type="button" className="archive-back" onClick={()=>window.ntWorkerAlerts.retry()}>Coba lagi</button></p> : !state.rows.length ? <p className="archive-muted">{state.ready?"Belum ada pesan dari petugas.":"Memuat pesan…"}</p>:<AlertRows rows={state.rows.slice(0,10)}/>}
     {state.rows.length>10&&<details><summary>Pesan lainnya ({state.rows.length-10})</summary><AlertRows rows={state.rows.slice(10)}/></details>}

@@ -222,5 +222,18 @@
       action: !connected ? "Hubungkan Muse." : !receiving ? "Pastikan Muse menyala dan halaman tetap terbuka."
         : used.length < 4 ? "Periksa sensor yang ditandai pada detail sinyal." : "Pantau perubahan pola indeks." };
   }
-  window.ntManagement = { snapshot: snapshot, csv: csv, trend: trend, waveform: waveform, fatigueOutlook: fatigueOutlook, signalReliability: signalReliability };
+  function personalResult(rows, live, uid) {
+    if (live?.valid && live.latest && measuredIndices(live.latest)) return {
+      kind:"live", title:"Hasil Live", metrics:live.latest, provisional:live.latest.classificationProvisional === true,
+      timestamp:live.latest.ts, record:null,
+    };
+    var measured = (rows || []).filter(function (r) {
+      return r.ownerUid === uid && r.source === "muse" && r.summary?.clean > 0 &&
+        [r.summary.meanFI,r.summary.meanCLI,r.summary.meanEI].some(validIndex);
+    }).slice().sort(function (a,b) { return b.startedAt-a.startedAt; })[0];
+    return measured ? { kind:"archive", title:"Hasil tersimpan", record:measured, timestamp:measured.startedAt,
+      metrics:{fi:measured.summary.meanFI,cli:measured.summary.meanCLI,ei:measured.summary.meanEI}, provisional:false }
+      : {kind:"empty",title:"Belum ada hasil olahan",metrics:null,record:null,timestamp:null};
+  }
+  window.ntManagement = { snapshot: snapshot, csv: csv, trend: trend, waveform: waveform, fatigueOutlook: fatigueOutlook, signalReliability: signalReliability, personalResult: personalResult };
 })();

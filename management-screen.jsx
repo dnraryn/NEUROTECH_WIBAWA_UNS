@@ -341,12 +341,12 @@ const ManagementDashboard = () => {
       {/* ── Header ─────────────────────────────────────────────── */}
       <div className="frm-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 18 }}>
         <div style={{ minWidth: 0 }}>
-          <div className="nt-eyebrow" style={{ fontSize: 10 }}>{dateLabel} · {demo ? `${lini.length} lini · ${workerCount} pekerja` : companyView ? `${session.companyName} · ${company.members} anggota dengan sesi` : "Sesi Muse lokal"}</div>
+          <div className="nt-eyebrow" style={{ fontSize: 10 }}>{dateLabel}</div>
           <div style={{ fontSize: 25, fontWeight: 800, color: "var(--nt-text)", marginTop: 4, letterSpacing: "-0.02em" }}>
             Fatigue Risk Management
           </div>
           <div style={{ fontSize: 11.5, color: "var(--nt-text-3)", marginTop: 3 }}>
-            {demo ? "Mode Demo · data contoh agregat & anonim" : companyView ? "Ringkasan perusahaan · sumber arsip yang sama dengan Supervisor K3" : "Pemantauan pribadi · Muse pada browser ini"} · Pemantauan, Evaluasi, Tindak lanjut
+            {demo ? "Demo" : companyView ? "Arsip perusahaan" : "Sesi Muse"}
           </div>
         </div>
 
@@ -398,9 +398,9 @@ const ManagementDashboard = () => {
           {resultMetrics.map((metric) => <div key={metric.key} style={{ borderRadius: 12, padding: "12px 14px", background: "var(--nt-bg-2)", border: "1px solid var(--nt-bg-deep)" }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: "var(--nt-text-2)" }}>{metric.label}</div>
             <div style={{ margin: "5px 0", color: metric.color }}><output aria-label={metric.label} style={{ fontSize: 34, lineHeight: 1.1, fontWeight: 800 }}>{live.latest?.[metric.key] ?? "—"}</output><span style={{ fontSize: 12, color: "var(--nt-text-3)", marginLeft: 5 }}>/100</span></div>
-            <div style={{ fontSize: 11, lineHeight: 1.5, color: "var(--nt-text-2)" }}>{live.latest && !Number.isFinite(live.latest[metric.key])
+            <details className="visual-method"><summary title={`Info ${metric.label}`} aria-label={`Info ${metric.label}`}><VisualIcon name="info" size={17}/></summary><p>{live.latest && !Number.isFinite(live.latest[metric.key])
               ? metric.key === "cli" ? "Belum tersedia: membutuhkan kanal frontal dan posterior yang dapat dipakai." : "Belum tersedia: membutuhkan kanal frontal AF7 atau AF8 yang dapat dipakai."
-              : metric.meaning}</div>
+              : metric.meaning}</p></details>
           </div>)}
           <div style={{ borderRadius: 12, padding: "12px 14px", background: "var(--nt-bg-2)", border: "1px solid var(--nt-bg-deep)" }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: "var(--nt-text-2)" }}>{live.latest?.outputScope === "frontal-only" ? "Estimasi fatigue · parsial" : "Estimasi klasifikasi"}</div>
@@ -413,15 +413,15 @@ const ManagementDashboard = () => {
         <div className="frm-conclusion" role="region" aria-label="Kesimpulan sesi EEG" style={{ borderRadius: 12, padding: "12px 14px", borderLeft: `4px solid ${live.latest ? classColors[currentClass] || "#2563eb" : "#94a3b8"}`, background: "var(--nt-bg-2)" }}>
           <div style={{ fontSize: 12, fontWeight: 800 }}>Kesimpulan sesi</div>
           <output aria-label="Kesimpulan EEG" style={{ display: "block", fontWeight: 800, fontSize: 17, marginTop: 5 }}>{live.conclusion.title}</output>
-          <p style={{ fontSize: 12, lineHeight: 1.6, margin: "6px 0" }}>{live.conclusion.summary}</p>
+          <details className="visual-method"><summary><VisualIcon name="info" size={16}/>Interpretasi</summary><p>{live.conclusion.summary}</p><p>{live.conclusion.note}</p></details>
           <div style={{ fontSize: 12, lineHeight: 1.6 }}><strong>Tindak lanjut: </strong>{live.conclusion.action}</div>
           {!!live.conclusion.problemChannels.length && <details className="frm-note"><summary>Sensor perlu diperiksa ({live.conclusion.problemChannels.length})</summary>{live.conclusion.problemChannels.join("; ")}.</details>}
-          <div className="frm-note">{live.conclusion.note}</div>
+
         </div>
-        <div style={{ fontSize: 11, lineHeight: 1.6, color: "var(--nt-text-2)" }}>
+        <details className="visual-method"><summary><VisualIcon name="signal" size={16}/>Sensor &amp; metode</summary><p>
           Sensor yang dipakai: {dsp.quality?.usedChannels?.join(", ") || "—"}. {dsp.quality?.excludedChannels?.length ? `Sensor yang dikecualikan: ${dsp.quality.excludedChannels.join(", ")}. ` : ""}
           Kalibrasi: {dsp.baseline ? "baseline siap" : `${dsp.baselineCount || 0}/${dsp.baselineTarget || 40} jendela bersih`}. Skala indeks 0–100; hasil bersifat estimasi.
-        </div>
+        </p></details>
         <div aria-label="Grafik indeks sesi" style={{ paddingTop: 10, borderTop: "1px solid var(--nt-bg-deep)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
             <strong style={{ fontSize: 12 }}>Tren indeks · 60 detik terakhir</strong>

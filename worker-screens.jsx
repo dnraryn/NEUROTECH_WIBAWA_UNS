@@ -336,8 +336,8 @@ const WorkerLive = () => {
     : demoActive ? _clip(60 + Math.sin(tickPhase * 0.3) * 6, 40, 88) + "%" : "—";
   const signalMessage = liveModel.message;
   const deviceLabel = (muse.real && muse.name)
-    ? muse.name + " · TP9 · AF7 · AF8 · TP10"
-    : "Muse S · TP9 · AF7 · AF8 · TP10";
+    ? muse.name
+    : "Muse EEG";
   const stCopy = muse.real ? liveModel.conclusion.summary + " " + liveModel.conclusion.action : {
     normal:   "Status normal. Pertahankan ritme kerja dan ambil jeda singkat tiap jam.",
     waspada:  "Beban kognitif naik 14 menit terakhir. Disarankan istirahat mikro 3 menit.",
@@ -358,7 +358,7 @@ const WorkerLive = () => {
         <strong>KALIBRASI MUSE</strong>
         <AskAIButton variant="plus" />
       </div>
-      <p className="worker-calibration-intro">Persiapan 1 menit sambil memeriksa sinyal. Setelah itu Live Monitor terbuka; indeks dan indikasi pola ditampilkan dari sinyal yang tersedia.</p>
+      <p className="worker-calibration-intro">Pasang sensor, duduk tenang, dan buka mata.</p>
       <WorkerCalibrationCard />
     <WorkerSignalStatus />
       <WorkerSignalDetails />
@@ -415,14 +415,6 @@ const WorkerLive = () => {
       </div>
     </div>
 
-      {!demoActive && (dsp.baseline || !muse.real) && (
-      <div role="status" style={{ margin: "12px 24px 0", padding: "10px 14px",
-        borderRadius: 12, background: "var(--nt-surface)", color: "var(--nt-text-2)",
-        fontSize: 12, lineHeight: 1.5 }}>
-        {signalMessage}
-      </div>
-    )}
-
     <WorkerCalibrationCard />
     <WorkerSignalStatus />
     {!muse.real && <WorkerSignalDetails />}
@@ -433,7 +425,7 @@ const WorkerLive = () => {
         value={cli}
         size={180}
         label={hasRealSample && Number.isFinite(metrics.cli) ? String(cli) : "—"}
-        sublabel="cog. load"
+        sublabel="beban"
         gradient={["#9c8bf0", "#6cb6f0"]}
       />
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -459,14 +451,10 @@ const WorkerLive = () => {
     {/* Current status text — drives off w.status (live) */}
     <div style={{ textAlign: "center", marginTop: 14 }}>
       {hasRealSample && stat ? <><StatusPill status={stat} />{muse.real && dsp.last?.classificationProvisional && <span style={{ fontSize: 11, marginLeft: 8 }}>{dsp.last.outputScope === "frontal-only" ? "Estimasi fatigue parsial · kanal frontal" : "Indikasi sementara"}</span>}</> : <span>{muse.real && !dsp.baseline ? (hasRealSample ? "Indikasi sementara" : "Sinyal belum terbaca") : hasRealSample ? "Band power tersedia · klasifikasi belum tersedia" : "Menunggu EEG"}</span>}
-      <div style={{ fontSize: 12.5, color: "var(--nt-text-2)", marginTop: 8, padding: "0 36px", lineHeight: 1.45 }}>
-        {hasRealSample ? stCopy : signalMessage}
-      </div>
+      <details className="live-result-info"><summary title="Penjelasan hasil" aria-label="Penjelasan hasil"><VisualIcon name="info"/>Info hasil</summary><p>{hasRealSample ? stCopy : signalMessage}</p></details>
     </div>
 
     {/* EEG band power bars — live derivation from CLI/FI/EI */}
-    <WorkerSessionArchive />
-
     <div className="neu-surface" style={{ margin: "16px 24px 0", padding: "16px 14px 12px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, padding: "0 4px" }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: "var(--nt-text)" }}>EEG Band Power</div>
@@ -479,16 +467,17 @@ const WorkerLive = () => {
       </div>
     </div>
 
-    {muse.real && <details open className="worker-signal-collapse"><summary>Detail sinyal Muse</summary><WorkerSignalDetails /></details>}
+    {muse.real && <details className="worker-signal-collapse"><summary title="Detail sinyal Muse" aria-label="Detail sinyal Muse"><VisualIcon name="signal"/>Sinyal</summary><WorkerSignalDetails /></details>}
 
+    <WorkerSessionArchive />
     <div className="worker-live-options" aria-label="Opsi pemantauan">
-      <button type="button" onClick={() => setBreakModal(true)}>
+      <button type="button" title="Pengingat istirahat" aria-label="Pengingat istirahat" onClick={() => setBreakModal(true)}>
         {breakTimer !== null
           ? `Istirahat ${Math.floor(breakTimer / 60)}:${String(breakTimer % 60).padStart(2, "0")}`
-          : "Pengingat istirahat"}
+          : <VisualIcon name="history"/>}
       </button>
       {breakTimer !== null && <button type="button" onClick={() => setBreakTimer(null)}>Hentikan pengingat</button>}
-      <Link to="/w/stats">Riwayat sesi</Link>
+      <Link to="/w/stats" title="Riwayat sesi" aria-label="Riwayat sesi"><VisualIcon name="file"/></Link>
     </div>
 
     <Modal

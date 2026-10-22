@@ -19,7 +19,7 @@ const realWorkerSummaries = (state) => {
       assessment, recordedAt: latest?.startedAt || null, img: NT_IMG[i % NT_IMG.length] };
   });
 };
-const realMetric = (label, value, detail) => <div style={realCard}><div className="nt-eyebrow">{label}</div><div style={{ fontSize: 30, fontWeight: 800, marginTop: 8, color: "var(--nt-text)" }}>{value}</div><div style={{ fontSize: 11, color: "var(--nt-text-3)", marginTop: 6 }}>{detail}</div></div>;
+const realMetric = (label,value,detail) => <section className="visual-kpi"><div className="visual-kpi-top"><span className="visual-kpi-icon"><VisualIcon name={label.includes("Pekerja")||label.includes("Anggota")?"team":label.includes("microsleep")?"signal":"chart"}/></span><span>{label}</span><details className="visual-info"><summary title={detail} aria-label={`Info ${label}`}><VisualIcon name="info" size={17}/></summary><p>{detail}</p></details></div><strong>{value}</strong></section>;
 
 // Visual summaries only; all values retain the existing archive calculations.
 const ArchiveMetricRing = ({ label, value, color }) => {
@@ -114,16 +114,15 @@ const RealSupervisorDashboard = () => {
   return <RealSupervisorFrame active="overview" title="Overview Tim" subtitle="Ringkasan sesi pekerja"
     actions={<div style={{ display: "flex", gap: 6 }}>{[[1, "Hari ini"], [7, "7 hari"], [30, "30 hari"]].map(([n, label]) => <button key={n} type="button" className="archive-back" aria-pressed={days === n} onClick={() => setDays(n)} style={{ fontWeight: days === n ? 800 : 500 }}>{label}</button>)}</div>}>
     <RealArchiveStatus state={state} />
-    <StaffAlertSummary />
+    <div className="workspace-action-grid"><StaffAlertSummary/><ArchiveReviewSummary rows={rows}/></div>
     <div className="supervisor-kpis">
       {realMetric("Pekerja terdaftar", realMembers().length, `${eligible} sesi dapat dinilai`)}
       {realMetric("Anggota dengan sesi", workerIds.size, `${rows.length} sesi dalam periode ini`)}
       {realMetric("Rerata indeks FI", archiveNumber(meanFI), `${measured.length} sesi · ${data.provisional ? "termasuk hasil sementara arsip lama" : "hasil bersih"}`)}
       {realMetric("Indikasi microsleep", incidents, "Perlu tinjauan petugas")}
     </div>
-    <div className="supervisor-chart-grid"><SupervisorDailyTrend points={data.trend} /><section className="supervisor-chart-card"><div className="supervisor-section-heading"><h2>Hasil sesi pekerja</h2><span>Sesi terakhir pada periode ini</span></div><TeamDistribution categories={categories}/><div className="supervisor-status-stack" role="img" aria-label={categories.map((c) => `${c.label}: ${c.count}`).join(", ")}>{categories.filter((c) => c.count).map((c) => <span key={c.key} style={{ flex: c.count, background: c.color }} />)}</div><div className="supervisor-status-legend">{categories.map((c) => <div key={c.key}><span><i style={{ background: c.color }} />{c.label}</span><strong>{c.count}</strong></div>)}</div></section></div>
+    <div className="supervisor-chart-grid"><SupervisorDailyTrend points={data.trend} /><section className="supervisor-chart-card"><div className="supervisor-section-heading"><h2>Hasil sesi pekerja</h2><span>Sesi terakhir pada periode ini</span></div><TeamDistribution categories={categories}/><div className="supervisor-status-legend">{categories.map((c) => <div key={c.key}><span><i style={{ background: c.color }} />{c.label}</span><strong>{c.count}</strong></div>)}</div></section></div>
     <section className="supervisor-takeaway" aria-label="Kesimpulan sesi tim"><div><span className="supervisor-kicker">TINJAUAN TIM</span><h2>{priority.length ? `${priority.length} pekerja perlu ditinjau` : eligible ? "Pantau sesi berikutnya" : "Belum cukup data untuk kesimpulan"}</h2><p>{priority[0]?.assessment.action || (eligible ? "Kesimpulan mengikuti sesi terakhir, bukan kondisi saat ini." : "Lengkapi kalibrasi dan rekam EEG bersih.")}</p></div><Link className="archive-primary" to="/s/workers">Lihat pekerja</Link></section>
-    <ArchiveReviewSummary rows={rows}/>
     <section className="supervisor-chart-card"><div className="supervisor-section-heading"><h2>Sesi Muse terbaru</h2><Link to="/s/reports">Semua laporan ↗</Link></div>
       {!latest.length ? <p className="archive-muted">Belum ada sesi Muse pada periode ini.</p> : <div className="supervisor-session-list">{latest.map((r) => { const assessment = window.ntSessionInsights.assess(r); return <Link key={r.id} to={`/s/reports/${r.id}`} className="supervisor-session-row"><span><strong>{realName(r.memberId)}</strong><small>{realDate(r.startedAt)}</small></span><span className={`supervisor-result-tag is-${assessment.status}`}>{assessment.title}</span><span className="supervisor-row-score">{archiveNumber(r.summary.meanFI)}<small>FI</small></span></Link>; })}</div>}
     </section>
@@ -176,15 +175,25 @@ const RealSupervisorSchedule = () => {
 
 const RealWorkerHome = () => {
   const state = useSessionArchive(), account = window.ntSession?.get();
-  const rows = realSessions(state).filter((r) => r.ownerUid === account?.uid);
-  const latest = rows[0];
+  const [,refresh] = React.useReducer(n=>n+1,0);
+  React.useEffect(()=>{const update=()=>refresh();window.addEventListener("nt-data",update);window.addEventListener("nt-device",update);const timer=setInterval(()=>{if(window.ntMuse?.status?.().connected)update();},1000);return()=>{clearInterval(timer);window.removeEventListener("nt-data",update);window.removeEventListener("nt-device",update);};},[]);
+  const rows = realSessions(state).filter(r=>r.ownerUid===account?.uid);
+  const radio=window.ntMuse?.status?.()||{}, now=Date.now();
+  const live=window.ntManagement.snapshot({now,device:radio,dsp:window.ntMuseDSP||{},history:window.ntHistory?.(window.CURRENT_WORKER?.id)||[]});
+  const result=window.ntManagement.personalResult(rows,live,account?.uid);
+  const trace=result.kind==="live" ? window.ntManagement.trend(live.preview,"fi",now) : null;
   return <div className="nt-screen worker-home" style={{ padding: "22px 22px 100px", display: "flex", flexDirection: "column", gap: 16 }}>
     <header className="worker-home-header"><div><span>{account?.companyName}</span><h1>Halo, {account?.memberName}</h1></div><AskAIButton variant="plus" /></header>
     <WorkerSessionPanel />
     <WorkerCalibrationCard />
     {account?.role === "pekerja" && <WorkerAlertInbox />}
-    <section className="worker-home-results" aria-label="Hasil sesi pribadi terakhir"><div className="worker-home-section-heading"><h2>Hasil terakhir</h2><Link to="/w/stats" aria-label="Lihat arsip pribadi">Riwayat ↗</Link></div><div className="worker-home-scores">{[["Fatigue", latest?.summary.meanFI, "#2563eb"], ["Beban", latest?.summary.meanCLI, "#8b5cf6"], ["Engagement", latest?.summary.meanEI, "#0891b2"]].map(([label, value, color]) => <ArchiveMetricRing key={label} label={label} value={value} color={color} />)}</div><p className="worker-home-caption">{latest ? `${realDate(latest.startedAt)} · ${latest.summary.clean} hasil bersih` : "Belum ada sesi"}</p></section>
-    <PersonalSessionTrace record={latest} />
+    {result.kind!=="empty" ? <section className="worker-home-results" aria-label="Hasil sesi pribadi terakhir">
+      <div className="worker-home-section-heading"><h2>{result.title}</h2><Link to={result.kind==="live"?"/w/live":"/w/stats"} title={result.kind==="live"?"Buka Live":"Lihat arsip pribadi"} aria-label={result.kind==="live"?"Buka hasil Live":"Lihat arsip pribadi"}><VisualIcon name={result.kind==="live"?"signal":"history"}/></Link></div>
+      <div className="worker-home-scores">{[["Fatigue",result.metrics.fi,"#2563eb"],["Beban",result.metrics.cli,"#8b5cf6"],["Engagement",result.metrics.ei,"#0891b2"]].map(([label,value,color])=><ArchiveMetricRing key={label} label={label} value={value} color={color}/>)}</div>
+      <p className="worker-home-caption">{result.kind==="live" ? result.provisional?"Live - indikasi sementara":"Live - acuan pribadi" : realDate(result.timestamp)}</p>
+      {trace?.latest && <svg className="personal-live-trace" viewBox="0 -5 600 110" role="img" aria-label="Tren FI sesi Live"><path d={trace.solid} fill="none" stroke="#2563eb" strokeWidth="2.5"/><path d={trace.limited} fill="none" stroke="#8b5cf6" strokeWidth="2.5" strokeDasharray="4 3"/><circle cx={trace.latest.x} cy={trace.latest.y} r="4" fill="#2563eb"/></svg>}
+    </section> : <section className="personal-result-empty" aria-label="Status hasil pribadi"><VisualIcon name="signal" size={34}/><div><strong>Belum ada hasil olahan</strong><p>{radio.connected?"EEG masuk, indeks belum tersedia.":"Rekam sesi untuk melihat hasil."}</p></div><Link to="/w/live" title="Periksa sinyal" aria-label="Periksa sinyal"><VisualIcon name="play"/></Link></section>}
+    {result.record && <PersonalSessionTrace record={result.record}/>}
     <PersonalSessionSettings />
     <NeuroTabBar active="home" />
   </div>;
@@ -203,11 +212,11 @@ const CompanyArchiveOverview = ({ state, data }) => {
     const segment = previous && date - previous.date === 86400000 ? `M${previous.x},${previous.y}L${x},${y}` : "";
     previous = { date, x, y }; return { ...p, x, y, segment };
   });
-  return <><RealArchiveStatus state={state} /><StaffAlertSummary /><ArchiveReviewSummary rows={data.rows}/><section className="neu-surface" aria-label="Ringkasan hasil perusahaan" style={{ padding: 18 }}>
+  return <><RealArchiveStatus state={state} /><div className="workspace-action-grid"><StaffAlertSummary/><ArchiveReviewSummary rows={data.rows}/></div><section className="neu-surface" aria-label="Ringkasan hasil perusahaan" style={{ padding: 18 }}>
     <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 14 }}><strong>Hasil perusahaan · {data.sessions} sesi</strong><span style={{ fontSize: 12, color: "var(--nt-text-3)" }}>{data.members} anggota dengan sesi</span></div>
-    <div className="company-results">{[["Fatigue rata-rata", data.meanFI], ["Beban kognitif", data.meanCLI], ["Engagement", data.meanEI]].map(([label, value]) => <div key={label}><span>{label}</span><output aria-label={label}>{archiveNumber(value)}<small>/100</small></output></div>)}</div>
-    <p style={{ fontSize: 12, lineHeight: 1.7, color: "var(--nt-text-2)" }}>{data.clean ? `Kategori rerata: ${labels[window.ntSessionInsights.status(data.meanFI, data.meanCLI)]}. Dihitung dari ${data.clean} hasil EEG bersih; ${data.partial} hasil terbatas tidak disertakan.` : "Kesimpulan fatigue belum tersedia. Hubungkan Muse melalui akun pekerja dan simpan sesi dengan kualitas sinyal yang layak."} {data.provisional > 0 ? `${data.provisional} hasil bersih masih memakai baseline sementara.` : ""}</p>
+    {data.clean > 0 ? <div className="company-results visual-company-rings">{[["Fatigue rata-rata",data.meanFI,"#2563eb"],["Beban kognitif",data.meanCLI,"#8b5cf6"],["Engagement",data.meanEI,"#0891b2"]].map(([label,value,color])=><ArchiveMetricRing key={label} label={label} value={value} color={color}/>)}</div> : <div className="personal-result-empty"><VisualIcon name="chart" size={38}/><strong>Belum ada hasil EEG tersimpan</strong></div>}
+    <div className="visual-summary-line"><span className="supervisor-result-tag">{data.clean ? labels[window.ntSessionInsights.status(data.meanFI,data.meanCLI)] : "Belum dinilai"}</span><span>{data.clean} hasil bersih</span><details className="visual-info"><summary aria-label="Metode ringkasan perusahaan" title="Metode ringkasan perusahaan"><VisualIcon name="info"/></summary><p>{data.partial} hasil terbatas dikecualikan; {data.provisional} hasil bersih masih memakai acuan sementara. Indeks prototipe untuk bahan evaluasi K3.</p></details></div>
     <h3 style={{ fontSize: 14 }}>Tren fatigue per hari</h3>{plotted.length ? <svg viewBox="0 0 670 165" width="100%" role="img" aria-label="Tren fatigue perusahaan per hari">{[0, 25, 50, 75, 100].map((v) => <g key={v}><line x1="38" x2="638" y1={132 - v * 1.05} y2={132 - v * 1.05} stroke="var(--nt-bg-deep)" /><text x="5" y={136 - v * 1.05} fontSize="10" fill="currentColor">{v}</text></g>)}<path d={plotted.map((p) => p.segment).join("")} stroke="#2563eb" strokeWidth="2.5" fill="none" />{plotted.map((p) => <circle key={p.date} cx={p.x} cy={p.y} r="4" fill="#2563eb"><title>{p.date}: {p.fi}/100</title></circle>)}<text x="38" y="158" fontSize="10" fill="currentColor">{points[0].date}</text><text x="638" y="158" textAnchor="end" fontSize="10" fill="currentColor">{points[points.length - 1].date}</text></svg> : <p className="archive-empty">Belum ada hasil bersih untuk grafik pada periode ini.</p>}
-    <p className="archive-muted">Rerata ditimbang berdasarkan jumlah hasil bersih. Hari tanpa data tidak disambungkan. Indikator prototipe untuk bahan evaluasi K3.</p>
+    <details className="visual-method"><summary><VisualIcon name="info" size={16}/>Metode grafik</summary><p>Rerata ditimbang berdasarkan jumlah hasil bersih. Hari tanpa data tidak disambungkan. Indikator prototipe untuk bahan evaluasi K3.</p></details>
   </section></>;
 };

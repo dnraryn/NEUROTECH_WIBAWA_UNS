@@ -44,6 +44,11 @@ const WorkerAppInstallCard = ({ always = false, showUpdates = false }) => {
   </section>;
 };
 
+const VisualIcon = ({name="signal",size=20}) => {
+  const paths={signal:"M3 12h4l3-7 4 14 3-7h4",chart:"M4 19h16M6 16v-4M12 16V5M18 16V9",team:"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M18 8a3 3 0 0 1 0 6M22 21v-2a4 4 0 0 0-3-3.8",file:"M14 2H6v20h12V6zM14 2v5h5M8 12h8M8 16h6",info:"M12 16v-4M12 8h.01M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0",history:"M3 11a9 9 0 1 1 2 7M3 4v7h7M12 7v5l3 2",message:"M3 3h18v14H9l-6 4zM7 8h10M7 12h6",play:"M8 4l13 8-13 8z",check:"M4 12l5 5L20 6",settings:"M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M6 18l2-2M16 8l2-2M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0"};
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]||paths.signal}/></svg>;
+};
+
 const WorkerCalibrationCard = () => {
   const [, refresh] = React.useReducer((n) => n + 1, 0);
   React.useEffect(() => {
@@ -75,8 +80,8 @@ const WorkerCalibrationCard = () => {
 const WorkerSignalStatus = () => {
   const info = window.ntManagement.signalReliability(window.ntMuse?.status?.() || {}, window.ntMuseDSP || {}, Date.now());
   return <section className={`worker-signal-status is-${info.kind}`} aria-label="Kualitas dan acuan hasil" role="status">
-    <strong>{info.label}</strong><span>{info.used.length}/{info.total} sensor dipakai</span>
-    <span>{info.basis}</span><small>{info.action}</small>
+    <VisualIcon name="signal"/><strong>{info.label}</strong><span title="Sensor yang dipakai">{info.used.length}/{info.total}</span>
+    <details className="visual-info"><summary title="Kualitas dan acuan hasil" aria-label="Info kualitas dan acuan hasil"><VisualIcon name="info"/></summary><p>{info.basis}. {info.action}</p></details>
   </section>;
 };
 
@@ -109,8 +114,12 @@ const WorkerSignalDetails = () => {
     <div className="worker-signal-heading"><div><strong>Detail sinyal</strong><span>{disconnected ? "Bluetooth terputus" : receiving ? "EEG masuk · kualitas diperiksa terpisah" : "Menunggu paket EEG baru"}</span></div><span className={receiving ? "worker-signal-dot is-live" : "worker-signal-dot"} /></div>
     {disconnected ? <><p>Koneksi Bluetooth terputus{radio.lastDisconnect.pageHidden ? " saat aplikasi di latar belakang" : ""}. Kalibrasi perlu dimulai lagi setelah tersambung.</p><button type="button" className="worker-signal-reconnect" disabled={pairing} onClick={reconnect}>{pairing ? "Menghubungkan…" : "Sambungkan Muse lagi"}</button></>
       : <>
-        <p className="worker-signal-summary">{radio.samples || 0} sampel diterima · {receiving ? "paket terakhir baru saja" : radio.lastEEGAt ? `paket terakhir ${Math.floor((now - radio.lastEEGAt) / 1000)} detik lalu` : "belum ada paket"} · {gaps} jeda paket terdeteksi</p>
-        <p className="worker-signal-summary">Jendela diterima {cal.acceptedWindows || 0} · ditolak {cal.rejectedWindows || 0} · ketersediaan {Number.isFinite(cal.availabilityPercent) ? `${cal.availabilityPercent}%` : "—"}. {cal.lastUsableAt ? `EEG layak terakhir ${Math.max(0, Math.floor((now - cal.lastUsableAt) / 1000))} detik lalu.` : "Belum ada EEG layak."}</p>
+        <div className="signal-detail-metrics">{[
+          ["signal",radio.samples || 0,"Sampel"],
+          ["history",radio.lastEEGAt ? `${Math.max(0,Math.floor((now-radio.lastEEGAt)/1000))}s` : "-","Paket"],
+          ["check",cal.acceptedWindows || 0,"Layak"],
+          ["info",gaps,"Jeda"]
+        ].map(([icon,value,label])=><div key={label} title={label}><VisualIcon name={icon} size={18}/><strong>{value}</strong><small>{label}</small></div>)}</div>
         <div className="worker-signal-list">{["TP9", "AF7", "AF8", "TP10"].map((ch) => {
           const lastAt = radio.channelLastEEGAt?.[ch] || dsp.stream?.lastSampleAt?.[ch];
           const fresh = lastAt && now - lastAt < 3000;
@@ -126,10 +135,10 @@ const WorkerSignalDetails = () => {
         })}</div>
         <p className="worker-signal-tip">Jika AF7/AF8 terbatas, rapikan rambut dan pastikan sensor depan menempel pada kulit. Tetap diam dengan mata terbuka. Grafik bergerak berarti paket masuk; indeks belum tentu layak.</p>
       </>}
-    <button type="button" className="frm-button" onClick={() => {
+    <button type="button" className="frm-button" title="Unduh diagnostik sinyal" aria-label="Unduh diagnostik sinyal" onClick={() => {
       try { window.ntMuseDiagnostics.download(); }
       catch (error) { window.toast?.("Diagnostik belum dapat diunduh. Coba buka melalui Chrome.", { kind: "warn" }); }
-    }}>Unduh diagnostik sinyal</button>
+    }}><VisualIcon name="file" size={17}/> Diagnostik</button>
     <small className="worker-signal-tip">Berisi status sensor dan koneksi; tanpa identitas akun atau EEG mentah.</small>
   </section>;
 };
@@ -147,4 +156,4 @@ const WorkerAppInstall = () => {
     <Link to="/landing" className="worker-app-back">Kembali ke website</Link>
   </div></main>;
 };
-Object.assign(window, { WorkerAppInstall, WorkerAppInstallCard, WorkerCalibrationCard, WorkerSignalDetails, WorkerSignalStatus });
+Object.assign(window, { WorkerAppInstall, WorkerAppInstallCard, WorkerCalibrationCard, WorkerSignalDetails, WorkerSignalStatus, VisualIcon });

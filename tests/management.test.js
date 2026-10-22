@@ -8,6 +8,20 @@ function setup() {
 const day = 86400000, now = 40 * day;
 const point = (ts, fi = 40, extra = {}) => ({ source: 'muse', ts, fi, cli: 30, ei: 60, ...extra });
 
+test('personal home uses fresh Live or the latest measured own session instead of an empty newest record', () => {
+  const model=setup();
+  const empty={ownerUid:'one',source:'muse',startedAt:2000,summary:{clean:0,meanFI:null,meanCLI:null,meanEI:null}};
+  const measured={...empty,startedAt:1000,summary:{clean:20,meanFI:0,meanCLI:35,meanEI:60}};
+  assert.equal(model.personalResult([empty],null,'one').kind,'empty');
+  const archive=model.personalResult([empty,measured],null,'one');
+  assert.equal(archive.kind,'archive');assert.equal(archive.metrics.fi,0);assert.equal(archive.timestamp,1000);
+  assert.equal(model.personalResult([{...measured,ownerUid:'other'}],null,'one').kind,'empty');
+  assert.equal(model.personalResult([{...measured,source:'demo'}],null,'one').kind,'empty');
+  const live={valid:true,latest:{ts:now,fi:65,cli:null,ei:20,classificationProvisional:true}};
+  const result=model.personalResult([measured],live,'one');assert.equal(result.kind,'live');assert.equal(result.metrics.fi,65);assert.equal(result.metrics.cli,null);assert.equal(result.provisional,true);
+  assert.equal(model.personalResult([measured],{...live,valid:false},'one').kind,'archive');
+});
+
 test('signal reliability separates fresh sensor quality from personal calibration without inventing confidence percentages', () => {
   const model = setup(), channels=['TP9','AF7','AF8','TP10'];
   const device={connected:true,lastEEGAt:now,channelLastEEGAt:Object.fromEntries(channels.map(ch=>[ch,now]))};
