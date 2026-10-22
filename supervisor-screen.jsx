@@ -20,11 +20,12 @@ let _svLastActive = "overview";
 const SupervisorSidebar = ({ active = "overview" }) => {
   const [searchOpen, setSearchOpen] = React.useState(false);
   const session = window.ntSession?.get(), archive = useSessionArchive();
+  const messages = useWorkerAlerts();
   const workers = session ? realWorkerSummaries(archive) : WORKERS;
   const items = [
     { id: "overview", l: "Overview Tim",   to: "/s/overview" },
     { id: "workers",  l: "Pekerja",         to: "/s/workers" },
-    { id: "alerts",   l: "Alert & Insiden", to: "/s/alerts", badge: session ? realIncidentRows(archive).reduce((n, e) => n + e.minute.incidents, 0) : 3 },
+    { id: "alerts",   l: "Alert & Insiden", to: "/s/alerts", badge: session ? messages.rows.filter(r=>!r.resolvedAt).length : 3 },
     { id: "schedule", l: "Jadwal Shift",    to: "/s/schedule" },
     { id: "reports",  l: "Laporan SMK3",    to: "/s/reports" },
   ];

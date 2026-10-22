@@ -246,6 +246,30 @@ service cloud.firestore {
           && request.resource.data.updatedAt >= resource.data.updatedAt;
         allow delete: if false;
       }
+      match /workerAlerts/{id} {
+        function validAlert(a) {
+          return a.keys().hasAll(['schemaVersion','recipientUid','memberId','senderUid','title','message','severity','createdAt','acknowledgedAt','resolvedAt','resolvedBy'])
+            && a.keys().hasOnly(['schemaVersion','recipientUid','memberId','senderUid','title','message','severity','createdAt','acknowledgedAt','resolvedAt','resolvedBy'])
+            && a.schemaVersion == 1 && a.recipientUid is string && a.recipientUid.size() > 0
+            && a.memberId is string && a.senderUid == request.auth.uid
+            && a.title is string && a.title.size() > 0 && a.title.size() <= 100
+            && a.message is string && a.message.size() > 0 && a.message.size() <= 1000
+            && a.severity in ['info','attention','urgent'] && a.createdAt == request.time
+            && a.acknowledgedAt == null && a.resolvedAt == null && a.resolvedBy == null
+            && get(memberPath(code,a.memberId)).data.uid == a.recipientUid
+            && get(memberPath(code,a.memberId)).data.role == 'pekerja'
+            && get(memberPath(code,a.memberId)).data.status == 'active';
+        }
+        allow read: if verified() && active(code) && (staff(code) || resource.data.recipientUid == request.auth.uid);
+        allow create: if verified() && staff(code) && validAlert(request.resource.data);
+        allow update: if verified() && active(code) && resource.data.resolvedAt == null && (
+          (resource.data.recipientUid == request.auth.uid && resource.data.acknowledgedAt == null
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['acknowledgedAt'])
+            && request.resource.data.acknowledgedAt == request.time)
+          || (staff(code) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['resolvedAt','resolvedBy'])
+            && request.resource.data.resolvedAt == request.time && request.resource.data.resolvedBy == request.auth.uid));
+        allow delete: if false;
+      }
       match /sessionReviews/{id} {
         allow read: if verified() && active(code) && (staff(code) || resource.data.ownerUid == request.auth.uid);
         allow create: if verified() && staff(code)

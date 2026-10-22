@@ -2,7 +2,7 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const { initializeTestEnvironment, assertFails, assertSucceeds } = require('@firebase/rules-unit-testing');
-const { doc, setDoc, getDoc, getDocs, collection, query, where, updateDoc, serverTimestamp, setLogLevel } = require('firebase/firestore');
+const { doc, setDoc, getDoc, getDocs, collection, query, where, updateDoc, serverTimestamp, setLogLevel, onSnapshot } = require('firebase/firestore');
 setLogLevel('silent');
 let env;
 const client = (uid, extra = {}) => env.authenticatedContext(uid, { email: uid + '@example.com', email_verified: true, firebase: { sign_in_provider: 'password' }, ...extra }).firestore();
@@ -28,6 +28,33 @@ before(async () => {
   });
 });
 after(async () => { await env?.cleanup(); });
+
+test('staff alert reaches only its worker; acknowledgement and closure synchronize across accounts', async () => {
+  const staff=client('A-supervisor'), worker=client('A-worker');
+  const path=['companies','A','workerAlerts','message-1'];
+  const data={schemaVersion:1,recipientUid:'A-worker',memberId:'A-worker',senderUid:'A-supervisor',title:'Evaluasi kondisi',message:'Temui petugas K3 sebelum melanjutkan.',severity:'attention',createdAt:serverTimestamp(),acknowledgedAt:null,resolvedAt:null,resolvedBy:null};
+  await assertFails(setDoc(doc(client('A-worker'),...path),{...data,senderUid:'A-worker'}));
+  await assertFails(setDoc(doc(client('B-supervisor'),...path),{...data,senderUid:'B-supervisor'}));
+  await assertFails(setDoc(doc(staff,...path),{...data,recipientUid:'B-worker'}));
+  await assertSucceeds(setDoc(doc(staff,...path),data));
+  await assertFails(getDoc(doc(client('A-other'),...path)));
+  await assertFails(getDoc(doc(client('B-worker'),...path)));
+  await assertFails(getDocs(collection(worker,'companies','A','workerAlerts')));
+  const messages=await assertSucceeds(getDocs(query(collection(worker,'companies','A','workerAlerts'),where('recipientUid','==','A-worker'))));
+  assert.equal(messages.size,1);
+  const observe=(db,predicate)=>new Promise((resolve,reject)=>{
+    let stop;const timeout=setTimeout(()=>{stop?.();reject(Error('realtime delivery timeout'));},7000);
+    stop=onSnapshot(doc(db,...path),snap=>{if(predicate(snap.data())){clearTimeout(timeout);stop();resolve(snap.data());}},reject);
+  });
+  const delivered=await observe(worker,r=>r?.title===data.title);assert.equal(delivered.recipientUid,'A-worker');
+  await assertFails(updateDoc(doc(worker,...path),{message:'tampered',acknowledgedAt:serverTimestamp()}));
+  await assertFails(updateDoc(doc(client('A-other'),...path),{acknowledgedAt:serverTimestamp()}));
+  const acknowledged=observe(staff,r=>!!r?.acknowledgedAt);
+  await assertSucceeds(updateDoc(doc(worker,...path),{acknowledgedAt:serverTimestamp()}));await acknowledged;
+  const closed=observe(worker,r=>!!r?.resolvedAt);
+  await assertSucceeds(updateDoc(doc(staff,...path),{resolvedAt:serverTimestamp(),resolvedBy:'A-supervisor'}));await closed;
+  await assertFails(updateDoc(doc(staff,...path),{resolvedAt:null,resolvedBy:null}));
+});
 test('session access isolates companies, workers, anonymous and unverified accounts', async () => {
   const path = ['companies','A','sessions',sid(1)];
   await assertSucceeds(getDoc(doc(client('A-worker'),...path)));

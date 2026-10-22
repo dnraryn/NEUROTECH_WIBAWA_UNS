@@ -532,6 +532,7 @@ const App = () => {
           )}
           <ScreenBoundary routeKey={route.path}>
             <ScreenComponent key={route.path} {...resolved.props} />
+            {session?.role === "pekerja" && resolved.frame === "mobile" && route.page !== "readiness" && <WorkerAlertNotice />}
           </ScreenBoundary>
         </div>
       </main>
