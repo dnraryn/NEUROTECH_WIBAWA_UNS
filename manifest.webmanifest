@@ -4,7 +4,7 @@
   "short_name": "NeuroTech",
   "description": "Pemantauan Muse, hasil sesi dan riwayat pribadi pekerja.",
   "lang": "id",
-  "start_url": "/?app=worker#/w/readiness",
+  "start_url": "/?app=worker#/landing",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0c1931",

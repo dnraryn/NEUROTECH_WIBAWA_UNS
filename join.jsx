@@ -1,6 +1,7 @@
-// Owner onboarding creates only the owner account; workers self-register with a revocable link.
-const JoinFlow = () => {
-  const [step, setStep] = React.useState("package"); // package | pay | setup | done
+// Company registration verifies the owner and provisions the initial team.
+const JoinFlow = ({recover=false}) => {
+  const [step, setStep] = React.useState(recover ? "recover" : "package");
+  const [recovered,setRecovered]=React.useState(false);
   const [pkg, setPkg] = React.useState(null);
   const [busy, setBusy] = React.useState(false);
   const [code, setCode] = React.useState("");
@@ -15,6 +16,8 @@ const JoinFlow = () => {
   const [ownerName, setOwnerName] = React.useState("");
   const [ownerDesc, setOwnerDesc] = React.useState("Pemilik Usaha");
   const [ownerPass, setOwnerPass] = React.useState("");
+  const [team,setTeam]=React.useState([{role:"supervisor",name:"",password:"",shift:"Pagi"},{role:"pekerja",name:"",password:"",shift:"Pagi"}]);
+  React.useLayoutEffect(()=>{const stage=document.querySelector(".app-stage");if(stage)stage.scrollTop=0;window.scrollTo(0,0);},[step]);
   const isFree = pkg && pkg.name.toLowerCase() === "free";
 
   const doPay = () => {
@@ -36,6 +39,9 @@ const JoinFlow = () => {
     if (!companyName.trim() || !ownerName.trim() || !payEmail.trim() || ownerPass.length < 8) {
       window.toast?.("Lengkapi nama, email pemilik, dan password minimal 8 karakter.", { kind: "warn" }); return;
     }
+    if(isFree || team.some(m=>!m.name.trim() || m.password.length<8)){
+      window.toast?.("Isi minimal satu supervisor dan satu pekerja, masing-masing dengan password awal minimal 8 karakter.",{kind:"warn"});return;
+    }
     submitting.current = true; setBusy(true);
     try {
       let user = window.NT_FIREBASE.auth.currentUser;
@@ -56,9 +62,9 @@ const JoinFlow = () => {
       const newCode = await window.ntCompany.create({
         pkg: pkg.name.toLowerCase(), companyName: companyName.trim(),
         ownerName: ownerName.trim(), ownerDesc: ownerDesc.trim() || "Pemilik",
-        members: [],
+        team:team.map(m=>({...m,name:m.name.trim()})),
       });
-      setOwnerPass(""); setCode(newCode); setStep("done");
+      setOwnerPass("");setTeam(rows=>rows.map(m=>({...m,password:""}))); setCode(newCode); setStep("done");
     } catch (error) {
       window.toast?.(error.message || "Gagal membuat perusahaan.", { kind: "danger" });
     } finally { submitting.current = false; setBusy(false); }
@@ -70,6 +76,16 @@ const JoinFlow = () => {
       if (!session) throw new Error("Masuk kembali untuk memuat keanggotaan.");
       navigate(session.role === "pekerja" ? "/w/readiness" : "/m/overview");
     } catch (error) { window.toast?.(error.message, { kind: "danger" }); }
+  };
+  const recoverCode=async event=>{
+    event.preventDefault();if(submitting.current)return;submitting.current=true;setBusy(true);
+    try{
+      await window.ntAuth.signIn({email:payEmail,password:ownerPass});await window.ntAuth.verify();
+      const companyCode=await window.ntCompany.recoverOwnerCode(),session=window.ntSession.get();
+      setCode(companyCode);setCompanyName(session.companyName);setPkg(PACKAGES.find(p=>p.name.toLowerCase()===session.package)||{name:session.package});
+      setOwnerPass("");setRecovered(true);setStep("done");
+    }catch(error){window.toast?.(error.code?.startsWith("auth/") ? "Email atau password pemilik tidak sesuai." : error.message || "Kode belum dapat dipulihkan.",{kind:"danger"});}
+    finally{submitting.current=false;setBusy(false);}
   };
 
   return (
@@ -84,14 +100,21 @@ const JoinFlow = () => {
       </div>
 
       <div className="nt-join-body">
+        {step==="recover" && <form className="nt-join-card" onSubmit={recoverCode}><h1 className="nt-join-h1">Pulihkan kode pemilik</h1><p className="nt-join-sub">Gunakan email pendaftaran untuk mengambil kode akun perusahaan yang sudah ada.</p>
+          <label className="nt-join-field"><span>Email pemilik</span><input className="nt-join-input" type="email" required autoComplete="username" value={payEmail} onChange={e=>setPayEmail(e.target.value)}/></label>
+          <label className="nt-join-field" style={{marginTop:14}}><span>Password pemilik</span><input className="nt-join-input" type="password" required autoComplete="current-password" value={ownerPass} onChange={e=>setOwnerPass(e.target.value)}/></label>
+          <button type="submit" className="nt-price-cta" disabled={busy} style={{width:"100%",marginTop:20}}>{busy ? "Memproses…" : "Ambil kode akun"}</button>
+          <button type="button" className="nt-auth-demo" disabled={busy} onClick={async()=>{try{if(!payEmail.trim())throw Error("Isi email pemilik terlebih dahulu.");await window.ntAuth.resetPassword(payEmail);window.toast?.("Jika akun tersedia, email pemulihan password dikirim.",{kind:"info"});}catch(error){window.toast?.(error.message || "Email belum terkirim.",{kind:"warn"});}}}>Reset password pemilik</button>
+          <div className="nt-auth-foot"><Link to="/login">Kembali ke login kode</Link></div>
+        </form>}
         {/* ── Step 1: choose package — glassmorphic Forma-AI style ─── */}
         {step === "package" && (
           <div className="nt-pricing-hero" style={{ width: "100%", maxWidth: 1180 }}>
             <div className="nt-eyebrow">Langkah 1 dari 3</div>
             <h1 className="nt-join-h1">Pilih paket NeuroTech</h1>
-            <p className="nt-join-sub">Pilih paket yang sesuai dengan skala usaha Anda.</p>
+            <p className="nt-join-sub">Pendaftaran perusahaan mencakup pemilik, minimal satu supervisor, dan satu pekerja.</p>
             <div className="nt-price-grid">
-              {PACKAGES.map((p) => (
+              {PACKAGES.filter(p=>p.name.toLowerCase()!=="free").map((p) => (
                 <div
                   key={p.name}
                   className={"nt-price-card"
@@ -126,6 +149,7 @@ const JoinFlow = () => {
                 </div>
               ))}
             </div>
+            <div className="nt-auth-foot"><Link to="/join/recover">Sudah punya perusahaan? Ambil kode pemilik</Link></div>
           </div>
         )}
 
@@ -175,7 +199,7 @@ const JoinFlow = () => {
             </label>
 
             <div className="nt-join-section-label">
-              {isFree ? "Akun Anda · peran: Pekerja" : "Akun pemilik · peran: Manajemen"}
+              Akun pemilik · peran: Manajemen
             </div>
             <div className="nt-join-grid3">
               <input className="nt-join-input" value={ownerName}
@@ -199,8 +223,11 @@ const JoinFlow = () => {
               }}>Kirim ulang email</NeuroBtn>
             </div>}
 
-            <div className="nt-join-note" style={{ marginTop: 22 }}>
-              {isFree ? "Paket Free untuk satu pengguna individu." : "Pekerja mendaftar sendiri melalui tautan undangan. Anda tidak perlu mengisi email pekerja."}
+            <div className="registration-team"><h2>Tim awal perusahaan</h2><p>Wajib satu supervisor dan satu pekerja. Keduanya masuk dengan kode akun dan password, tanpa email.</p>
+              {team.map((member,index)=><fieldset key={member.role}><legend>{member.role==="supervisor" ? "Supervisor" : "Pekerja"}</legend>
+                <label className="nt-join-field"><span>Nama {member.role}</span><input className="nt-join-input" value={member.name} maxLength={120} onChange={e=>setTeam(rows=>rows.map((m,i)=>i===index?{...m,name:e.target.value}:m))}/></label>
+                <label className="nt-join-field"><span>Password awal {member.role}</span><input className="nt-join-input" type="password" autoComplete="new-password" value={member.password} minLength={8} onChange={e=>setTeam(rows=>rows.map((m,i)=>i===index?{...m,password:e.target.value}:m))}/></label>
+              </fieldset>)}
             </div>
 
             <div style={{ display: "flex", gap: 12, marginTop: 24, flexWrap: "wrap" }}>
@@ -216,13 +243,12 @@ const JoinFlow = () => {
         {step === "done" && (
           <div className="nt-join-card" style={{ textAlign: "center" }}>
             <div style={{ fontSize: 44 }}>🎉</div>
-            <h1 className="nt-join-h1">Perusahaan terdaftar!</h1>
+            <h1 className="nt-join-h1">{recovered ? "Kode akun perusahaan" : "Perusahaan terdaftar!"}</h1>
             <p className="nt-join-sub">
-              Simpan kode perusahaan Anda. Untuk mengajak pekerja, bagikan tautan undangan di bawah.
+              Simpan kode akun berikut. Bagikan kode dan password awal kepada masing-masing anggota.
             </p>
-            <div className="nt-join-code">{code}</div>
-            {window.ntSession?.get() && <MemberAccessCode companyCode={code} memberId={window.ntSession.get().memberId} role={window.ntSession.get().role}/>}
-            {!isFree && <CompanyInvitePanel code={code} />}
+            <small>Kode perusahaan</small><div className="nt-join-code">{code}</div>
+            <div className="registration-accounts">{(window.ntSession?.get()?.members || []).map(m=><div key={m.id}><strong>{m.name}</strong><MemberAccessCode companyCode={code} memberId={m.id} role={m.role}/></div>)}</div>
             <p className="nt-join-sub">Paket {pkg.name} · {companyName}</p>
             <div style={{ marginTop: 22 }}>
               <NeuroBtn tone="primary" size="lg" onClick={enterDashboard}>

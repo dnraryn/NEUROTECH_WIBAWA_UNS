@@ -24,6 +24,15 @@ test('member codes identify a specific company, person and stored role without c
   await assert.rejects(api.memberCode('B-ABCDEF','worker@example.test','constructor'));
   assert.deepEqual(Array.from(api.apps({role:'constructor'})),[]);
 });
+test('login account codes are random identifiers with canonical formatting and internal aliases',()=>{
+ const b=browser();b.c.crypto=webcrypto;b.load('portal-access.js');const api=b.c.ntPortal;
+ const first=api.newLoginCode('pekerja'),second=api.newLoginCode('pekerja');
+ assert.notEqual(first,second);assert.equal(api.isLoginCode(first),true);
+ assert.equal(api.loginCode(api.formatLoginCode(first).toLowerCase()),first);
+ assert.equal(api.isAliasEmail(api.aliasEmail(first)),true);
+ assert.equal(api.isLoginCode('P-ABCD-EFGH'),false);
+ assert.equal(api.isAliasEmail('real-person@example.test'),false);
+});
 
 test('authenticated portals stay isolated by stored role and staff never fall back into the worker app', () => {
   const b=browser();b.load('portal-access.js');

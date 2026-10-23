@@ -1,7 +1,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function verified() {
+    function verifiedEmail() {
       return request.auth != null && request.auth.token.email_verified == true
         && request.auth.token.firebase.sign_in_provider != 'anonymous';
     }
@@ -9,6 +9,34 @@ service cloud.firestore {
     function profilePath(uid) { return /databases/$(database)/documents/users/$(uid); }
     function companyPath(code) { return /databases/$(database)/documents/companies/$(code); }
     function memberPath(code, id) { return /databases/$(database)/documents/companies/$(code)/members/$(id); }
+    function codeAccount() {
+      let p = get(profilePath(request.auth.uid)).data;
+      let m = get(memberPath(p.companyCode, p.memberId)).data;
+      return p.schemaVersion == 2 && p.status == 'active' && m.status == 'active'
+        && m.uid == request.auth.uid && m.role == p.role && m.email == myEmail()
+        && m.get('loginCode','').matches('^[PSM]-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{16}$');
+    }
+    function verified() {
+      return request.auth != null && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && (request.auth.token.email_verified == true || codeAccount());
+    }
+    function aliasMember(m) {
+      return m.loginCode.matches('^[PSM]-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{16}$')
+        && m.email == m.loginCode.lower() + '@members.neurotech.invalid';
+    }
+    function aliasIdentity() {
+      return request.auth != null && request.auth.token.firebase.sign_in_provider == 'password'
+        && myEmail().matches('^[psm]-[abcdefghjklmnpqrstuvwxyz23456789]{16}@members[.]neurotech[.]invalid$');
+    }
+    function aliasInvitation(code,id) {
+      let m = get(memberPath(code,id)).data;
+      return aliasIdentity() && id == myEmail() && m.email == myEmail() && m.status == 'invited' && aliasMember(m);
+    }
+    function initialMember(code, id, uid, role) {
+      let c = getAfter(companyPath(code)).data;
+      return verifiedEmail() && !exists(companyPath(code)) && c.ownerUid == request.auth.uid && uid != request.auth.uid
+        && ((role == 'supervisor' && c.initialSupervisorId == id) || (role == 'pekerja' && c.initialWorkerId == id));
+    }
     function active(code) {
       let p = get(profilePath(request.auth.uid)).data;
       let m = get(memberPath(code, p.memberId)).data;
@@ -49,7 +77,8 @@ service cloud.firestore {
     }
     function validMember(m, id) {
       return m.keys().hasAll(['id','uid','email','name','role','roleDesc','shift','status'])
-        && m.keys().hasOnly(['id','uid','email','name','role','roleDesc','shift','status'])
+        && m.keys().hasOnly(['id','uid','email','name','role','roleDesc','shift','status','loginCode'])
+        && (!('loginCode' in m) || m.loginCode.matches('^[PSM]-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{16}$'))
         && m.id == id && m.email == id && m.email == m.email.lower()
         && m.email.size() <= 254 && m.email.matches('^[^/@ ]+@[^/@ ]+[.][^/@ ]+$')
         && m.name is string && m.name.size() > 0 && m.name.size() <= 120
@@ -109,10 +138,11 @@ service cloud.firestore {
       );
     }
     match /users/{uid} {
-      allow get: if verified() && request.auth.uid == uid;
+      allow get: if request.auth != null && request.auth.uid == uid && (verifiedEmail() || aliasIdentity() || verified());
       allow list, delete: if false;
-      allow create: if verified() && request.auth.uid == uid && availableIdentity()
-        && request.resource.data.memberId == myEmail() && profileLinks(uid, request.resource.data);
+      allow create: if request.auth != null && request.auth.uid == uid && availableIdentity()
+        && request.resource.data.memberId == myEmail() && profileLinks(uid,request.resource.data)
+        && (aliasInvitation(request.resource.data.companyCode,request.resource.data.memberId) || verified());
       allow update: if verified() && (
         (request.auth.uid == uid && availableIdentity() && request.resource.data.memberId == myEmail()
           && profileLinks(uid, request.resource.data))
@@ -129,21 +159,45 @@ service cloud.firestore {
           && !existsAfter(memberPath(resource.data.companyCode, resource.data.memberId)))
       );
     }
+    // A random 80-bit account identifier resolves only its Auth identifier.
+    // No lists, passwords, roles, membership records, or public writes.
+    match /accountLogins/{code} {
+      allow get: if code.matches('^[PSM]-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{16}$');
+      allow list, update, delete: if false;
+      allow create: if verified() && request.resource.data.keys().hasAll(['email','companyCode']) && request.resource.data.keys().hasOnly(['email','companyCode'])
+        && request.resource.data.email is string && code.matches('^[PSM]-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{16}$')
+        && loginOwner(code,request.resource.data.email,request.resource.data.companyCode);
+    }
+    function loginOwner(code, email, companyCode) {
+      let p = getAfter(profilePath(request.auth.uid)).data;
+      let m = getAfter(memberPath(p.companyCode,email)).data;
+      return p.companyCode == companyCode && m.loginCode == code && m.email == email
+        && ((m.status == 'active' && m.uid == request.auth.uid) || (m.status == 'invited' && aliasMember(m)
+          && (initialMember(p.companyCode,email,m.uid,m.role) || mayManage(p.companyCode,m.role)))
+          || (m.status == 'active' && mayManage(p.companyCode,m.role)));
+    }
+    function validInitial(c) {
+      let s = getAfter(memberPath(c.code,c.initialSupervisorId)).data;
+      let w = getAfter(memberPath(c.code,c.initialWorkerId)).data;
+      return s.role == 'supervisor' && w.role == 'pekerja' && s.status == 'invited' && w.status == 'invited'
+        && s.uid == null && w.uid == null && c.initialSupervisorId != c.initialWorkerId && aliasMember(s) && aliasMember(w);
+    }
     match /companies/{code} {
       // Missing-document reads let a verified account reserve a random unused code.
       allow get: if verified() && (!exists(companyPath(code)) || active(code));
       allow list, delete: if false;
-      allow create: if verified() && availableIdentity()
-        && request.resource.data.keys().hasAll(['schemaVersion','code','companyName','package','ownerUid','createdAt','memberCount','workerCount','lastMemberId','lastMemberAction','revision'])
-        && request.resource.data.keys().hasOnly(['schemaVersion','code','companyName','package','ownerUid','createdAt','memberCount','workerCount','lastMemberId','lastMemberAction','revision'])
+      allow create: if verifiedEmail() && availableIdentity()
+        && request.resource.data.keys().hasAll(['schemaVersion','code','companyName','package','ownerUid','createdAt','memberCount','workerCount','lastMemberId','lastMemberAction','revision','initialSupervisorId','initialWorkerId'])
+        && request.resource.data.keys().hasOnly(['schemaVersion','code','companyName','package','ownerUid','createdAt','memberCount','workerCount','lastMemberId','lastMemberAction','revision','initialSupervisorId','initialWorkerId'])
         && request.resource.data.schemaVersion == 2 && request.resource.data.code == code
         && code.matches('^[FBSGP]-([ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}|[A-F0-9]{12})$') && request.resource.data.ownerUid == request.auth.uid
         && request.resource.data.companyName is string && request.resource.data.companyName.size() > 0
         && request.resource.data.companyName.size() <= 120
-        && request.resource.data.package in ['free','bronze','silver','gold','platinum']
-        && request.resource.data.createdAt == request.time && request.resource.data.memberCount == 1
+        && request.resource.data.package in ['bronze','silver','gold','platinum']
+        && request.resource.data.createdAt == request.time && request.resource.data.memberCount == 3
         && request.resource.data.revision == 0
-        && request.resource.data.workerCount == (request.resource.data.package == 'free' ? 1 : 0)
+        && request.resource.data.workerCount == 1
+        && validInitial(request.resource.data)
         && request.resource.data.lastMemberId == myEmail() && request.resource.data.lastMemberAction == 'create'
         && getAfter(profilePath(request.auth.uid)).data.companyCode == code
         && getAfter(profilePath(request.auth.uid)).data.memberId == myEmail()
@@ -177,26 +231,31 @@ service cloud.firestore {
           && request.resource.data.keys().hasOnly(['uid','email','token','createdAt']) && validJoin(code);
       }
       match /members/{id} {
-        allow read: if verified() && (
+        allow read: if (verified() && (
           (active(code) && (staff(code) || resource.data.uid == request.auth.uid))
           || (resource.data.status == 'invited' && resource.data.email == myEmail())
-        );
+        )) || (aliasIdentity() && resource.data.status == 'invited' && resource.data.email == myEmail() && aliasMember(resource.data));
         allow create: if verified() && validMember(request.resource.data, id) && (
           (id == myEmail() && validJoin(code))
           ||
           (!exists(companyPath(code)) && getAfter(companyPath(code)).data.ownerUid == request.auth.uid
             && id == myEmail() && request.resource.data.uid == request.auth.uid && request.resource.data.status == 'active'
-            && request.resource.data.role == (getAfter(companyPath(code)).data.package == 'free' ? 'pekerja' : 'management')
+            && request.resource.data.role == 'management'
             && profileLinks(request.auth.uid, getAfter(profilePath(request.auth.uid)).data))
-          || (mayManage(code, request.resource.data.role) && request.resource.data.status == 'invited'
-            && action(code, id, 'add'))
+          || (initialMember(code,id,request.resource.data.uid,request.resource.data.role) && aliasMember(request.resource.data)
+            && request.resource.data.status == 'invited' && request.resource.data.uid == null)
+          || (mayManage(code, request.resource.data.role) && action(code, id, 'add') && (
+            request.resource.data.status == 'invited'))
         );
-        allow update: if verified() && validMember(request.resource.data, id) && (
+        allow update: if (aliasInvitation(code,id) || verified()) && validMember(request.resource.data, id) && (
           (resource.data.status == 'invited' && resource.data.email == myEmail() && availableIdentity()
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['uid','status'])
             && request.resource.data.status == 'active' && request.resource.data.uid == request.auth.uid
             && profileLinks(request.auth.uid, getAfter(profilePath(request.auth.uid)).data))
           || (staff(code) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['shift']))
+          || (resource.data.status == 'active' && !('loginCode' in resource.data)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['loginCode'])
+            && (resource.data.uid == request.auth.uid || mayManage(code,resource.data.role)))
           || (owner(code) && resource.data.uid != request.auth.uid
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role']) && action(code, id, 'role')
             && (resource.data.status == 'invited' || profileLinks(resource.data.uid, getAfter(profilePath(resource.data.uid)).data)))

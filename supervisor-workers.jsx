@@ -19,7 +19,7 @@ const SupervisorWorkersList = () => {
   const [addOpen, setAddOpen] = React.useState(false);
   const [removeTarget, setRemoveTarget] = React.useState(null);
   const [codeTarget, setCodeTarget] = React.useState(null);
-  const [form, setForm] = React.useState({ name: "", email: "", role: "pekerja", roleDesc: "", shift: "Pagi" });
+  const [form, setForm] = React.useState({ name: "", password: "", role: "pekerja", roleDesc: "", shift: "Pagi" });
   const session = window.ntSession?.get();
   const archive = useSessionArchive();
   const workers = session ? realWorkerSummaries(archive) : WORKERS;
@@ -38,19 +38,18 @@ const SupervisorWorkersList = () => {
     if (saving.current) return;
     const name = form.name.trim();
     if (!name) { window.toast?.("Nama pekerja wajib diisi.", { kind: "warn" }); return; }
-    if (session && !form.email.trim()) { window.toast?.("Email anggota wajib diisi.", { kind: "warn" }); return; }
+    if (session && form.password.length<8) { window.toast?.("Password awal minimal 8 karakter.", { kind: "warn" }); return; }
     if (!availableRoles.some((r) => r.v === form.role)) {
       window.toast?.("Pilih role pekerja.", { kind: "warn" }); return;
     }
     saving.current = true;
     try {
-      const ok = await window.ntAddWorker({
-        name, email: form.email, role: form.role, roleDesc: form.roleDesc, shift: form.shift,
-      });
+      const ok = session ? await window.ntCompany.addCodeMember({...form,name}) : await window.ntAddWorker({name,role:form.role,roleDesc:form.roleDesc,shift:form.shift});
       if (!ok) throw new Error("Gagal menambah pekerja.");
       window.toast?.(name + " ditambahkan ke daftar pekerja.", { kind: "success" });
-      setForm({ name: "", email: "", role: "pekerja", roleDesc: "", shift: "Pagi" });
+      setForm({ name: "", password: "", role: "pekerja", roleDesc: "", shift: "Pagi" });
       setAddOpen(false);
+      if(session && ok?.id)setCodeTarget(ok.id);
     } catch (error) { window.toast?.(error.message || "Gagal menyimpan pekerja.", { kind: "danger" }); }
     finally { saving.current = false; }
   };
@@ -98,7 +97,6 @@ const SupervisorWorkersList = () => {
         }
       />
       {session && <RealArchiveStatus state={archive} />}
-      {session && session.package !== "free" && <CompanyInvitePanel code={session.code} />}
 
       {/* Filters */}
       <div style={{ display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" }}>
@@ -219,13 +217,13 @@ const SupervisorWorkersList = () => {
       {/* Tambah pekerja */}
       <Modal open={!!codeTarget} onClose={()=>setCodeTarget(null)} title={`Kode masuk ${codeMember?.name || "anggota"}`} width={420}
         actions={<NeuroBtn onClick={()=>setCodeTarget(null)}>Tutup</NeuroBtn>}>
-        {codeMember ? <><MemberAccessCode companyCode={session.code} memberId={codeMember.id} role={codeMember.role}/><p className="archive-muted">Bagikan kode kepada anggota ini. Ia tetap masuk menggunakan email dan password miliknya.{codeMember.status === "invited" ? " Aktifkan akun dan verifikasi email terlebih dahulu." : ""}</p></> : <p>Anggota sudah tidak tersedia.</p>}
+        {codeMember ? <><MemberAccessCode companyCode={session.code} memberId={codeMember.id} role={codeMember.role}/><p className="archive-muted">Bagikan kode dan password awal kepada anggota ini. Tidak perlu email untuk login.</p></> : <p>Anggota sudah tidak tersedia.</p>}
       </Modal>
       <Modal
         open={addOpen}
         onClose={() => setAddOpen(false)}
         title="Tambah Pekerja"
-        subtitle="Daftarkan email anggota, lalu berikan kode perusahaan. Anggota mengaktifkan akun dan membuat password sendiri melalui halaman login."
+        subtitle="Buat akun dengan nama, peran, dan password awal. Kode akun muncul setelah tersimpan."
         actions={
           <>
             <NeuroBtn tone="ghost" onClick={() => setAddOpen(false)}>Batal</NeuroBtn>
@@ -246,9 +244,9 @@ const SupervisorWorkersList = () => {
             />
           </div>
           <div>
-            <label style={labelStyle}>Email anggota</label>
-            <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}
-              placeholder="email@anggota.com" style={fieldStyle} />
+            <label style={labelStyle}>Password awal</label>
+            <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })}
+              autoComplete="new-password" placeholder="Minimal 8 karakter" style={fieldStyle} />
           </div>
           <div>
             <label style={labelStyle}>Role</label>

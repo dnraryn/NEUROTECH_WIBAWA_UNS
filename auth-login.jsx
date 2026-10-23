@@ -8,141 +8,46 @@ const PortalSessionGate = ({ session, workerOnly = false }) => <main className="
   {!workerOnly && !!window.ntPortal.apps(session).length && <a className="nt-price-cta portal-browser-link" href={`/?portal=web#${window.ntPortal.login(session.role)}`} target="_blank" rel="noopener">Buka portal {window.ntPortal.roles[session.role]?.label || "akun"}</a>}
   <button type="button" className="nt-price-cta" style={{width:"100%",marginTop:22}} onClick={async()=>{await window.ntLogout();navigate(window.ntPortal.login(workerOnly?"pekerja":null));}}>Ganti akun</button>
 </section></main>;
-const MemberLogin = ({ inviteCode = "", inviteToken = "", portalRole = "" }) => {
-  const isInvite = !!inviteCode && !!inviteToken;
-  const workerOnly = window.ntPortal.workerApp();
-  const [accountStep,setAccountStep] = React.useState(isInvite);
-  const [memberCode,setMemberCode] = React.useState("");
-  const [accessRole,setAccessRole] = React.useState("");
-  const [codeError,setCodeError] = React.useState("");
-  const selectedRole = isInvite || workerOnly ? "pekerja" : portalRole || accessRole;
-  const portal = window.ntPortal.roles[selectedRole] || {label:"NeuroTech",icon:"team",description:"Akun Anda menentukan area yang dapat dibuka."};
-  const [memberName, setMemberName] = React.useState("");
-  const [code, setCode] = React.useState(inviteCode);
-  const [email, setEmail] = React.useState("");
-  const [password, setPassword] = React.useState("");
-  const [register, setRegister] = React.useState(isInvite);
-  const [verify, setVerify] = React.useState(false);
-  const [busy, setBusy] = React.useState(false);
-  const pending = React.useRef(false);
-  const run = async (action) => {
-    if (pending.current) return;
-    pending.current = true; setBusy(true);
-    try { await action(); }
-    catch (error) {
-      const message = ["auth/invalid-credential", "auth/wrong-password", "auth/user-not-found"].includes(error.code)
-        ? "Email atau password tidak sesuai."
-        : isInvite && error.code === "permission-denied" ? "Undangan tidak dapat digunakan. Tautan mungkin kedaluwarsa, dicabut, kapasitas penuh, atau akun pernah dikeluarkan. Hubungi pengelola."
-        : error.code === "auth/email-already-in-use" ? "Email sudah memiliki akun. Pilih Sudah punya akun? Masuk di bawah."
-        : error.message || "Gagal masuk. Silakan coba kembali.";
-      window.toast?.(message, { kind: "danger" });
-    } finally { pending.current = false; setBusy(false); }
-  };
-  const enter = async () => {
-    await window.ntAuth.verify();
-    let session = await window.ntAuth.refresh(code, memberCode);
-    if (!session && isInvite) session = await window.ntCompany.joinWithLink(inviteCode, inviteToken, memberName || window.NT_FIREBASE.auth.currentUser?.displayName || "Pekerja");
-    else if (!session && code.trim()) session = await window.ntCompany.acceptInvitation(code,memberCode);
-    if (!session) throw new Error("Keanggotaan belum tersedia. Hubungi pengelola perusahaan.");
-    if (!window.ntPortal.matches(session,selectedRole)) return;
-    window.toast?.("Selamat datang, " + session.memberName + "!", { kind: "success" });
-    navigate(ROLE_LANDING[session.role] || "/w/readiness");
-  };
-  const submit = () => run(async () => {
-    if (!email.trim() || !password) throw new Error("Isi email dan password.");
-    if (register && !isInvite && !code.trim()) throw new Error("Buka tautan undangan dari pengelola atau isi kode untuk undangan email lama.");
-    if (register && !memberName.trim()) throw new Error("Isi nama lengkap Anda.");
-    if (register) {
-      await window.ntAuth.signUp({ name: memberName.trim(), email, password });
-      setPassword(""); setVerify(true);
-      window.toast?.("Buka email verifikasi, lalu kembali ke halaman ini.", { kind: "info" });
-      return;
+const MemberLogin = ({ portalRole = "", inviteCode = "" }) => {
+  const workerOnly=window.ntPortal.workerApp();
+  const [step,setStep]=React.useState("code"),[code,setCode]=React.useState(""),[password,setPassword]=React.useState("");
+  const [busy,setBusy]=React.useState(false),[error,setError]=React.useState("");
+  const pending=React.useRef(false);
+  const portal=window.ntPortal.roles[workerOnly ? "pekerja" : portalRole] || {label:"NeuroTech",icon:"team"};
+  const submit=async event=>{
+    event.preventDefault();setError("");
+    if(step==="code"){
+      if(!window.ntPortal.isLoginCode(code)){setError("Gunakan kode akun terbaru dari pengelola perusahaan.");return;}
+      setCode(window.ntPortal.loginCode(code));setStep("password");return;
     }
-    const user = await window.ntAuth.signIn({ email, password });
-    setPassword("");
-    if (!user.emailVerified) { setVerify(true); return; }
-    await enter();
-  });
-  if (!accountStep) return <main className="nt-auth-screen"><section className="nt-auth-box portal-picker">
+    if(pending.current)return;
+    pending.current=true;setBusy(true);
+    try{
+      const session=await window.ntAuth.signInCode({code,password});
+      if(!session)throw new Error("Akun belum aktif. Hubungi pengelola perusahaan.");
+      if(workerOnly && session.role!=="pekerja"){navigate("/w/readiness");return;}
+      if(portalRole && session.role!==portalRole)return;
+      window.toast?.("Selamat datang, "+session.memberName+"!",{kind:"success"});
+      navigate(ROLE_LANDING[session.role]);
+    }catch(e){setError(e.code?.startsWith("auth/") ? "Kode akun atau password tidak sesuai. Periksa kembali atau hubungi pengelola." : e.code==="permission-denied" ? "Akun belum tersedia atau akses sudah dicabut. Hubungi pengelola." : e.message || "Belum dapat masuk. Coba kembali.");}
+    finally{setPassword("");pending.current=false;setBusy(false);}
+  };
+  return <main className="nt-auth-screen"><section className="nt-auth-box portal-picker">
     <Brand size={30}/><div className="portal-symbol"><VisualIcon name={portal.icon} size={28}/><span>{workerOnly ? "Aplikasi pekerja" : portal.label}</span></div>
-    <div className="login-steps" aria-label="Tahap masuk"><strong aria-current="step">1 · Kode</strong><span>2 · Akun</span></div>
-    <h1 className="nt-auth-title">Masuk dengan kode anggota</h1><p className="nt-auth-text">Kode mengarahkan ke ruang Anda.</p>
-    <form onSubmit={event=>{
-      event.preventDefault();setCodeError("");
-      const role=window.ntPortal.codeRole(memberCode);
-      if(!role){setCodeError("Periksa kode anggota, misalnya P-ABCD-EFGH.");return;}
-      if((workerOnly || portalRole) && role!==selectedRole){setCodeError(workerOnly ? "Aplikasi ini memakai kode pekerja (P). Minta akun pekerja kepada pengelola." : `Kode ini untuk ${window.ntPortal.roles[role].label}. Gunakan halaman login utama atau portal yang sesuai.`);return;}
-      setMemberCode(window.ntPortal.normalizeCode(memberCode));setAccessRole(role);setAccountStep(true);
-    }}>
-      <label className="nt-join-field" style={{marginTop:22}}><span>Kode anggota</span><input className="nt-join-input login-member-code" autoComplete="off" autoCapitalize="characters" spellCheck={false} required maxLength={24} value={memberCode} onChange={e=>{setMemberCode(e.target.value);setCodeError("");}} placeholder={selectedRole === "supervisor" ? "S-ABCD-EFGH" : selectedRole === "management" ? "M-ABCD-EFGH" : "P-ABCD-EFGH"}/></label>
-      {codeError && <p className="login-code-error" role="alert">{codeError}</p>}
-      <button type="submit" className="nt-price-cta" style={{width:"100%",marginTop:20}}>Lanjut ke akun</button>
+    <div className="login-steps" aria-label="Tahap masuk"><span aria-current={step==="code"?"step":undefined}>1 · Kode akun</span><span aria-current={step==="password"?"step":undefined}>2 · Password</span></div>
+    <h1 className="nt-auth-title">{step==="code" ? "Masuk ke NeuroTech" : "Masukkan password"}</h1>
+    <p className="nt-auth-text">{step==="code" ? "Gunakan kode akun dari perusahaan Anda." : window.ntPortal.formatLoginCode(code)}</p>
+    {inviteCode && <p className="nt-auth-text">Minta kode akun dan password awal kepada pengelola.</p>}
+    <form onSubmit={submit}>
+      {step==="code" ? <label className="nt-join-field" style={{marginTop:22}}><span>Kode akun</span><input className="nt-join-input login-member-code" autoComplete="username" autoCapitalize="characters" spellCheck={false} required maxLength={24} value={code} onChange={e=>{setCode(e.target.value);setError("");}} placeholder="P-XXXX-XXXX-XXXX-XXXX"/></label>
+        : <label className="nt-join-field" style={{marginTop:22}}><span>Password</span><input className="nt-join-input" type="password" value={password} onChange={e=>setPassword(e.target.value)} required autoComplete="current-password" autoFocus/></label>}
+      {error && <p className="login-code-error" role="alert">{error}</p>}
+      <button type="submit" className="nt-price-cta" style={{width:"100%",marginTop:20}} disabled={busy}>{busy ? "Memproses…" : step==="code" ? "Lanjut" : "Masuk"}</button>
     </form>
-    <button type="button" className="nt-auth-demo" onClick={()=>{setMemberCode("");setAccountStep(true);}}>Masuk dengan akun <span>Untuk anggota yang belum memiliki kode</span></button>
-    {!workerOnly && <><details className="login-portals"><summary>Pilih portal</summary><div className="portal-choices">{Object.entries(window.ntPortal.roles).map(([role,p])=><Link key={role} to={window.ntPortal.login(role)} className="portal-choice"><VisualIcon name={p.icon}/><span><strong>{p.label}</strong></span><span aria-hidden="true">↗</span></Link>)}</div></details><div className="nt-auth-foot"><Link to="/join">Daftarkan perusahaan</Link></div></>}
-    {workerOnly && <button type="button" className="nt-auth-demo" onClick={async()=>{await goDemo();navigate("/w/readiness");}}>Coba mode demo <span>Simulasi pekerja</span></button>}
+    {step==="password" && <div className="nt-auth-foot"><button type="button" className="login-change-code" disabled={busy} onClick={()=>{setPassword("");setError("");setStep("code");}}>Ganti kode akun</button></div>}
+    <button type="button" className="nt-auth-demo" disabled={busy} onClick={async()=>{await goDemo();navigate(workerOnly ? "/w/readiness" : window.ntPortal.roles[portalRole]?.home || "/w/readiness");}}>Coba mode demo <span>Simulasi tanpa akun</span></button>
+    <div className="nt-auth-foot"><Link to="/landing">Kembali ke beranda</Link>{!workerOnly && <> · <Link to="/join">Daftarkan perusahaan</Link></>}</div>
+    <details className="login-portals"><summary>Lupa kode atau password?</summary><p>Anggota dapat meminta kode dan bantuan kepada pengelola perusahaan.</p>{!workerOnly && <Link to="/join/recover">Pemilik: pulihkan kode akun</Link>}</details>
   </section></main>;
-  return (
-    <div className="nt-auth-screen">
-      <span className="nt-landing-orb nt-landing-orb--a" />
-      <span className="nt-landing-orb nt-landing-orb--b" />
-      <div className="nt-auth-box">
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 6 }}><Brand size={30} /></div>
-        <div className="portal-symbol"><VisualIcon name={portal.icon} size={28}/><span>{portal.label}</span></div>
-        {!isInvite && <div className="login-steps" aria-label="Tahap masuk"><span>1 · Kode</span><strong aria-current="step">2 · Akun</strong></div>}
-        {!!memberCode && <p className="login-code-summary">Kode anggota: {memberCode.replace(/^(.)(.{4})(.{4})$/,"$1-$2-$3")}</p>}
-        <h1 className="nt-auth-title">{verify ? "Verifikasi email Anda" : register ? isInvite ? "Bergabung sebagai pekerja" : "Aktifkan akun anggota" : `Masuk ${portal.label}`}</h1>
-        <p className="nt-auth-text">
-          {verify ? "Buka tautan verifikasi di email Anda. Setelah selesai, tekan tombol di bawah."
-            : register ? isInvite ? "Isi data Anda sendiri. Setelah verifikasi email, Anda langsung bergabung sebagai pekerja." : "Untuk undangan email lama, gunakan email yang didaftarkan pengelola."
-            : portal.description}
-        </p>
-        <form onSubmit={(event) => { event.preventDefault(); if (!busy) verify ? run(enter) : submit(); }}>
-          {!isInvite && (!memberCode || register) && <label className="nt-join-field" style={{ marginTop: 18 }}>
-            <span>Kode perusahaan {register ? "" : "(opsional untuk akun aktif)"}</span>
-            <input className="nt-join-input" value={code} onChange={(e) => setCode(e.target.value)}
-              placeholder="mis. B-K7R2NX" required={register} autoComplete="organization" />
-          </label>}
-          {!verify && <>
-            {register && <label className="nt-join-field" style={{ marginTop: 12 }}><span>Nama lengkap</span>
-              <input className="nt-join-input" value={memberName} onChange={(e) => setMemberName(e.target.value)} required maxLength={120} autoComplete="name" />
-            </label>}
-            <label className="nt-join-field" style={{ marginTop: 12 }}>
-              <span>Email anggota</span>
-              <input className="nt-join-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                required autoComplete="username" placeholder="email@anda.com" />
-            </label>
-            <label className="nt-join-field" style={{ marginTop: 12 }}>
-              <span>Password</span>
-              <input className="nt-join-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-                required minLength={register ? 8 : undefined} autoComplete={register ? "new-password" : "current-password"} />
-            </label>
-          </>}
-          <button type="submit" className="nt-price-cta" disabled={busy} style={{ width: "100%", marginTop: 18 }}>
-            {busy ? "Memproses…" : verify ? "Saya sudah verifikasi · lanjut" : register ? "Buat akun & kirim verifikasi" : "Masuk"}
-          </button>
-        </form>
-        {!verify && !register && !isInvite && <button type="button" className="nt-auth-demo" disabled={busy} onClick={async()=>{await goDemo();navigate(window.ntPortal.roles[selectedRole]?.home || "/w/readiness");}}>Coba mode demo <span>Simulasi {portal.label.toLowerCase()}</span></button>}
-        {!verify && !isInvite && <div className="nt-auth-foot"><button type="button" className="login-change-code" disabled={busy} onClick={()=>{setAccountStep(false);setMemberCode("");setAccessRole("");setPassword("");setRegister(false);}}>Ganti kode anggota</button></div>}
-        {!window.ntPortal.workerApp() && !isInvite && <div className="nt-auth-foot"><Link to="/login">Pilih portal lain</Link></div>}
-        {verify ? <div className="nt-auth-foot">
-          <a onClick={() => run(async () => { await window.ntAuth.resendVerification(); window.toast?.("Email verifikasi dikirim.", { kind: "info" }); })}>Kirim ulang email</a>
-          {" · "}<a onClick={() => run(async () => { await window.ntAuth.signOut(); setVerify(false); })}>Ganti akun</a>
-        </div> : <>
-          <div className="nt-auth-foot">
-            <a onClick={() => { setRegister(!register); setPassword(""); }}>{register ? "Sudah punya akun? Masuk" : "Anggota baru? Aktifkan akun"}</a>
-          </div>
-          <div className="nt-auth-foot">
-            <a onClick={() => run(async () => {
-              if (!email.trim()) throw new Error("Isi email terlebih dahulu.");
-              await window.ntAuth.resetPassword(email);
-              window.toast?.("Jika akun tersedia, tautan reset password dikirim ke email Anda.", { kind: "info" });
-            })}>Lupa password?</a>
-            {!window.ntPortal.workerApp() && <>{" · "}<a onClick={() => navigate("/join")}>Daftarkan perusahaan</a></>}
-          </div>
-        </>}
-      </div>
-    </div>
-  );
 };
 Object.assign(window, { MemberLogin, PortalSessionGate });

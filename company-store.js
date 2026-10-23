@@ -21,7 +21,7 @@ function ntCreateCompanyStore({ db, auth, stamp, randomCode, randomToken, increm
   };
   const user = () => {
     const actor = auth.currentUser;
-    if (!actor || actor.isAnonymous || !actor.emailVerified) throw new Error("Masuk dan verifikasi email terlebih dahulu.");
+    if (!actor || actor.isAnonymous || (!actor.emailVerified && !/^[psm]-[abcdefghjklmnpqrstuvwxyz23456789]{16}@members\.neurotech\.invalid$/.test(actor.email || ""))) throw new Error("Masuk dan verifikasi email perusahaan terlebih dahulu.");
     return { uid: actor.uid, email: emailOf(actor.email) };
   };
   const profileRef = (uid) => db.collection("users").doc(uid);
@@ -33,6 +33,14 @@ function ntCreateCompanyStore({ db, auth, stamp, randomCode, randomToken, increm
   };
   const profile = (code, member, uid) => ({ schemaVersion: 2, companyCode: code, memberId: member.id,
     role: member.role, status: "active" });
+  const validLoginCode = value => typeof value === "string" && /^[PSM]-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{16}$/.test(value);
+  const makeLoginCode = role => {const token=randomToken();return ({pekerja:"P",supervisor:"S",management:"M"})[role]+"-"+Array.from({length:16},(_,i)=>"ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[parseInt(token.slice(i*2,i*2+2),16)%32]).join("");};
+  const loginRef = value => db.collection("accountLogins").doc(value);
+  const codeMember = data => {
+    if(!data || !validLoginCode(data.loginCode) || typeof data.uid!=="string" || !data.uid)throw new Error("Identitas akun belum tersedia.");
+    const member=input({name:data.name,email:data.loginCode.toLowerCase()+"@members.neurotech.invalid",role:data.role,roleDesc:data.roleDesc,shift:data.shift});
+    return {...member,id:member.email,uid:data.uid,status:"active",loginCode:data.loginCode};
+  };
   async function context(tx, actor, code) {
     const p = (await tx.get(profileRef(actor.uid))).data();
     if (p?.schemaVersion !== 2 || p.status !== "active" || (code && p.companyCode !== code)) throw new Error("Keanggotaan tidak aktif.");
@@ -83,13 +91,18 @@ function ntCreateCompanyStore({ db, auth, stamp, randomCode, randomToken, increm
     async create(data) {
       const actor = user(), pkg = data.pkg;
       if (!Object.hasOwn(tiers, pkg)) throw new Error("Paket tidak valid.");
+      if(!auth.currentUser.emailVerified)throw new Error("Verifikasi email pemilik perusahaan terlebih dahulu.");
+      if(pkg==="free")throw new Error("Pendaftaran perusahaan memerlukan paket Bronze atau lebih dengan supervisor dan pekerja.");
+      const initial=(data.accounts||[]).map(codeMember);
+      if(initial.length!==2 || initial.filter(m=>m.role==="supervisor").length!==1 || initial.filter(m=>m.role==="pekerja").length!==1 || new Set(initial.map(m=>m.uid)).size!==2 || initial.some(m=>m.uid===actor.uid))throw new Error("Daftarkan minimal satu supervisor dan satu pekerja.");
       const companyName = text(data.companyName, "Nama perusahaan");
       if (!Array.isArray(data.members) || data.members.length > 149) throw new Error("Daftar anggota tidak valid.");
       const invites = data.members.map(input);
       if (new Set([actor.email, ...invites.map((m) => m.email)]).size !== invites.length + 1) throw new Error("Email anggota harus berbeda.");
       if ((pkg === "free" && invites.length) || invites.filter((m) => m.role === "pekerja").length > tiers[pkg][1]) throw new Error("Jumlah pekerja melebihi paket.");
       const owner = { id: actor.email, uid: actor.uid, email: actor.email, name: text(data.ownerName, "Nama pemilik"),
-        role: pkg === "free" ? "pekerja" : "management", roleDesc: text(data.ownerDesc || "Pemilik", "Deskripsi peran"), shift: "Pagi", status: "active" };
+        role: "management", roleDesc: text(data.ownerDesc || "Pemilik", "Deskripsi peran"), shift: "Pagi", status: "active",loginCode:makeLoginCode("management") };
+      const supervisor=initial.find(m=>m.role==="supervisor"), workerMember=initial.find(m=>m.role==="pekerja");
       let reserved;
       for (let collision = 0; collision < 5; collision++) {
         const code = tiers[pkg][0] + "-" + randomCode();
@@ -104,10 +117,13 @@ function ntCreateCompanyStore({ db, auth, stamp, randomCode, randomToken, increm
             }
             const ref = companyRef(code);
             if ((await tx.get(ref)).exists) throw Object.assign(new Error("Kode sedang digunakan. Silakan ulangi."), { code: "company-code-collision" });
+            for(const member of [owner,...initial])if((await tx.get(loginRef(member.loginCode))).exists)throw new Error("Kode akun sudah digunakan. Ulangi pendaftaran.");
             tx.set(ref, { schemaVersion: 2, code, companyName, package: pkg, ownerUid: actor.uid, createdAt: stamp(),
-              memberCount: 1, workerCount: count(owner.role), lastMemberId: owner.id, lastMemberAction: "create", revision: 0 });
+              memberCount: 3, workerCount: 1, initialSupervisorId:supervisor.id,initialWorkerId:workerMember.id,lastMemberId: owner.id, lastMemberAction: "create", revision: 0 });
             tx.set(memberRef(ref, owner.id), owner);
             tx.set(profileRef(actor.uid), profile(code, owner, actor.uid));
+            for(const member of initial)tx.set(memberRef(ref,member.id),{...member,uid:null,status:"invited"});
+            for(const member of [owner,...initial])tx.set(loginRef(member.loginCode),{email:member.email,companyCode:code});
             return code;
           });
           break;
@@ -119,6 +135,30 @@ function ntCreateCompanyStore({ db, auth, stamp, randomCode, randomToken, increm
       }
       for (const member of invites) await api.addMember(member, reserved, true);
       return reserved;
+    },
+    async ensureLoginCode(id) {
+      const actor=user();
+      return transaction(async tx=>{
+        const ctx=await context(tx,actor), ref=memberRef(ctx.ref,id || ctx.p.memberId), member=(await tx.get(ref)).data();
+        if(!member || member.status!=="active")throw new Error("Akun undangan lama belum aktif. Buat akun berkode untuk anggota ini.");
+        if(member.uid!==actor.uid)manage(ctx,actor,member.role);
+        if(member.loginCode)return member.loginCode;
+        const code=makeLoginCode(member.role);
+        if((await tx.get(loginRef(code))).exists)throw new Error("Kode akun sedang digunakan. Coba kembali.");
+        tx.update(ref,{loginCode:code});tx.set(loginRef(code),{email:member.email,companyCode:ctx.ref.id});return code;
+      });
+    },
+    async addCodeMember(data,code) {
+      const actor=user(),member=codeMember(data);
+      await transaction(async tx=>{
+        const ctx=await context(tx,actor,code);manage(ctx,actor,member.role);
+        const ref=memberRef(ctx.ref,member.id), existing=(await tx.get(ref)).data();
+        if(existing?.uid===member.uid && existing.loginCode===member.loginCode)return;
+        if(existing || (await tx.get(loginRef(member.loginCode))).exists)throw new Error("Kode akun sudah digunakan.");
+        const changes=counter(ctx,member.id,"add",ctx.company.memberCount+1,ctx.company.workerCount+count(member.role));
+        tx.set(ref,{...member,uid:null,status:"invited"});tx.set(loginRef(member.loginCode),{email:member.email,companyCode:ctx.ref.id});tx.update(ctx.ref,changes);
+      });
+      return {...member,uid:null,status:"invited"};
     },
     async acceptInvitation(code) {
       const actor = user(), ref = companyRef(code);

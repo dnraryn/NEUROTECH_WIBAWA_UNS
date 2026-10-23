@@ -18,7 +18,7 @@ Buka alamat yang dicetak terminal (mulai dari http://localhost:8000/#/landing). 
 - Pekerja membuka Live dan arsip sendiri. Data tidur dan target pantau dapat diisi melalui **Catat tidur & target pantau** pada halaman pribadi. Saat sesi aktif, perubahan juga disalin ke check-in sesi tersebut.
 - Supervisor melihat anggota, shift, indikasi microsleep, dan arsip perusahaan. Manajemen memakai arsip perusahaan yang sama pada tampilan **Ringkasan perusahaan**; **Sesi perangkat ini** membuka hasil Muse pada browser manajemen.
 - Ringkasan FI/CLI/Engagement ditimbang menurut jumlah hasil bersih. Hasil terbatas tidak dimasukkan. Kekurangan tidur memakai laporan tidur terakhir yang tersedia per anggota; cakupan target pantau dihitung per anggota/hari sehingga beberapa sesi tidak menggandakan target harian. Ini bukan skor kepatuhan audit SMK3.
-- Arsip diperbarui melalui event; tampilan idle tidak melakukan polling satu detik. Penulisan perangkat tetap setiap 10 detik dan sinkronisasi cloud tetap setiap 5 menit/saat selesai. Pembaruan lintas perangkat diambil melalui **Sinkronkan** dan waktu sinkronisasi terakhir ditampilkan.
+- Arsip diperbarui melalui event; tampilan idle tidak melakukan polling satu detik. Penulisan perangkat tetap setiap 10 detik dan sinkronisasi cloud setiap 1 menit/saat selesai. Pembaruan lintas perangkat diambil melalui **Sinkronkan** dan waktu sinkronisasi terakhir ditampilkan.
 
 Build memakai React 18.3.1 dan esbuild yang dikunci di package-lock. Dependensi pengujian Firebase memakai override `@grpc/grpc-js` 1.14.6 untuk menghindari versi rentan yang dipasang dependensi transitif; lihat [advisori resmi gRPC](https://github.com/grpc/grpc-node/security/advisories/GHSA-m9gg-hp2v-232j). Override ini hanya memengaruhi dependensi Node; Firebase SDK browser tetap sesuai versi CDN yang digunakan aplikasi.
 
@@ -55,15 +55,19 @@ Buka http://localhost:5000/?emulators=1#/landing. Parameter ini hanya diakui pad
 
 ## Login dan pendaftaran
 
-1. Pemilik membuka Bergabung, memilih paket, mengisi email dan password baru minimal 8 karakter, serta nama/email anggota. Pembayaran masih simulasi.
-2. Tekan Simpan, buka email verifikasi, lalu kembali ke formulir dan tekan Simpan lagi.
-3. Simpan kode perusahaan yang diberikan. Kode baru memakai awalan paket dan 12 karakter acak; tidak menimpa kode demo lama.
-4. Berikan kode perusahaan kepada anggota. Pendaftaran anggota mencatat undangan di Firestore, belum mengirim email undangan otomatis.
-5. Anggota membuka Login > Anggota baru? Aktifkan akun, memakai kode dan email yang telah didaftarkan pengelola, lalu memilih password sendiri.
-6. Setelah memverifikasi email, anggota menekan Saya sudah verifikasi untuk menerima undangan.
-7. Login berikutnya memakai kode, email, dan password. Lupa password menggunakan email reset Firebase.
+1. Website dan aplikasi dibuka ke landing page. Tombol Masuk membuka login kode akun, lalu password; tidak ada isian email pada login.
+2. Pemilik membuka Bergabung dan memilih paket perusahaan (Bronze atau lebih). Pembayaran masih simulasi, bukan penagihan Firebase.
+3. Isi nama perusahaan, akun pemilik (email/password), serta nama dan password awal untuk minimal satu supervisor dan satu pekerja. Email hanya diminta untuk pemilik perusahaan.
+4. Verifikasi email pemilik, lalu tekan Simpan lagi. Dua identitas Auth anggota dibuat melalui instance Firebase terpisah dengan persistence NONE; sesi pemilik tetap aktif.
+5. Satu transaksi Firestore menyimpan perusahaan, tiga anggota, profil pemilik, dan tiga pemetaan kode akun. Rules mewajibkan anggota supervisor dan pekerja pada pendaftaran baru. Halaman selesai menampilkan kode ketiga akun, tanpa password.
+6. Bagikan kode serta password awal kepada masing-masing anggota. Login pertama mengaktifkan UID ke undangan akun internalnya sendiri; tidak mengirim atau meminta verifikasi email anggota. Peran berasal dari undangan yang dilindungi Rules.
+7. Login berikutnya memakai kode akun dan password. Anggota dapat mengganti password saat login melalui Profil (pekerja) atau Kode saya (petugas). Password awal tidak masuk Firestore, laporan, localStorage, atau file unduhan.
 
-Pembuatan pemilik/perusahaan atomik. Anggota awal ditambahkan satu per transaksi supaya Rules dapat memverifikasi batas paket dan hak akses. Jika koneksi terputus setelah perusahaan dibuat, ulangi Simpan dengan nama/paket yang sama, atau login lalu tambahkan anggota yang belum masuk melalui daftar pekerja.
+Pemilik lama yang belum mengetahui kode membuka `/#/join/recover`: email/password pendaftaran diverifikasi, kepemilikan perusahaan diperiksa, lalu kode ditampilkan tanpa membuat perusahaan atau mengganti password. Form email berada di alur pendaftaran/pemulihan pemilik, bukan login anggota. Reset password email juga tersedia hanya pada pemulihan pemilik. Anggota tanpa email yang lupa password memerlukan bantuan administrator proyek; anggota yang masih login dapat mengganti password sendiri.
+
+Kode akun acak memakai 16 karakter base32 (80 bit), ditampilkan sebagai P-/S-/M- diikuti empat kelompok empat karakter. Awalan adalah petunjuk tampilan, bukan izin atau penentu role setelah perubahan peran. Firebase Auth tetap memverifikasi password, dan Firestore memverifikasi UID/perusahaan/peran. Kode perusahaan berbeda dari kode akun.
+
+Akun Auth anggota dibuat sebelum transaksi Firestore; akun tanpa undangan/profil yang cocok tidak memperoleh akses. Pada kegagalan, hanya identitas yang dipastikan belum memiliki undangan tersimpan yang dihapus. Respons yang hilang tidak menghapus identitas yang sudah tercatat. Ulangi pendaftaran dengan nama/paket yang sama untuk melanjutkan perusahaan yang sudah tersimpan; tidak membuat ulang password akun yang sudah jadi.
 
 ## Keamanan dan hubungan data
 
@@ -71,8 +75,8 @@ Pembuatan pemilik/perusahaan atomik. Anggota awal ditambahkan satu per transaksi
 - Browser menghapus cache sesi lama. Sesi baru dipulihkan dari Firebase Auth serta dokumen keanggotaan yang dilindungi Rules; role dalam sessionStorage tidak dipercaya.
 - `companies/{code}` menyimpan metadata, pemilik UID, dan penghitung anggota. `companies/{code}/members/{email-normalized}` menyimpan anggota/undangan tanpa password. `users/{uid}` menghubungkan akun Auth ke perusahaan, anggota, dan role.
 - Pekerja membaca metadata perusahaan dan data miliknya. Supervisor/manajemen membaca daftar anggota perusahaan sendiri. Sebelum bergabung, anggota terverifikasi hanya dapat membaca undangan untuk emailnya sendiri jika mengetahui kode perusahaan.
-- Pembuatan perusahaan memerlukan tiga dokumen yang cocok dalam satu transaksi: perusahaan, anggota pemilik, dan profil UID. Role pemilik ditetapkan Rules berdasarkan paket.
-- Penerimaan undangan hanya boleh mengubah UID/status dari undangan yang cocok dengan email Auth terverifikasi, disertai profil yang cocok. Role undangan tidak boleh diganti oleh penerima.
+- Pendaftaran perusahaan baru mengharuskan tiga anggota: pemilik management, supervisor, dan pekerja. Metadata perusahaan menyimpan initialSupervisorId/initialWorkerId untuk validasi transaksi awal; perusahaan lama tetap dapat dibaca tanpa kolom ini.
+- Aktivasi akun berkode harus dilakukan UID yang benar-benar login ke identitas Auth internal undangan, bukan UID yang dipilih pengelola. Aktivasi hanya mengubah UID/status dan membuat profil cocok; role tidak dapat diganti oleh penerima. Akun biasa yang belum terverifikasi dan belum diprovisikan tetap ditolak.
 - Supervisor mengelola pekerja; manajemen mengelola pekerja/supervisor; pemilik mengelola akses manajemen. Hanya pemilik dapat mengubah role yang sudah ada. UI perubahan role belum tersedia; helper `ntCompany.changeRole(id, role)` tetap tunduk pada Rules.
 - Perubahan role harus memperbarui dokumen anggota dan profil terkait secara atomik. Penghapusan anggota aktif wajib mencabut profilnya dalam transaksi yang sama. Pemilik dan akun yang sedang digunakan tidak dapat dihapus.
 - Tambah/hapus/perubahan role wajib memperbarui penghitung dan revisi perusahaan yang cocok dengan satu anggota. Rules memeriksa batas paket; mengubah kode frontend tidak dapat melewati pemeriksaan ini.
@@ -95,14 +99,14 @@ Tes regresi memeriksa Bluetooth, pemulihan sesi, role UI, logout dan penyimpanan
 
 ## Penerapan ke Firebase
 
-Project terpilih di `.firebaserc` adalah `neurotech-id`. Aktifkan Email/Password di Firebase Authentication dan daftarkan domain website/localhost pada Authorized domains. Verifikasi email diperlukan sebelum membaca data atau membuat perusahaan. Alur ini tidak menggunakan Cloud Functions atau Admin SDK di browser.
+Project terpilih di `.firebaserc` adalah `neurotech-id`. Aktifkan Email/Password di Firebase Authentication dan daftarkan domain website/localhost pada Authorized domains. Verifikasi email wajib saat mendaftarkan perusahaan. Anggota berkode memperoleh akses melalui UID dan undangan/profil yang cocok, tanpa verifikasi email. Alur ini tidak menggunakan Cloud Functions atau Admin SDK di browser.
 
 ```powershell
 firebase.cmd login
 firebase.cmd deploy --only "firestore:rules,hosting" --project neurotech-id
 ```
 
-Rules harus diterapkan bersama versi frontend yang sesuai. Rules baru menutup alur login lama. Karena data lama masih demo, buat perusahaan demo baru dengan email milik sendiri setelah deploy. Dokumen demo lama tetap tersimpan, ditolak oleh aplikasi, dan tidak dihapus oleh proses deploy. Akun Firebase Auth lama tidak otomatis dihapus. Jangan memakai ulang password lama.
+Rules harus diterapkan bersama versi frontend yang sesuai. Akun aktif lama menerima kode login melalui migrasi aditif; password, UID, peran, dan riwayat tetap berlaku. Dokumen lama yang belum memakai skema keanggotaan aman tetap ditolak. Proses deploy dan migrasi kode tidak menghapus akun Firebase Auth atau laporan.
 
 Sebelum deploy, `scripts/build-hosting.js` membuat folder `.firebase/hosting-public` dari daftar file aplikasi dan aset yang diizinkan. Hosting hanya menerbitkan folder hasil build tersebut, sehingga metadata Git, tests/scripts/private/.tools, node_modules, konfigurasi pengembangan, Rules dan log tidak ikut diterbitkan. Emulator Hosting juga menjalankan build ini otomatis. Tidak ada perubahan paket atau metode pembayaran melalui skrip proyek; pemakaian Firebase tetap mengikuti kuota paket project.
 
@@ -181,15 +185,12 @@ Overview supervisor berisi empat KPI, tren FI per hari, pembagian hasil sesi pek
 Rilis v4 memerlukan deploy Rules sebelum Hosting, tanpa Cloud Functions/penagihan baru. Snapshot sebelum perubahan supervisor/kalibrasi: `.tools/checkpoints/supervisor-calibration-2026-10-15T19-00-17-560Z/`. Jalankan `restore.cjs` di folder tersebut untuk memeriksa pengembalian, tambahkan `--apply` bila hendak mengembalikan file (menolak menimpa edit setelah checkpoint). Bila mengembalikan rilis, hentikan sesi v4 dahulu dan deploy kembali Rules/Hosting yang sesuai; jangan menerbitkan rules v3 saja sementara klien v4 masih aktif.
 
 
-### Pendaftaran pekerja melalui tautan undangan
+### Pengelolaan akun anggota
 
-Perusahaan baru memakai kode pendek seperti B-K7R2NX (enam karakter acak yang mudah dibaca). Kode lama tetap berlaku; kode saja tidak memberi akses data. Akun aktif dapat login dengan email dan password tanpa mengisi kode.
+Pengelola membuka Anggota/Pekerja > Tambah Pekerja, mengisi nama, peran, shift, dan password awal. Kode akun ditampilkan sesudah transaksi tersimpan. Tidak memerlukan email anggota. Anggota aktif lama dapat memperoleh kode melalui Kode masuk > Buat kode; password Firebase Auth yang sudah ada tetap digunakan.
 
-Pemilik tidak perlu memasukkan email pekerja saat membuat perusahaan. Setelah pembuatan perusahaan, atau melalui area Supervisor > Pekerja, pilih Buat tautan undangan lalu Salin tautan/Bagikan. Pekerja membuka tautan, mengisi nama/email/password sendiri, memverifikasi email dan kembali menekan Saya sudah verifikasi. Tidak ada persetujuan manual; role tautan selalu pekerja. Peningkatan role tetap hanya oleh pemilik. Paket Free tetap satu pengguna.
+Implementasi tautan undangan email lama tetap dipertahankan di helper/Rules untuk kompatibilitas data, tetapi tidak ditawarkan oleh UI baru. Tautan lama yang dibuka diarahkan meminta kode akun kepada pengelola. Pendaftaran perusahaan baru tidak memakai paket Free individu karena memerlukan tiga akun; akun Free lama tetap memiliki akses area pekerja seperti sebelumnya.
 
-Tautan berlaku tujuh hari dan bisa dicabut di panel yang sama. Siapa pun yang memegang tautan dapat bergabung, jadi bagikan hanya kepada tim. Cabut mencegah pendaftaran berikutnya; akses anggota yang sudah bergabung dicabut melalui Hapus pekerja. Pengguna yang sudah dikeluarkan tidak dapat memakai kembali tautan yang pernah dipakainya. Undangan email lama masih didukung.
-
-Implementasi Spark memakai transaksi atomik anggota/profil, counter perusahaan, konsumsi joinLinks dan bukti joinClaims yang tidak dapat dibaca klien. Rules memeriksa verifikasi email, kedaluwarsa, pencabutan, role pekerja, kuota, UID/email dan keanggotaan perusahaan. Token acak 256 bit hanya berada pada tautan dan dokumen undangan/bukti; tidak disimpan dalam roster pekerja atau laporan CSV.
 
 ### Android: loading tanpa dialog perangkat
 
@@ -202,7 +203,7 @@ Tombol Hubungkan Muse memanggil chooser langsung dari klik pengguna. UI menampil
 
 Buka https://neurotech-id.web.app/?app=worker#/app dari Chrome Android. Tekan Pasang; jika dialog belum tersedia, gunakan menu browser > Instal aplikasi atau Tambahkan ke layar utama. Tombol Pasang tersedia pada navigasi website dan halaman Profil pekerja. Pemberitahuan versi terbaru juga berada di Profil. Setelah dipasang, ikon NeuroTech membuka area pekerja dalam jendela aplikasi. Pengguna yang belum login diarahkan ke login; aturan role dan perusahaan tetap berlaku. Di iPhone, pemasangan dilakukan lewat Safari > Bagikan > Tambahkan ke Layar Utama; pengukuran Muse melalui Web Bluetooth tetap memerlukan browser/perangkat yang mendukungnya, seperti Chrome Android.
 
-Manifest memiliki identitas tetap, start_url pekerja, mode standalone, ikon PNG 192/512 dan maskable, serta shortcut Live dan Riwayat. Service worker hanya menyimpan aset statis dari daftar build. Tidak menyimpan respons Firebase/Auth/AI, laporan pribadi atau EEG dalam CacheStorage. Arsip sesi tetap dikelola IndexedDB dan Firestore yang sudah ada. Membuka ulang aplikasi saat internet mati menampilkan halaman pemulihan; login dan sinkronisasi memerlukan internet.
+Manifest memiliki identitas tetap, start_url landing dengan konteks aplikasi pekerja, mode standalone, ikon PNG 192/512 dan maskable, serta shortcut Live dan Riwayat. Service worker hanya menyimpan aset statis dari daftar build. Tidak menyimpan respons Firebase/Auth/AI, laporan pribadi atau EEG dalam CacheStorage. Arsip sesi tetap dikelola IndexedDB dan Firestore yang sudah ada. Membuka ulang aplikasi saat internet mati menampilkan halaman pemulihan; login dan sinkronisasi memerlukan internet.
 
 Pembaruan mengantre sampai semua jendela lama ditutup, atau pengguna memilih Perbarui aplikasi dari Profil saat Muse terputus dan tidak ada sesi arsip aktif. Tidak ada reload otomatis selama pengukuran. Setelah update disetujui, aplikasi memuat ulang versi baru dan cache aset lama dibersihkan. Service worker dan manifest dikirim dengan Cache-Control: no-cache; berkas JS/CSS ber-hash tetap immutable.
 
@@ -224,13 +225,11 @@ Beranda pekerja memprioritaskan hasil Live yang tersedia, lalu sesi tersimpan pa
 
 ### Portal login dan alur lintas perangkat
 
-Website `/#/login` memakai dua tahap: kode anggota, lalu email/password. Kode mengenali tujuan portal; keanggotaan Firebase yang dilindungi Rules menentukan peran sebenarnya. Portal langsung `/#/login/pekerja`, `/#/login/supervisor`, dan `/#/login/management` juga tersedia melalui Pilih portal. Akun pekerja hanya membuka `/w/*`, supervisor `/s/*`, dan manajemen `/m/*`. Akun yang masuk ke portal berbeda mendapat petunjuk portal yang benar atau pilihan ganti akun. Tombol perpindahan persona hanya ada pada demo website. Akun lama tetap berlaku dan dapat memakai Masuk dengan akun jika belum menerima kode.
+Website dan start_url PWA membuka landing page terlebih dahulu, termasuk saat sesi masih tersimpan. Tombol Masuk membuka kode akun > password. Setelah login, akun pekerja hanya membuka /w/*, supervisor /s/*, dan manajemen /m/*. Pemilihan portal tidak mengubah peran. Aplikasi tetap khusus pengukuran pekerja; sesi petugas yang tersimpan meminta Ganti akun ketika membuka area login/pengukuran pekerja. Landing dan pendaftaran tetap dapat dibuka.
 
-Aplikasi standalone dan tautan `?app=worker` khusus pekerja, termasuk login dan demo pekerja. Akun petugas yang masih tersimpan mendapat petunjuk untuk mengganti akun ke pekerja. Memasang aplikasi tidak mengunci tab browser website yang dipakai petugas. Manajemen memiliki navigasi anggota, alert, jadwal, dan laporan di `/m/*`; fitur tersebut menggunakan keanggotaan dan koleksi perusahaan yang sama seperti portal supervisor.
+Kode pribadi tersedia di Profil pekerja atau Kode saya untuk petugas. Pengelola melihatnya pada Anggota/Pekerja > Kode masuk. Kode acak tersimpan sebagai loginCode pada anggota dan tetap berlaku ketika peran berubah. /accountLogins/{kode-kanonik} berisi hanya identitas Auth (email internal anggota, atau email pendaftaran untuk akun lama/pemilik) dan kode perusahaan. Lookup satu kode diizinkan sebelum login; listing, update, dan penghapusan ditolak. Tidak berisi nama, role, UID, password atau data EEG. Mengetahui kode saja tidak memberikan akses; identitas Auth harus mengautentikasi password dan keanggotaan kemudian diperiksa.
 
-Kode anggota berformat `P-XXXX-XXXX` (pekerja), `S-XXXX-XXXX` (supervisor), atau `M-XXXX-XXXX` (manajemen). Pengelola melihat kode setiap anggota melalui Anggota/Pekerja → Kode masuk. Kode pribadi tersedia di Profil pekerja atau Kode saya pada portal petugas, serta setelah pembuatan perusahaan. Kode diturunkan dari SHA-256 atas identitas perusahaan, ID anggota yang dinormalisasi, dan peran; delapan karakter base32 memberi identitas singkat tanpa menyertakan email. Kode bukan rahasia autentikasi, undangan, password, OTP, atau faktor kedua; tidak memberi hak akses dan tidak menjamin keunikan global. Kecocokan selalu diperiksa dalam konteks akun dan perusahaan yang sudah diverifikasi. Tidak ada pencarian publik ke data anggota, field database baru, atau layanan berbayar. Pergantian peran mengubah kode. Keanggotaan yang dicabut tetap ditolak oleh Firebase.
-
-Saat login berkode, kode diverifikasi terhadap anggota aktif sebelum sesi diterbitkan dan sebelum roster perusahaan dimuat. Kode milik orang lain/perusahaan lain/peran lain ditolak. Aktivasi melalui undangan tetap membuat password sendiri dan memverifikasi email. Layar Aplikasi khusus pekerja berarti sesi yang tersimpan masih akun petugas, bukan dashboard manajemen di aplikasi. Pilih Ganti akun dan gunakan akun pekerja dari perusahaan yang sama; aplikasi tidak mengubah akun pemilik/manajemen menjadi pekerja. Tautan menuju portal manajemen tidak ditampilkan pada layar pemblokiran aplikasi pekerja.
+scripts/migrate-login-codes.js melakukan inventaris tanpa perubahan secara default; --apply menambahkan kode serta pemetaan untuk anggota aktif lama memakai akun CLI pemilik proyek. Pembaruan setiap anggota dan pemetaan dilakukan atomik dengan prasyarat versi dokumen. Password, UID, role, riwayat, dan data perusahaan tidak diubah. Skrip hanya mencetak jumlah dokumen, tidak mencetak kode/identitas/kredensial. Terapkan Rules lebih dahulu, jalankan migrasi akun lama, lalu Hosting.
 
 Gunakan akun pekerja di Chrome Android/PWA untuk memasangkan Muse. Di laptop buka portal supervisor atau manajemen dengan akun petugas dalam perusahaan yang sama. Muse → HP → Firebase → laptop; laptop tidak perlu memasangkan Muse untuk menerima ringkasan. HP dan laptop perlu internet dan halaman pengukuran HP harus tetap terbuka. Ringkasan dikirim saat mulai, sekitar setiap 60 detik, dan saat selesai; ini bukan streaming gelombang EEG mentah ke laptop. Data terbatas tanpa hasil bersih tetap terlihat sebagai sesi dengan jumlah sampel, tanpa angka K3 buatan.
 

@@ -52,18 +52,25 @@ const VisualIcon = ({name="signal",size=20}) => {
 const MemberAccessCode = ({ companyCode, memberId, role }) => {
   const [code,setCode] = React.useState(""), [error,setError] = React.useState("");
   const [copied,setCopied] = React.useState(false);
-  React.useEffect(()=>{
-    let current=true;setCode("");setError("");setCopied(false);
-    window.ntPortal.memberCode(companyCode,memberId,role).then(value=>{if(current)setCode(value);})
-      .catch(()=>{if(current)setError("Kode belum dapat ditampilkan. Login dengan email tetap tersedia.");});
-    return()=>{current=false;};
-  },[companyCode,memberId,role]);
-  return <section className="member-access-code" aria-label="Kode anggota"><div><small>Kode anggota · {window.ntPortal.roles[role]?.label}</small><output>{code || (error ? "Belum tersedia" : "Menyiapkan…")}</output></div>
-    <button type="button" disabled={!code} aria-label="Salin kode anggota" onClick={async()=>{
-      try{await navigator.clipboard.writeText(code);setCopied(true);}catch{setError("Salin kode yang tertera secara manual.");}
-    }}>{copied ? <VisualIcon name="check" size={18}/> : "Salin"}</button>
-    <p>{error || "Masukkan kode, lalu login dengan akun Anda."}</p>
+  const session=window.ntSession?.get(),member=session?.members?.find(m=>m.id===memberId);
+  const assigned=member?.loginCode || (session?.memberId===memberId ? session.loginCode : null);
+  React.useEffect(()=>{setCode(assigned ? window.ntPortal.formatLoginCode(assigned) : "");setError("");setCopied(false);},[companyCode,memberId,role,assigned]);
+  return <section className="member-access-code" aria-label="Kode akun"><div><small>Kode akun · {window.ntPortal.roles[role]?.label}</small><output>{code || "Belum dibuat"}</output></div>
+    <button type="button" aria-label={code ? "Salin kode akun" : "Buat kode akun"} onClick={async()=>{
+      try{if(!code){const value=await window.ntCompany.ensureLoginCode(memberId);setCode(window.ntPortal.formatLoginCode(value));}else{await navigator.clipboard.writeText(code);setCopied(true);}}catch{setError(code ? "Salin kode secara manual." : "Kode belum dapat dibuat. Hubungi pengelola perusahaan.");}
+    }}>{copied ? <VisualIcon name="check" size={18}/> : code ? "Salin" : "Buat kode"}</button>
+    <p>{error || "Login dengan kode akun dan password."}</p>
   </section>;
+};
+
+const AccountPasswordForm = () => {
+  const [current,setCurrent]=React.useState(""),[next,setNext]=React.useState(""),[confirm,setConfirm]=React.useState("");
+  const [busy,setBusy]=React.useState(false),[feedback,setFeedback]=React.useState("");
+  return <details className="account-password"><summary>Ganti password</summary><form onSubmit={async e=>{
+    e.preventDefault();if(busy)return;setFeedback("");if(next!==confirm){setFeedback("Konfirmasi password belum sama.");return;}
+    setBusy(true);try{await window.ntAuth.changePassword(current,next);setCurrent("");setNext("");setConfirm("");setFeedback("Password berhasil diganti.");}
+    catch{setFeedback("Password belum diganti. Periksa password saat ini dan koneksi Anda.");}finally{setBusy(false);}
+  }}><label>Password saat ini<input type="password" value={current} onChange={e=>setCurrent(e.target.value)} autoComplete="current-password" required disabled={busy}/></label><label>Password baru<input type="password" value={next} onChange={e=>setNext(e.target.value)} minLength={8} autoComplete="new-password" required disabled={busy}/></label><label>Ulangi password baru<input type="password" value={confirm} onChange={e=>setConfirm(e.target.value)} minLength={8} autoComplete="new-password" required disabled={busy}/></label><button type="submit" className="archive-primary" disabled={busy}>{busy ? "Menyimpan…" : "Simpan password"}</button>{feedback && <p role="status">{feedback}</p>}</form></details>;
 };
 
 const WorkerCalibrationCard = () => {
@@ -173,4 +180,4 @@ const WorkerAppInstall = () => {
     <Link to="/landing" className="worker-app-back">Kembali ke website</Link>
   </div></main>;
 };
-Object.assign(window, { WorkerAppInstall, WorkerAppInstallCard, WorkerCalibrationCard, WorkerSignalDetails, WorkerSignalStatus, VisualIcon, MemberAccessCode });
+Object.assign(window, { WorkerAppInstall, WorkerAppInstallCard, WorkerCalibrationCard, WorkerSignalDetails, WorkerSignalStatus, VisualIcon, MemberAccessCode, AccountPasswordForm });

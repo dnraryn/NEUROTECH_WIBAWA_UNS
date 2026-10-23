@@ -61,7 +61,7 @@ const WorkerProfile = () => {
     </div>
 
     <section className="worker-theme-card" aria-label="Tampilan aplikasi"><strong>Tampilan</strong><ThemeToggle /></section>
-    {account && <div style={{margin:"18px 24px 0"}}><MemberAccessCode companyCode={account.code} memberId={account.memberId} role={account.role}/></div>}
+    {account && <div style={{margin:"18px 24px 0"}}><MemberAccessCode companyCode={account.code} memberId={account.memberId} role={account.role}/><AccountPasswordForm/></div>}
     {account && <div style={{ margin: "18px 24px 0" }}><WorkerAppInstallCard always showUpdates /></div>}
     {/* Settings */}
     <div className="neu-surface" style={{ margin: "18px 24px 0", padding: "8px 0" }}>

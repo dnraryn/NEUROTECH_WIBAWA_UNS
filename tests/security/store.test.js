@@ -12,11 +12,11 @@ before(() => {
   assert.equal(process.env.FIREBASE_AUTH_EMULATOR_HOST, '127.0.0.1:9099');
 });
 after(async () => { await Promise.all(apps.map(deleteApp)); });
-async function account(label, verified = true, codeGenerator) {
+async function account(label, verified = true, codeGenerator, loginCode) {
   const app = initializeApp({ projectId: 'demo-neurotech', apiKey: 'fake-key' }, label + '-' + ++number); apps.push(app);
   const auth = getAuth(app); connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
   const db = getFirestore(app); connectFirestoreEmulator(db, '127.0.0.1', 8080);
-  const email = label + '-' + Date.now() + '-' + number + '@example.com';
+  const email = loginCode ? loginCode.toLowerCase()+'@members.neurotech.invalid' : label + '-' + Date.now() + '-' + number + '@example.com';
   const { user } = await createUserWithEmailAndPassword(auth, email, 'emulator-only-new-password-23!');
   if (verified) {
     const result = await fetch('http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/projects/demo-neurotech/accounts:update', {
@@ -35,9 +35,10 @@ async function account(label, verified = true, codeGenerator) {
   })) };
   const store = ntCreateCompanyStore({ db: compat, auth, stamp: serverTimestamp, increment, randomToken: () => require("node:crypto").randomBytes(32).toString("hex"),
     randomCode: codeGenerator || (() => (++number).toString(16).padStart(12, '0').toUpperCase()) });
-  return { app, db, auth, user, email, store };
+  return { app, db, auth, user, email, store, loginCode };
 }
-const info = (a, members = [], pkg = 'bronze') => ({ pkg, companyName: a.email, ownerName: 'Owner', members });
+const initialAccounts = () => ['supervisor','pekerja'].map((role,i)=>{const loginCode=(i?'P':'S')+'-'+Array.from(require('node:crypto').randomBytes(16),b=>'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[b%32]).join('');return {name:'Initial '+role,role,uid:require('node:crypto').randomUUID(),loginCode};});
+const info = (a, members = [], pkg = 'bronze') => ({ pkg, companyName: a.email, ownerName: 'Owner', members, accounts:initialAccounts() });
 const invite = (a, role = 'pekerja') => ({ name: 'Member', email: a.email, role, shift: 'Pagi' });
 const denied = (value) => assert.rejects(value, (e) => /permission-denied|Akses|Hanya|Supervisor|Keanggotaan|akun|perusahaan|paket|verifikasi|tidak ditemukan/i.test(e.code || e.message));
 
@@ -61,11 +62,11 @@ test('secret worker links join without pre-entered email; tokens, quotas and rol
   await denied(stranger.store.joinWithLink(code, '0'.repeat(64), 'Unknown'));
   await Promise.all([a.store.joinWithLink(code, link.token, 'Worker A'), b.store.joinWithLink(code, link.token, 'Worker B')]);
   const company = (await getDoc(doc(owner.db, 'companies', code))).data();
-  assert.equal(company.memberCount, 3); assert.equal(company.workerCount, 2);
+  assert.equal(company.memberCount, 5); assert.equal(company.workerCount, 3);
   assert.equal((await getDoc(doc(a.db, 'users', a.user.uid))).data().role, 'pekerja');
   assert.equal((await getDoc(doc(owner.db, 'companies', code, 'joinLinks', link.token))).data().uses, 2);
   await a.store.joinWithLink(code, link.token, 'Already joined');
-  assert.equal((await getDoc(doc(owner.db, 'companies', code))).data().memberCount, 3);
+  assert.equal((await getDoc(doc(owner.db, 'companies', code))).data().memberCount, 5);
   await denied(getDoc(doc(a.db, 'companies', code, 'joinClaims', a.user.uid)));
   await denied(a.store.createJoinLink(code));
   await denied(updateDoc(doc(a.db, 'users', a.user.uid), { role: 'management' }));
@@ -73,8 +74,7 @@ test('secret worker links join without pre-entered email; tokens, quotas and rol
   await denied(a.store.joinWithLink(code, link.token, 'Removed user'));
   await owner.store.revokeJoinLink(code, link.token);
   await denied(stranger.store.joinWithLink(code, link.token, 'Revoked'));
-  const free = await account('link-free'); const freeCode = await free.store.create(info(free, [], 'free'));
-  await assert.rejects(free.store.createJoinLink(freeCode));
+  const free = await account('link-free');await assert.rejects(free.store.create(info(free, [], 'free')),/supervisor/);
 });
 
 test('link joining rejects forged roles, incomplete claims, expired links and quota races', async () => {
@@ -101,18 +101,18 @@ test('link joining rejects forged roles, incomplete claims, expired links and qu
   });
   assert.equal(expire.ok, true);
   await denied(a.store.joinWithLink(code, expired.token, 'Expired'));
-  for (let i = 0; i < 9; i++) await owner.store.addMember({ name: 'Reserved worker', email: `reserved-${i}@example.test` });
+  for (let i = 0; i < 8; i++) await owner.store.addMember({ name: 'Reserved worker', email: `reserved-${i}@example.test` });
   const results = await Promise.allSettled([a.store.joinWithLink(code, link.token, 'A'), b.store.joinWithLink(code, link.token, 'B')]);
   assert.equal(results.filter(r => r.status === 'fulfilled').length, 1);
   assert.equal(results.filter(r => r.status === 'rejected').length, 1);
   const c = (await getDoc(doc(owner.db, 'companies', code))).data();
-  assert.equal(c.workerCount, 10); assert.equal(c.memberCount, 11);
+  assert.equal(c.workerCount, 10); assert.equal(c.memberCount, 12);
 });
 test('Spark onboarding and verified invitation run through the actual Firestore Rules', async () => {
   const owner = await account('spark-owner'), worker = await account('spark-worker'), stranger = await account('spark-stranger');
   const code = await owner.store.create(info(owner, [invite(worker)]));
   const company = (await getDoc(doc(owner.db, 'companies', code))).data();
-  assert.equal(company.ownerUid, owner.user.uid); assert.equal(company.memberCount, 2); assert.equal(company.workerCount, 1);
+  assert.equal(company.ownerUid, owner.user.uid); assert.equal(company.memberCount, 4); assert.equal(company.workerCount, 2);
   assert.equal(company.members, undefined);
   await denied(getDoc(doc(stranger.db, 'companies', code)));
   await denied(getDocs(collection(stranger.db, 'companies', code, 'members')));
@@ -173,11 +173,7 @@ test('Rules enforce roster counters and package limits even when a manager bypas
   pair.set(doc(owner.db, 'companies', code, 'members', 'extra@example.com'), { ...data, id: 'extra@example.com', email: 'extra@example.com' });
   pair.update(doc(owner.db, 'companies', code), { memberCount: 2, workerCount: 1, lastMemberId: member.email, lastMemberAction: 'add', revision: 1 });
   await denied(pair.commit());
-  const free = await account('free-owner'); const freeCode = await free.store.create(info(free, [], 'free'));
-  const full = writeBatch(free.db);
-  full.set(doc(free.db, 'companies', freeCode, 'members', member.email), data);
-  full.update(doc(free.db, 'companies', freeCode), { memberCount: 2, workerCount: 2, lastMemberId: member.email, lastMemberAction: 'add', revision: 1 });
-  await denied(full.commit());
+  const free = await account('free-owner');await assert.rejects(free.store.create(info(free, [], 'free')),/supervisor/);
   await owner.store.addMember(invite(member));
   const removeOnly = writeBatch(owner.db); removeOnly.delete(doc(owner.db, 'companies', code, 'members', member.email));
   await denied(removeOnly.commit());
@@ -190,10 +186,43 @@ test('unverified accounts are denied and concurrent additions preserve the compa
   const code = await owner.store.create(info(owner));
   await Promise.all([owner.store.addMember(invite(a)), owner.store.addMember(invite(b))]);
   const company = (await getDoc(doc(owner.db, 'companies', code))).data();
-  assert.equal(company.memberCount, 3); assert.equal(company.workerCount, 2);
+  assert.equal(company.memberCount, 5); assert.equal(company.workerCount, 3);
   await a.store.acceptInvitation(code);
   const removal = writeBatch(owner.db);
   removal.delete(doc(owner.db, 'companies', code, 'members', a.email));
   removal.update(doc(owner.db, 'companies', code), { memberCount: 2, workerCount: 1, lastMemberId: a.email, lastMemberAction: 'remove', revision: company.revision + 1 });
   await denied(removal.commit()); // active profile must be revoked atomically
+});
+
+
+test('company code onboarding reserves both required roles atomically and unverified members claim only their own accounts',async()=>{
+ const reserved=initialAccounts();
+ const owner=await account('code-company-owner');
+ const supervisor=await account('code-supervisor',false,undefined,reserved[0].loginCode);
+ const worker=await account('code-worker',false,undefined,reserved[1].loginCode);
+ const outsider=await account('code-outsider');
+ const accounts=[{...reserved[0],uid:supervisor.user.uid},{...reserved[1],uid:worker.user.uid}];
+ await assert.rejects(owner.store.create({...info(owner),accounts:[]}),/supervisor/);
+ await assert.rejects(owner.store.create({...info(owner),accounts:[accounts[0]]}),/supervisor/);
+ const code=await owner.store.create({...info(owner),accounts});
+ const company=(await getDoc(doc(owner.db,'companies',code))).data();
+ assert.equal(company.memberCount,3);assert.equal(company.workerCount,1);
+ const sup=(await getDoc(doc(owner.db,'companies',code,'members',supervisor.email))).data();
+ assert.equal(sup.status,'invited');assert.equal(sup.uid,null);
+ const lookup=(await getDoc(doc(outsider.db,'accountLogins',supervisor.loginCode))).data();
+ assert.deepEqual(Object.keys(lookup).sort(),['companyCode','email']);assert.equal(lookup.companyCode,code);
+ await denied(getDocs(collection(outsider.db,'accountLogins')));
+ await denied(getDoc(doc(worker.db,'companies',code)));
+ await denied(setDoc(doc(worker.db,'users',worker.user.uid),{schemaVersion:2,companyCode:code,memberId:worker.email,role:'management',status:'active'}));
+ await denied(setDoc(doc(owner.db,'users',worker.user.uid),{schemaVersion:2,companyCode:code,memberId:worker.email,role:'pekerja',status:'active'}));
+ await worker.store.acceptInvitation(code);await supervisor.store.acceptInvitation(code);
+ assert.equal(worker.user.emailVerified,false);assert.equal(supervisor.user.emailVerified,false);
+ assert.equal((await getDoc(doc(worker.db,'users',worker.user.uid))).data().role,'pekerja');
+ await supervisor.store.setShift(worker.email,'Malam');
+ assert.equal((await getDoc(doc(worker.db,'companies',code,'members',worker.email))).data().shift,'Malam');
+ await denied(updateDoc(doc(worker.db,'users',worker.user.uid),{role:'supervisor'}));
+ await denied(updateDoc(doc(outsider.db,'accountLogins',supervisor.loginCode),{email:outsider.email}));
+ const staged=await owner.store.addCodeMember({name:'Invitation',role:'pekerja',uid:outsider.user.uid,loginCode:initialAccounts()[1].loginCode});assert.equal((await getDoc(doc(owner.db,'companies',code,'members',staged.email))).data().uid,null);await denied(getDoc(doc(outsider.db,'companies',code)));
+ await owner.store.removeMember(worker.email);
+ await denied(getDoc(doc(worker.db,'companies',code)));
 });

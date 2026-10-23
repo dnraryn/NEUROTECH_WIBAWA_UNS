@@ -52,6 +52,7 @@ const homeFor = (session) => {
 
 // Resolve a route — supports dynamic 3-segment routes and content pages.
 const resolveRoute = (route) => {
+  if(route.app==="join" && route.page==="recover")return {c:JoinFlow,props:{recover:true},frame:"landing",label:"Pemulihan kode pemilik"};
   if (route.app === "login" && window.ntPortal.roles[route.page] && !route.id)
     return { c: MemberLogin, props: { portalRole: route.page }, frame: "auth", label: "Masuk " + window.ntPortal.roles[route.page].label };
   if (route.app === "m" && route.page !== "overview" && window.ntSession?.get()?.role === "management")
@@ -324,6 +325,7 @@ const DeviceButton = ({ embedded = false }) => {
 
 const App = () => {
   const route = useHashRoute();
+  const legacyAppEntry = React.useRef(window.ntPortal.workerApp() && route.app === "w" && route.page === "readiness");
   const [, bump] = React.useReducer((n) => n + 1, 0);
   const [opening, setOpening] = React.useState(() => !!window.ntPWA?.state?.().installed);
   React.useEffect(() => {
@@ -339,7 +341,8 @@ const App = () => {
   const authed = !!session || demo;
   const homeOf = homeFor(session);
   const workerApp = window.ntPortal.workerApp();
-  const wrongWorkerAccount = workerApp && session && session.role !== "pekerja";
+  const workerPublic = !route.app || ["landing","pricing","p","join","invite","app"].includes(route.app);
+  const wrongWorkerAccount = workerApp && session && session.role !== "pekerja" && !workerPublic;
   const wrongLoginPortal = session && route.app === "login" && route.page && route.page !== session.role;
   React.useEffect(() => { if (!authed) window.ntLiveStop?.(); }, [authed]);
 
@@ -396,8 +399,10 @@ const App = () => {
   // Routing guard.
   React.useEffect(() => {
     if (authLoading) return;
+    if(legacyAppEntry.current){legacyAppEntry.current=false;navigate("/landing");return;}
+    if (!route.app) {navigate("/landing");return;}
     if (wrongWorkerAccount || wrongLoginPortal || (session && !allowedApps(session).length)) return;
-    if (workerApp && !["w", "invite", "app"].includes(route.app) && !(route.app === "login" && route.page === "pekerja")) {
+    if (workerApp && !workerPublic && route.app !== "w" && !(route.app === "login" && route.page === "pekerja")) {
       navigate(session || demo ? "/w/readiness" : "/login/pekerja"); return;
     }
     const publicPage = ["landing", "pricing", "login", "join", "invite", "app"].includes(route.app);
@@ -406,7 +411,7 @@ const App = () => {
       navigate(window.ntPortal.login(({w:"pekerja",s:"supervisor",m:"management"})[route.app] || (workerApp?"pekerja":null))); return;
     }
     // A logged-in member never sits on the login/join screens.
-    if (session && (route.app === "login" || route.app === "join")) {
+    if (session && route.app === "login") {
       navigate(homeOf); return;
     }
     if (authed && !route.app) { navigate(session ? homeOf : "/w/readiness"); return; }
@@ -445,9 +450,10 @@ const App = () => {
   const resolved = resolveRoute(route) || ROUTES["landing"];
   const chromeless = resolved.frame === "auth" || resolved.frame === "landing";
   if (opening) return <Splash text="Memulai aplikasi…" />;
+  if(legacyAppEntry.current) return <Splash text="Membuka beranda…"/>;
   if (!authLoading && (wrongWorkerAccount || wrongLoginPortal || (session && !allowedApps(session).length)))
     return <><PortalSessionGate session={session} workerOnly={workerApp}/><ToastProvider/></>;
-  if (!authLoading && workerApp && !["w","invite","app"].includes(route.app) && !(route.app === "login" && route.page === "pekerja")) return <Splash text="Membuka aplikasi pekerja…"/>;
+  if (!authLoading && workerApp && !workerPublic && route.app !== "w" && !(route.app === "login" && route.page === "pekerja")) return <Splash text="Membuka aplikasi pekerja…"/>;
   if (authLoading && !demo && !chromeless) return <Splash text="Memeriksa sesi…" />;
 
   // Block rendering another persona's screen for a locked-in member.
@@ -482,7 +488,7 @@ const App = () => {
             <div className="app-topbar-actions" style={{ display: "flex", alignItems: "center", gap: 12 }}>
               {!session && <DeviceButton />}
               {session && route.app !== "w" && <span className="portal-workspace-label">{ROLE_LABEL[session.role]}</span>}
-              {session && route.app !== "w" && <details className="portal-own-code"><summary>Kode saya</summary><MemberAccessCode companyCode={session.code} memberId={session.memberId} role={session.role}/></details>}
+              {session && route.app !== "w" && <details className="portal-own-code"><summary>Kode saya</summary><div className="portal-account-popover"><MemberAccessCode companyCode={session.code} memberId={session.memberId} role={session.role}/><AccountPasswordForm/></div></details>}
               {session ? (
                 <div className="app-account" style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span className="app-account-label" style={{ fontSize: 12, color: "var(--nt-text-2)" }}>

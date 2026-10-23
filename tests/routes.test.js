@@ -7,7 +7,7 @@ test('live updates keep the same detail/content component type while route props
   const code = source('app.jsx');
   const components = {
     window:{ntPortal:{roles:{pekerja:{label:'Pekerja'},supervisor:{label:'Supervisor'},management:{label:'Manajemen'}}},ntSession:{get:()=>null}},
-    MemberLogin(){}, RealSupervisorWorkerDetail(){},RealSupervisorAlertDetail(){},
+    MemberLogin(){}, JoinFlow(){}, RealSupervisorWorkerDetail(){},RealSupervisorAlertDetail(){},
     ContentPage() {}, SupervisorWorkerDetail() {}, SupervisorAlertDetail() {}, SupervisorReportDetail() {},
     ROUTES: { login: { c() {}, frame: 'auth' } },
   };
@@ -29,6 +29,8 @@ test('live updates keep the same detail/content component type while route props
   assert.equal(resolver({ app: 'p', page: 'about' }).props.slug, 'about');
   assert.equal(resolver({ app: 'login' }), components.ROUTES.login);
   assert.equal(resolver({app:'login',page:'supervisor'}).props.portalRole,'supervisor');
+  assert.equal(resolver({app:'join',page:'recover'}).c,components.JoinFlow);
+  assert.equal(resolver({app:'join',page:'recover'}).props.recover,true);
   components.window.ntSession.get=()=>({role:'management'});
   const management=resolver({app:'m',page:'workers',id:'person'});
   assert.equal(management.c,components.RealSupervisorWorkerDetail);

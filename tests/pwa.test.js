@@ -7,7 +7,7 @@ test('worker app manifest opens the worker area with real PNG icon sizes and no 
   const manifest = JSON.parse(source('manifest.webmanifest'));
   const fs = require('node:fs'), path = require('node:path');
   assert.equal(manifest.display, 'standalone');
-  assert.equal(manifest.start_url, '/?app=worker#/w/readiness');
+  assert.equal(manifest.start_url, '/?app=worker#/landing');
   assert.equal(manifest.scope, '/');
   assert.ok(manifest.icons.some(icon => icon.purpose === 'maskable'));
   for (const icon of manifest.icons) {
