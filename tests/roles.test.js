@@ -34,6 +34,21 @@ test('login account codes are random identifiers with canonical formatting and i
  assert.equal(api.isAliasEmail('real-person@example.test'),false);
 });
 
+test('short labels retain separate company contexts and links never include passwords or email addresses',()=>{
+ const b=browser();b.c.crypto=webcrypto;b.c.URLSearchParams=URLSearchParams;b.c.location={origin:'https://example.test',pathname:'/',hash:''};b.load('portal-access.js');
+ const api=b.c.ntPortal,a={accountCode:'P001',loginCode:api.newLoginCode('pekerja'),code:'B-ABCDEF',companyName:'First'},
+   other={...a,code:'B-UVWXYZ',companyName:'Second',loginCode:api.newLoginCode('pekerja')};
+ assert.equal(api.accountCode(' p001 '),'P001');assert.equal(api.accountCode('P000'),'');assert.equal(api.accountCode('P0001'),'');assert.equal(api.accountCode('S1000'),'S1000');
+ api.rememberAccount({...a,password:'not-to-be-saved',email:'private@example.test'});api.rememberAccount(other);api.rememberAccount(a);
+ assert.equal(api.savedAccounts().length,2);assert.equal(api.savedAccounts().filter(e=>e.accountCode==='P001').length,2);
+ assert.equal(b.c.localStorage.getItem('nt-account-access-v1').includes('password'),false);
+ assert.equal(b.c.localStorage.getItem('nt-account-access-v1').includes('@'),false);
+ const link=api.accessLink(a,a.code);assert.equal(link.includes('@'),false);b.c.location.hash=link.slice(link.indexOf('#'));
+ assert.equal(api.linkAccount().accountCode,'P001');assert.equal(api.linkAccount().companyCode,a.code);assert.equal(api.linkAccount().loginCode,a.loginCode);
+ b.c.location.hash='#/login?account=P001&access=P001&company=B-ABCDEF';assert.equal(api.linkAccount(),null);
+ b.c.localStorage.setItem('nt-account-access-v1','broken');assert.equal(api.savedAccounts().length,0);
+});
+
 test('authenticated portals stay isolated by stored role and staff never fall back into the worker app', () => {
   const b=browser();b.load('portal-access.js');
   const code = source('app.jsx');
@@ -103,4 +118,6 @@ test('encoded member and incident IDs survive route parsing, including malformed
   assert.equal(parse('#/s/workers/member%40example.test').id, 'member@example.test');
   assert.equal(parse('#/s/alerts/s-abc%3A5').id, 's-abc:5');
   assert.equal(parse('#/s/workers/bad%escape').id, 'bad%escape');
+  const account=parse('#/login/pekerja?access=opaque&account=P001');
+  assert.equal(account.page,'pekerja');assert.equal(account.path,'/login/pekerja');assert.equal(account.query,'access=opaque&account=P001');
 });

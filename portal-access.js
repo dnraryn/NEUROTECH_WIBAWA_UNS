@@ -42,6 +42,34 @@
   }
   function aliasEmail(value) {return loginCode(value).toLowerCase()+"@members.neurotech.invalid";}
   function isAliasEmail(value) {return typeof value==="string" && /^[psm]-[abcdefghjklmnpqrstuvwxyz23456789]{16}@members\.neurotech\.invalid$/.test(value);}
+  function accountCode(value) {
+    var code=typeof value==="string" ? value.trim().toUpperCase() : "";
+    return /^[PSM](00[1-9]|0[1-9][0-9]|[1-9][0-9]{2,5})$/.test(code) ? code : "";
+  }
+  function savedAccounts() {
+    try {
+      var entries=JSON.parse(window.localStorage.getItem("nt-account-access-v1") || "[]");
+      return Array.isArray(entries) ? entries.filter(function(e){return e && accountCode(e.accountCode) && isLoginCode(e.loginCode)
+        && typeof e.companyCode==="string" && /^[FBSGP]-[A-Z0-9]{6,12}$/.test(e.companyCode);}).slice(-100) : [];
+    } catch (_) {return [];}
+  }
+  function rememberAccount(session) {
+    if(!accountCode(session?.accountCode) || !isLoginCode(session?.loginCode))return;
+    var entries=savedAccounts().filter(function(e){return e.loginCode!==session.loginCode;});
+    entries.push({accountCode:session.accountCode,loginCode:session.loginCode,companyCode:session.code,companyName:session.companyName || session.code});
+    try{window.localStorage.setItem("nt-account-access-v1",JSON.stringify(entries.slice(-100)));}catch(_){}
+  }
+  function accessLink(member,companyCode) {
+    if(!accountCode(member?.accountCode) || !isLoginCode(member?.loginCode))return "";
+    return window.location.origin+window.location.pathname+"#/login?access="+encodeURIComponent(loginCode(member.loginCode))
+      +"&account="+encodeURIComponent(member.accountCode)+"&company="+encodeURIComponent(companyCode);
+  }
+  function linkAccount() {
+    var query=new URLSearchParams((window.location.hash || "").split("?")[1] || "");
+    var code=query.get("access"),label=accountCode(query.get("account")),company=query.get("company");
+    return isLoginCode(code) && label && /^[FBSGP]-[A-Z0-9]{6,12}$/.test(company || "")
+      ? {loginCode:loginCode(code),accountCode:label,companyCode:company} : null;
+  }
   // A reproducible member identifier, not a password, invitation, or second factor.
   // No public identity lookup or additional database fields are needed.
   async function memberCode(companyCode, memberId, role) {
@@ -57,6 +85,7 @@
   }
   window.ntPortal = { roles: roles, workerApp: workerApp, apps: apps, login: login, staffPath: staffPath,
     isLoginCode:isLoginCode,loginCode:loginCode,formatLoginCode:formatLoginCode,newLoginCode:newLoginCode,aliasEmail:aliasEmail,isAliasEmail:isAliasEmail,
+    accountCode:accountCode,savedAccounts:savedAccounts,rememberAccount:rememberAccount,accessLink:accessLink,linkAccount:linkAccount,
     memberCode:memberCode,codeRole:codeRole,normalizeCode:normalizeCode,matchesCode:matchesCode,
     matches: function (session, role) { return !!session && (!role || session.role === role) && Object.hasOwn(roles,session.role); } };
 })();

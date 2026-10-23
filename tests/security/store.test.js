@@ -226,3 +226,33 @@ test('company code onboarding reserves both required roles atomically and unveri
  await owner.store.removeMember(worker.email);
  await denied(getDoc(doc(worker.db,'companies',code)));
 });
+
+test('short account numbers are atomic, private, immutable and never recycled after deletion',async()=>{
+ const owner=await account('labels-owner'),other=await account('labels-other'),outsider=await account('labels-outsider');
+ const code=await owner.store.create(info(owner)),otherCode=await other.store.create(info(other));
+ const member=(loginCode,name)=>({name,role:'pekerja',uid:require('node:crypto').randomUUID(),loginCode});
+ const [first,second]=await Promise.all([owner.store.addCodeMember(member(initialAccounts()[1].loginCode,'First')),
+   owner.store.addCodeMember(member(initialAccounts()[1].loginCode,'Second'))]);
+ assert.deepEqual([first.accountCode,second.accountCode].sort(),['P002','P003']);
+ assert.equal((await getDoc(doc(other.db,'companies',otherCode,'members',other.email))).data().accountCode,'M001');
+ await denied(getDoc(doc(outsider.db,'companies',code,'accountCodeSequences','P')));
+ await denied(getDoc(doc(outsider.db,'accountLogins','P002')));
+ const target=doc(owner.db,'companies',code,'members',first.id);
+ await denied(updateDoc(target,{accountCode:'P009'}));
+ await denied(updateDoc(doc(owner.db,'companies',code,'accountCodeSequences','P'),{next:1}));
+ await owner.store.removeMember(first.id);
+ const third=await owner.store.addCodeMember(member(initialAccounts()[1].loginCode,'Third'));
+ assert.equal(third.accountCode,'P004');
+ // A role change uses protected membership authority and keeps the account identifier.
+ await owner.store.changeRole(second.id,'supervisor');
+ assert.equal((await getDoc(doc(owner.db,'companies',code,'members',second.id))).data().accountCode,second.accountCode);
+ const legacyA=await account('labels-legacy-a'),legacyB=await account('labels-legacy-b');
+ await owner.store.addMember(invite(legacyA));await owner.store.addMember(invite(legacyB));
+ await legacyA.store.acceptInvitation(code);await legacyB.store.acceptInvitation(code);
+ await owner.store.ensureLoginCode(legacyA.email);await owner.store.ensureLoginCode(legacyB.email);
+ const numbers=await Promise.all([owner.store.ensureAccountCode(legacyA.email),owner.store.ensureAccountCode(legacyB.email)]);
+ assert.deepEqual(numbers.sort(),['P005','P006']);
+ assert.equal(await owner.store.ensureAccountCode(legacyA.email),(await getDoc(doc(owner.db,'companies',code,'members',legacyA.email))).data().accountCode);
+ await denied(getDoc(doc(legacyA.db,'companies',code,'accountCodeSequences','P')));
+ await denied(updateDoc(doc(legacyA.db,'companies',code,'members',legacyA.email),{accountCode:'M001',role:'management'}));
+});

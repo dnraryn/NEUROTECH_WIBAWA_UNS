@@ -83,7 +83,8 @@ async function ntLoadSession(expectedCode, expectedMemberCode) {
   if (epoch !== ntSessionEpoch || load !== ntSessionLoad || auth.currentUser?.uid !== user.uid) return null;
   const changed = !ntCurrentSession || ntCurrentSession.uid !== user.uid || ntCurrentSession.code !== company.code || ntCurrentSession.role !== own.role;
   ntCurrentSession = { uid: user.uid, code: company.code, companyName: company.companyName, package: company.package,
-    ownerUid: company.ownerUid, memberName: own.name, memberId: own.id, role: own.role, roleDesc: own.roleDesc, loginCode:own.loginCode || null, members };
+    ownerUid: company.ownerUid, memberName: own.name, memberId: own.id, role: own.role, roleDesc: own.roleDesc, loginCode:own.loginCode || null, accountCode:own.accountCode || null, members };
+  window.ntPortal?.rememberAccount?.(ntCurrentSession);
   sessionStorage.removeItem("nt-demo");
   window.ntApplyCompanyMembers?.(members, own.id);
   ntStopSubscriptions();
@@ -127,16 +128,18 @@ const ntAuth = {
     ntSession.clear();
     return (await auth.signInWithEmailAndPassword(email.trim(), password)).user;
   },
-  async signInCode({code,password}) {
+  async signInCode({code,password,accountCode,companyCode:expectedCompany}) {
     const key=window.ntPortal.loginCode(code);
     const lookup=await db.collection("accountLogins").doc(key).get();
     const email=lookup.data()?.email,companyCode=lookup.data()?.companyCode;
     if(!email)throw new Error("Kode akun atau password tidak sesuai.");
+    if(expectedCompany && companyCode!==expectedCompany)throw new Error("Tautan akun tidak sesuai dengan perusahaan.");
     await ntAuth.signIn({email,password});
-    const session=await ntAuth.refresh(undefined,key);
-    if(session)return session;
-    if(window.ntPortal.isAliasEmail(email))return ntCompany.acceptInvitation(companyCode,key);
-    throw new Error("Akun belum aktif. Hubungi pengelola perusahaan.");
+    let session=await ntAuth.refresh(undefined,key);
+    if(!session && window.ntPortal.isAliasEmail(email))session=await ntCompany.acceptInvitation(companyCode,key);
+    if(!session)throw new Error("Akun belum aktif. Hubungi pengelola perusahaan.");
+    if(accountCode && session.accountCode!==accountCode){await ntAuth.signOut();throw new Error("Kode akun tidak sesuai dengan tautan masuk. Minta tautan yang benar kepada pengelola.");}
+    return session;
   },
   async changePassword(currentPassword,newPassword) {
     if(typeof newPassword!=="string" || newPassword.length<8)throw new Error("Password baru minimal 8 karakter.");
@@ -183,7 +186,7 @@ const ntCompany = {
     if(p?.status!=="active")throw new Error("Perusahaan belum tersedia untuk akun ini.");
     const company=(await db.collection("companies").doc(p.companyCode).get()).data();
     if(company?.ownerUid!==actor.uid)throw new Error("Pemulihan ini khusus pemilik perusahaan.");
-    await ntCompanyStore.ensureLoginCode(p.memberId);await ntAuth.refresh(p.companyCode);return p.companyCode;
+    await ntCompanyStore.ensureLoginCode(p.memberId);await ntCompanyStore.ensureAccountCode(p.memberId);await ntAuth.refresh(p.companyCode);return p.companyCode;
   },
   async create(data) {
     if(!Array.isArray(data.team) || data.team.length!==2 || !["supervisor","pekerja"].every(role=>data.team.some(m=>m.role===role))
@@ -229,6 +232,7 @@ const ntCompany = {
     } finally {await provisioned.app.delete();}
   },
   async ensureLoginCode(id) {const code=await ntCompanyStore.ensureLoginCode(id);await ntAuth.refresh();return code;},
+  async ensureAccountCode(id) {await ntCompanyStore.ensureLoginCode(id);const code=await ntCompanyStore.ensureAccountCode(id);await ntAuth.refresh();return code;},
   async acceptInvitation(code, memberCode) { await ntCompanyStore.acceptInvitation(code); return ntAuth.refresh(code, memberCode); },
   createJoinLink(code) { return ntCompanyStore.createJoinLink(code); },
   revokeJoinLink(code, token) { return ntCompanyStore.revokeJoinLink(code, token); },

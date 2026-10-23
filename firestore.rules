@@ -77,8 +77,9 @@ service cloud.firestore {
     }
     function validMember(m, id) {
       return m.keys().hasAll(['id','uid','email','name','role','roleDesc','shift','status'])
-        && m.keys().hasOnly(['id','uid','email','name','role','roleDesc','shift','status','loginCode'])
+        && m.keys().hasOnly(['id','uid','email','name','role','roleDesc','shift','status','loginCode','accountCode'])
         && (!('loginCode' in m) || m.loginCode.matches('^[PSM]-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{16}$'))
+        && (!('accountCode' in m) || m.accountCode.matches('^[PSM][0-9]{3,6}$'))
         && m.id == id && m.email == id && m.email == m.email.lower()
         && m.email.size() <= 254 && m.email.matches('^[^/@ ]+@[^/@ ]+[.][^/@ ]+$')
         && m.name is string && m.name.size() > 0 && m.name.size() <= 120
@@ -182,6 +183,30 @@ service cloud.firestore {
       return s.role == 'supervisor' && w.role == 'pekerja' && s.status == 'invited' && w.status == 'invited'
         && s.uid == null && w.uid == null && c.initialSupervisorId != c.initialWorkerId && aliasMember(s) && aliasMember(w);
     }
+    // Human-readable identifiers are private, immutable labels. The counter is
+    // advanced in the same transaction as the member, so numbers are never reused.
+    function series(role) { return role == 'pekerja' ? 'P' : role == 'supervisor' ? 'S' : 'M'; }
+    function accountLabel(prefix, number) {
+      return prefix + (number < 10 ? '00' : number < 100 ? '0' : '') + string(number);
+    }
+    function sequencePath(code, prefix) { return /databases/$(database)/documents/companies/$(code)/accountCodeSequences/$(prefix); }
+    function allocatedLabel(code, m) {
+      let prefix = series(m.role);
+      let seq = getAfter(sequencePath(code,prefix)).data;
+      return seq.memberId == m.id && m.accountCode == accountLabel(prefix,seq.next - 1)
+        && seq.next == (exists(sequencePath(code,prefix)) ? get(sequencePath(code,prefix)).data.next + 1 : 2);
+    }
+    function sequenceWrite(code, prefix) {
+      let seq = request.resource.data;
+      let m = getAfter(memberPath(code,seq.memberId)).data;
+      return seq.keys().hasOnly(['next','memberId']) && seq.keys().hasAll(['next','memberId'])
+        && seq.next is int && seq.next >= 2 && seq.next <= 1000000
+        && prefix == series(m.role) && allocatedLabel(code,m)
+        && (!exists(memberPath(code,m.id)) || !('accountCode' in get(memberPath(code,m.id)).data))
+        && m.get('loginCode','').matches('^[PSM]-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{16}$')
+        && (mayManage(code,m.role) || (!exists(companyPath(code)) && verifiedEmail()
+          && getAfter(companyPath(code)).data.ownerUid == request.auth.uid));
+    }
     match /companies/{code} {
       // Missing-document reads let a verified account reserve a random unused code.
       allow get: if verified() && (!exists(companyPath(code)) || active(code));
@@ -203,6 +228,11 @@ service cloud.firestore {
         && getAfter(profilePath(request.auth.uid)).data.memberId == myEmail()
         && profileLinks(request.auth.uid, getAfter(profilePath(request.auth.uid)).data);
       allow update: if verified() && memberCounterUpdate(code);
+      match /accountCodeSequences/{prefix} {
+        allow get: if verified() && (staff(code) || (!exists(companyPath(code)) && verifiedEmail() && availableIdentity()));
+        allow list, delete: if false;
+        allow create, update: if verified() && prefix in ['P','S','M'] && sequenceWrite(code,prefix);
+      }
       match /joinLinks/{token} {
         allow get: if verified() && (staff(code) ||
           (token.matches('^[a-f0-9]{64}$') && resource.data.enabled == true && resource.data.expiresAt > request.time));
@@ -235,7 +265,8 @@ service cloud.firestore {
           (active(code) && (staff(code) || resource.data.uid == request.auth.uid))
           || (resource.data.status == 'invited' && resource.data.email == myEmail())
         )) || (aliasIdentity() && resource.data.status == 'invited' && resource.data.email == myEmail() && aliasMember(resource.data));
-        allow create: if verified() && validMember(request.resource.data, id) && (
+        allow create: if verified() && validMember(request.resource.data, id)
+          && (!('accountCode' in request.resource.data) || allocatedLabel(code,request.resource.data)) && (
           (id == myEmail() && validJoin(code))
           ||
           (!exists(companyPath(code)) && getAfter(companyPath(code)).data.ownerUid == request.auth.uid
@@ -256,6 +287,9 @@ service cloud.firestore {
           || (resource.data.status == 'active' && !('loginCode' in resource.data)
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['loginCode'])
             && (resource.data.uid == request.auth.uid || mayManage(code,resource.data.role)))
+          || (!('accountCode' in resource.data) && 'accountCode' in request.resource.data
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['accountCode'])
+            && mayManage(code,resource.data.role) && allocatedLabel(code,request.resource.data))
           || (owner(code) && resource.data.uid != request.auth.uid
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role']) && action(code, id, 'role')
             && (resource.data.status == 'invited' || profileLinks(resource.data.uid, getAfter(profilePath(resource.data.uid)).data)))

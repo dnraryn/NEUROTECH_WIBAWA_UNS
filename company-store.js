@@ -36,6 +36,15 @@ function ntCreateCompanyStore({ db, auth, stamp, randomCode, randomToken, increm
   const validLoginCode = value => typeof value === "string" && /^[PSM]-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{16}$/.test(value);
   const makeLoginCode = role => {const token=randomToken();return ({pekerja:"P",supervisor:"S",management:"M"})[role]+"-"+Array.from({length:16},(_,i)=>"ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[parseInt(token.slice(i*2,i*2+2),16)%32]).join("");};
   const loginRef = value => db.collection("accountLogins").doc(value);
+  const seriesOf = role => ({pekerja:"P",supervisor:"S",management:"M"})[role];
+  const sequenceRef = (ref, role) => ref.collection("accountCodeSequences").doc(seriesOf(role));
+  const shortCode = (role, number) => seriesOf(role) + String(number).padStart(3,"0");
+  async function nextAccountCode(tx, ctx, member) {
+    const ref=sequenceRef(ctx.ref,member.role), sequence=(await tx.get(ref)).data();
+    const number=sequence?.next || 1;
+    if(!Number.isSafeInteger(number) || number<1 || number>999999)throw new Error("Nomor akun tidak tersedia.");
+    return {ref,accountCode:shortCode(member.role,number),data:{next:number+1,memberId:member.id}};
+  }
   const codeMember = data => {
     if(!data || !validLoginCode(data.loginCode) || typeof data.uid!=="string" || !data.uid)throw new Error("Identitas akun belum tersedia.");
     const member=input({name:data.name,email:data.loginCode.toLowerCase()+"@members.neurotech.invalid",role:data.role,roleDesc:data.roleDesc,shift:data.shift});
@@ -61,23 +70,26 @@ function ntCreateCompanyStore({ db, auth, stamp, randomCode, randomToken, increm
   // generic permission failure. The next attempt re-reads membership and role.
   const transaction = async (callback) => {
     for (let attempt = 0; ; attempt++) {
-      let observed = null;
+      const observed = new Map(), uid=auth.currentUser?.uid;
       try {
         return await db.runTransaction((tx) => callback({
           async get(ref) {
             const snap = await tx.get(ref);
-            if (/^companies\/[^/]+$/.test(ref.path) && snap.exists && Number.isInteger(snap.data().revision)) {
-              observed = { ref, revision: snap.data().revision, uid: auth.currentUser?.uid };
-            }
+            const field=/^companies\/[^/]+$/.test(ref.path) ? "revision"
+              : /^companies\/[^/]+\/accountCodeSequences\/[PSM]$/.test(ref.path) ? "next" : null;
+            if(field)observed.set(ref.path,{ref,field,value:snap.exists ? snap.data()[field] : null});
             return snap;
           },
           set: (ref, data) => tx.set(ref, data), update: (ref, data) => tx.update(ref, data), delete: (ref) => tx.delete(ref),
         }));
       } catch (error) {
-        if (error.code !== "permission-denied" || !observed || attempt >= 3 || auth.currentUser?.uid !== observed.uid) throw error;
-        let latest;
-        try { latest = await observed.ref.get({ source: "server" }); } catch (_) { throw error; }
-        if (!latest.exists || latest.data().revision === observed.revision) throw error;
+        if (error.code !== "permission-denied" || !observed.size || attempt >= 3 || auth.currentUser?.uid !== uid) throw error;
+        let conflict=false;
+        for(const record of observed.values()){
+          let latest;try {latest=await record.ref.get({source:"server"});}catch(_){throw error;}
+          if((latest.exists ? latest.data()[record.field] : null)!==record.value)conflict=true;
+        }
+        if(!conflict)throw error;
       }
     }
   };
@@ -101,7 +113,8 @@ function ntCreateCompanyStore({ db, auth, stamp, randomCode, randomToken, increm
       if (new Set([actor.email, ...invites.map((m) => m.email)]).size !== invites.length + 1) throw new Error("Email anggota harus berbeda.");
       if ((pkg === "free" && invites.length) || invites.filter((m) => m.role === "pekerja").length > tiers[pkg][1]) throw new Error("Jumlah pekerja melebihi paket.");
       const owner = { id: actor.email, uid: actor.uid, email: actor.email, name: text(data.ownerName, "Nama pemilik"),
-        role: "management", roleDesc: text(data.ownerDesc || "Pemilik", "Deskripsi peran"), shift: "Pagi", status: "active",loginCode:makeLoginCode("management") };
+        role: "management", roleDesc: text(data.ownerDesc || "Pemilik", "Deskripsi peran"), shift: "Pagi", status: "active",loginCode:makeLoginCode("management"),accountCode:"M001" };
+      for(const member of initial)member.accountCode=shortCode(member.role,1);
       const supervisor=initial.find(m=>m.role==="supervisor"), workerMember=initial.find(m=>m.role==="pekerja");
       let reserved;
       for (let collision = 0; collision < 5; collision++) {
@@ -124,6 +137,7 @@ function ntCreateCompanyStore({ db, auth, stamp, randomCode, randomToken, increm
             tx.set(profileRef(actor.uid), profile(code, owner, actor.uid));
             for(const member of initial)tx.set(memberRef(ref,member.id),{...member,uid:null,status:"invited"});
             for(const member of [owner,...initial])tx.set(loginRef(member.loginCode),{email:member.email,companyCode:code});
+            for(const member of [owner,...initial])tx.set(sequenceRef(ref,member.role),{next:2,memberId:member.id});
             return code;
           });
           break;
@@ -150,15 +164,29 @@ function ntCreateCompanyStore({ db, auth, stamp, randomCode, randomToken, increm
     },
     async addCodeMember(data,code) {
       const actor=user(),member=codeMember(data);
-      await transaction(async tx=>{
+      return transaction(async tx=>{
         const ctx=await context(tx,actor,code);manage(ctx,actor,member.role);
         const ref=memberRef(ctx.ref,member.id), existing=(await tx.get(ref)).data();
-        if(existing?.uid===member.uid && existing.loginCode===member.loginCode)return;
+        if(existing?.loginCode===member.loginCode)return existing;
         if(existing || (await tx.get(loginRef(member.loginCode))).exists)throw new Error("Kode akun sudah digunakan.");
+        const sequence=await nextAccountCode(tx,ctx,member);
         const changes=counter(ctx,member.id,"add",ctx.company.memberCount+1,ctx.company.workerCount+count(member.role));
-        tx.set(ref,{...member,uid:null,status:"invited"});tx.set(loginRef(member.loginCode),{email:member.email,companyCode:ctx.ref.id});tx.update(ctx.ref,changes);
+        const invited={...member,uid:null,status:"invited",accountCode:sequence.accountCode};
+        tx.set(ref,invited);tx.set(sequence.ref,sequence.data);tx.set(loginRef(member.loginCode),{email:member.email,companyCode:ctx.ref.id});tx.update(ctx.ref,changes);
+        return invited;
       });
-      return {...member,uid:null,status:"invited"};
+    },
+    async ensureAccountCode(id) {
+      const actor=user();
+      return transaction(async tx=>{
+        const ctx=await context(tx,actor),ref=memberRef(ctx.ref,id || ctx.p.memberId),member=(await tx.get(ref)).data();
+        if(!member || !member.loginCode)throw new Error("Buat identitas akun terlebih dahulu.");
+        if(member.accountCode)return member.accountCode;
+        manage(ctx,actor,member.role);
+        const sequence=await nextAccountCode(tx,ctx,member);
+        tx.update(ref,{accountCode:sequence.accountCode});tx.set(sequence.ref,sequence.data);
+        return sequence.accountCode;
+      });
     },
     async acceptInvitation(code) {
       const actor = user(), ref = companyRef(code);

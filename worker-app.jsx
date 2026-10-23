@@ -53,13 +53,19 @@ const MemberAccessCode = ({ companyCode, memberId, role }) => {
   const [code,setCode] = React.useState(""), [error,setError] = React.useState("");
   const [copied,setCopied] = React.useState(false);
   const session=window.ntSession?.get(),member=session?.members?.find(m=>m.id===memberId);
-  const assigned=member?.loginCode || (session?.memberId===memberId ? session.loginCode : null);
-  React.useEffect(()=>{setCode(assigned ? window.ntPortal.formatLoginCode(assigned) : "");setError("");setCopied(false);},[companyCode,memberId,role,assigned]);
+  const assigned=member?.accountCode || (session?.memberId===memberId ? session.accountCode : null);
+  const identity=member?.loginCode || (session?.memberId===memberId ? session.loginCode : null);
+  const link=window.ntPortal.accessLink({accountCode:code,loginCode:identity},companyCode);
+  const canCreate=["supervisor","management"].includes(session?.role);
+  const [linkCopied,setLinkCopied]=React.useState(false);
+  React.useEffect(()=>{setCode(assigned || "");setError("");setCopied(false);setLinkCopied(false);},[companyCode,memberId,role,assigned]);
   return <section className="member-access-code" aria-label="Kode akun"><div><small>Kode akun · {window.ntPortal.roles[role]?.label}</small><output>{code || "Belum dibuat"}</output></div>
-    <button type="button" aria-label={code ? "Salin kode akun" : "Buat kode akun"} onClick={async()=>{
-      try{if(!code){const value=await window.ntCompany.ensureLoginCode(memberId);setCode(window.ntPortal.formatLoginCode(value));}else{await navigator.clipboard.writeText(code);setCopied(true);}}catch{setError(code ? "Salin kode secara manual." : "Kode belum dapat dibuat. Hubungi pengelola perusahaan.");}
+    <button type="button" disabled={!code && !canCreate} aria-label={code ? "Salin kode akun" : "Buat kode akun"} onClick={async()=>{
+      try{if(!code){const value=await window.ntCompany.ensureAccountCode(memberId);setCode(value);}else{await navigator.clipboard.writeText(code);setCopied(true);}}catch{setError(code ? "Salin kode secara manual." : "Kode belum dapat dibuat. Hubungi pengelola perusahaan.");}
     }}>{copied ? <VisualIcon name="check" size={18}/> : code ? "Salin" : "Buat kode"}</button>
-    <p>{error || "Login dengan kode akun dan password."}</p>
+    {link && <button type="button" className="account-link-copy" onClick={async()=>{try{await navigator.clipboard.writeText(link);setLinkCopied(true);setError("");}catch{setError("Salin alamat tautan masuk di bawah secara manual.");}}}>{linkCopied ? "Tautan tersalin" : "Salin tautan masuk"}</button>}
+    <p role={error ? "alert" : undefined}>{error || "Buka tautan masuk sekali di HP/laptop, lalu login dengan kode dan password."}</p>
+    {error && link && <a className="account-link-manual" href={link}>Tautan masuk {code}</a>}
   </section>;
 };
 

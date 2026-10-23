@@ -3,11 +3,12 @@
 
 // ── Route parsing ─────────────────────────────────────────────────────────
 const parseRoute = (hash) => {
-  const path = (hash || "#/").replace(/^#/, "") || "/";
+  const raw = (hash || "#/").replace(/^#/, "");
+  const path = raw.split("?")[0] || "/";
   const parts = path.split("/").filter(Boolean).map((part) => {
     try { return decodeURIComponent(part); } catch { return part; }
   });
-  return { path, parts, app: parts[0] || null, page: parts[1] || null, id: parts[2] || null };
+  return { path, parts, app: parts[0] || null, page: parts[1] || null, id: parts[2] || null, query: raw.includes("?") ? raw.slice(raw.indexOf("?")+1) : "" };
 };
 
 const useHashRoute = () => {
