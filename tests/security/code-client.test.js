@@ -48,6 +48,22 @@ test('real client registers owner and required team, then logs in by code withou
  assert.equal(workerSession.code,companyCode);assert.equal(workerSession.role,'pekerja');assert.equal(workerSession.members.length,1);
  assert.equal(sdk.auth().currentUser.emailVerified,false);
  assert.equal(c.ntPortal.savedAccounts().find(a=>a.loginCode===worker.loginCode).accountCode,'P001');
+ // Run the production Live publisher with a real unverified alias membership.
+ const measuredAt=Date.now();b.setClock(measuredAt);b.load('management-data.js');
+ c.ntMuseConnected=true;c.ntMuse={status:()=>({connected:true,samples:4096,lastEEGAt:measuredAt,connectedAt:measuredAt-65000})};
+ c.ntMuseDSP={baselineTarget:40,baseline:null,baselineCount:8,calibration:{startedAt:measuredAt-65000},signalState:'limited',
+   last:{ts:measuredAt,fi:80,cli:65,ei:20,outputScope:'full',qualityLevel:'good',classificationProvisional:true,status:'kritis',instantStatus:'kritis'}};
+ // VM objects must cross into the Node SDK realm as plain objects. Browser
+ // Firebase and application scripts normally share the same realm.
+ const nativeDb=c.NT_FIREBASE.db;
+ const wrap=ref=>({collection:name=>wrap(ref.collection(name)),doc:id=>wrap(ref.doc(id)),orderBy:(...args)=>wrap(ref.orderBy(...args)),limit:n=>wrap(ref.limit(n)),
+   onSnapshot:(...args)=>ref.onSnapshot(...args),set:data=>ref.set({...data,measurement:data.measurement ? {...data.measurement} : null})});
+ c.NT_FIREBASE.db={collection:name=>wrap(nativeDb.collection(name))};
+ c.ntSessionArchive={state:()=>({ready:true,activeId:'test-active'})};b.load('team-live.js');
+ await waitFor(()=>c.ntTeamLive.state().lastSentAt!==null || c.ntTeamLive.state().error);
+ assert.equal(c.ntTeamLive.state().error,'');
+ const live=(await sdk.firestore().collection('companies').doc(companyCode).collection('liveReadings').doc(workerSession.uid).get()).data();
+ assert.equal(live.measurement.fi,80);assert.equal(live.measurement.provisional,true);assert.equal(live.source,'muse');
  await assert.rejects(c.ntCompany.recoverOwnerCode(),/pemilik/);
  await c.ntAuth.changePassword('fixture-worker-1','fixture-worker-new-2');await c.ntAuth.signOut();
  await assert.rejects(c.ntAuth.signInCode({code:worker.loginCode,password:'fixture-worker-1'}));
@@ -55,8 +71,12 @@ test('real client registers owner and required team, then logs in by code withou
  await c.ntAuth.signInCode({code:worker.loginCode,password:'fixture-worker-new-2'});await c.ntAuth.signOut();
  const staffSession=await c.ntAuth.signInCode({code:supervisor.loginCode,password:'fixture-supervisor-1'});
  assert.equal(staffSession.role,'supervisor');assert.equal(staffSession.members.length,4);
+ await waitFor(()=>c.ntTeamLive.state().confirmed && c.ntTeamLive.state().rows.length===1);
+ assert.equal(c.ntTeamLive.view({...worker,uid:workerSession.uid}).measurement.fi,80);
  await c.ntAuth.signOut();const restoredOwner=await c.ntAuth.signInCode({code:ownerCode,password});
  assert.equal(restoredOwner.role,'management');assert.equal(restoredOwner.uid,user.uid);
+ await waitFor(()=>c.ntTeamLive.state().confirmed && c.ntTeamLive.state().rows.length===1);
+ assert.equal(c.ntTeamLive.view({...worker,uid:workerSession.uid}).measurement.cli,65);
  assert.equal(await c.ntCompany.recoverOwnerCode(),companyCode);assert.equal(c.ntSession.get().loginCode,ownerCode);
  const codes=await fetch('http://127.0.0.1:9099/emulator/v1/projects/demo-neurotech/oobCodes').then(r=>r.json());
  assert.equal((codes.oobCodes||[]).filter(code=>code.email?.endsWith('@members.neurotech.invalid')).length,0);

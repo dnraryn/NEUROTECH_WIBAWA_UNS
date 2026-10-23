@@ -339,6 +339,35 @@ service cloud.firestore {
           && request.resource.data.updatedAt >= resource.data.updatedAt;
         allow delete: if false;
       }
+      match /liveReadings/{uid} {
+        function metric(v) { return v == null || (v is number && v >= 0 && v <= 100); }
+        function measurement(m) {
+          return m is map && m.keys().hasAll(['fi','cli','ei','measuredAt','quality','scope','provisional','classification'])
+            && m.keys().hasOnly(['fi','cli','ei','measuredAt','quality','scope','provisional','classification'])
+            && metric(m.fi) && metric(m.cli) && metric(m.ei) && m.measuredAt is number && m.measuredAt > 0
+            && m.quality in ['good','limited'] && m.provisional is bool
+            && m.classification in ['normal','waspada','berisiko','kritis','unavailable']
+            && ((m.scope == 'full' && m.fi != null && m.cli != null && m.ei != null)
+              || (m.scope == 'frontal-only' && (m.fi != null || m.ei != null) && m.quality == 'limited' && m.provisional == true)
+              || (m.scope == 'bands-only' && m.fi == null && m.cli == null && m.ei == null && m.classification == 'unavailable'));
+        }
+        function validLive(d) {
+          let p = get(profilePath(request.auth.uid)).data;
+          return d.keys().hasAll(['schemaVersion','companyCode','ownerUid','memberId','source','status','receivedSamples','preparationRemaining','measurement','updatedAt'])
+            && d.keys().hasOnly(['schemaVersion','companyCode','ownerUid','memberId','source','status','receivedSamples','preparationRemaining','measurement','updatedAt'])
+            && uid == request.auth.uid && p.role == 'pekerja' && d.schemaVersion == 1 && d.source == 'muse'
+            && d.companyCode == code && d.ownerUid == request.auth.uid && d.memberId == p.memberId
+            && d.status in ['live','preparing','waiting','disconnected','stopped']
+            && d.receivedSamples is int && d.receivedSamples >= 0 && d.receivedSamples <= 47923200
+            && d.preparationRemaining is int && d.preparationRemaining >= 0 && d.preparationRemaining <= 60
+            && ((d.status == 'live' && measurement(d.measurement)) || (d.status != 'live' && d.measurement == null))
+            && d.updatedAt == request.time;
+        }
+        allow get: if verified() && active(code) && (staff(code) || uid == request.auth.uid);
+        allow list: if verified() && staff(code);
+        allow create, update: if verified() && active(code) && validLive(request.resource.data);
+        allow delete: if false;
+      }
       match /workerAlerts/{id} {
         function validAlert(a) {
           return a.keys().hasAll(['schemaVersion','recipientUid','memberId','senderUid','title','message','severity','createdAt','acknowledgedAt','resolvedAt','resolvedBy'])

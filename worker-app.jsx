@@ -79,6 +79,16 @@ const AccountPasswordForm = () => {
   }}><label>Password saat ini<input type="password" value={current} onChange={e=>setCurrent(e.target.value)} autoComplete="current-password" required disabled={busy}/></label><label>Password baru<input type="password" value={next} onChange={e=>setNext(e.target.value)} minLength={8} autoComplete="new-password" required disabled={busy}/></label><label>Ulangi password baru<input type="password" value={confirm} onChange={e=>setConfirm(e.target.value)} minLength={8} autoComplete="new-password" required disabled={busy}/></label><button type="submit" className="archive-primary" disabled={busy}>{busy ? "Menyimpan…" : "Simpan password"}</button>{feedback && <p role="status">{feedback}</p>}</form></details>;
 };
 
+const WorkerLiveSyncStatus = () => {
+  const account=window.ntSession?.get();
+  const [state,setState]=React.useState(()=>window.ntTeamLive?.state?.() || {});
+  React.useEffect(()=>{const update=()=>setState(window.ntTeamLive?.state?.() || {});window.addEventListener("nt-team-live",update);update();return()=>window.removeEventListener("nt-team-live",update);},[]);
+  if(account?.role!=="pekerja")return null;
+  const label=!state.enabled ? "Pratinjau lokal" : state.online===false ? "HP offline" : state.error ? "Live belum terkirim" : state.sending ? "Mengirim Live..."
+    : state.lastSentAt ? `Live terkirim ${new Date(state.lastSentAt).toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}` : "Live siap dikirim saat Muse terhubung";
+  return <section className={`worker-live-sync ${state.error || state.online===false ? "has-error" : ""}`} aria-label="Sinkronisasi Live pekerja"><div><span role="status"><span className={`archive-dot ${state.lastSentAt && !state.error && state.online!==false ? "is-active" : ""}`}/>{label}</span><small>{account.accountCode || "Pekerja"} · {account.code}</small></div>{state.error && <button type="button" onClick={()=>window.ntTeamLive.retry()}>Coba lagi</button>}</section>;
+};
+
 const WorkerCalibrationCard = () => {
   const [, refresh] = React.useReducer((n) => n + 1, 0);
   React.useEffect(() => {
@@ -186,4 +196,4 @@ const WorkerAppInstall = () => {
     <Link to="/landing" className="worker-app-back">Kembali ke website</Link>
   </div></main>;
 };
-Object.assign(window, { WorkerAppInstall, WorkerAppInstallCard, WorkerCalibrationCard, WorkerSignalDetails, WorkerSignalStatus, VisualIcon, MemberAccessCode, AccountPasswordForm });
+Object.assign(window, { WorkerAppInstall, WorkerAppInstallCard, WorkerCalibrationCard, WorkerSignalDetails, WorkerSignalStatus, WorkerLiveSyncStatus, VisualIcon, MemberAccessCode, AccountPasswordForm });

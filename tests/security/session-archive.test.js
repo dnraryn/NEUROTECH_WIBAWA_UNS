@@ -29,6 +29,29 @@ before(async () => {
 });
 after(async () => { await env?.cleanup(); });
 
+const liveReading=(changes={})=>({schemaVersion:1,companyCode:'A',ownerUid:'A-worker',memberId:'A-worker',source:'muse',status:'live',receivedSamples:2048,preparationRemaining:0,
+ measurement:{fi:78,cli:60,ei:20,measuredAt:Date.now(),quality:'limited',scope:'full',provisional:true,classification:'kritis'},updatedAt:serverTimestamp(),...changes});
+test('latest worker readings reach both staff dashboards with provisional and partial values while remaining tenant and recipient scoped',async()=>{
+ const worker=client('A-worker'),path=['companies','A','liveReadings','A-worker'];
+ await assertSucceeds(setDoc(doc(worker,...path),liveReading()));
+ const observe=db=>new Promise((resolve,reject)=>{let stop;const timer=setTimeout(()=>{stop?.();reject(Error('live reading timeout'));},7000);
+   stop=onSnapshot(doc(db,...path),snap=>{if(snap.data()?.measurement?.fi===66){clearTimeout(timer);stop();resolve(snap.data());}},reject);});
+ const received=Promise.all([observe(client('A-supervisor')),observe(client('A-owner'))]);
+ await assertSucceeds(setDoc(doc(worker,...path),liveReading({measurement:{fi:66,cli:null,ei:30,measuredAt:Date.now(),quality:'limited',scope:'frontal-only',provisional:true,classification:'berisiko'}})));
+ for(const data of await received){assert.equal(data.measurement.cli,null);assert.equal(data.measurement.provisional,true);assert.equal(data.memberId,'A-worker');}
+ await assertFails(getDoc(doc(client('A-other'),...path)));await assertFails(getDoc(doc(client('B-supervisor'),...path)));
+ await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(),...path)));
+ await assertFails(getDocs(collection(worker,'companies','A','liveReadings')));
+ assert.ok((await assertSucceeds(getDocs(collection(client('A-supervisor'),'companies','A','liveReadings')))).size>0);
+ await assertFails(setDoc(doc(client('A-supervisor'),...path),liveReading()));
+ await assertFails(setDoc(doc(client('A-other'),...path),liveReading()));
+ await assertFails(setDoc(doc(worker,'companies','B','liveReadings','A-worker'),liveReading({companyCode:'B'})));
+ await assertFails(setDoc(doc(worker,...path),liveReading({rawEEG:[1,2,3]})));
+ await assertFails(setDoc(doc(worker,...path),liveReading({measurement:{...liveReading().measurement,fi:101}})));
+ await assertFails(setDoc(doc(worker,...path),liveReading({status:'preparing'})));
+ await assertSucceeds(setDoc(doc(worker,...path),liveReading({status:'disconnected',measurement:null})));
+});
+
 test('a worker recording update reaches both staff portals while other workers and companies remain isolated',async()=>{
   const path=['companies','A','sessions',sid(30)], worker=client('A-worker');
   await assertSucceeds(setDoc(doc(worker,...path),record(30,'A-worker','recording')));

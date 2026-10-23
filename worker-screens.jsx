@@ -361,6 +361,7 @@ const WorkerLive = () => {
       <p className="worker-calibration-intro">Pasang sensor, duduk tenang, dan buka mata.</p>
       <WorkerCalibrationCard />
     <WorkerSignalStatus />
+      <WorkerLiveSyncStatus />
       <WorkerSignalDetails />
       <WorkerSessionArchive />
       <NeuroTabBar active="brain" />
@@ -417,6 +418,7 @@ const WorkerLive = () => {
 
     <WorkerCalibrationCard />
     <WorkerSignalStatus />
+    <WorkerLiveSyncStatus />
     {!muse.real && <WorkerSignalDetails />}
 
     {/* MAIN: Cognitive Load gauge + side fatigue gauge — live values */}

@@ -2,8 +2,9 @@
 const archiveNumber = (v, digits = 0) => Number.isFinite(v) ? v.toLocaleString("id-ID", { maximumFractionDigits: digits }) : "—";
 const archiveDate = (v) => new Date(v).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" });
 const useSessionArchive = () => {
-  const [state, setState] = React.useState(() => window.ntSessionArchive.state());
-  React.useEffect(() => { const update = () => setState(window.ntSessionArchive.state()); window.addEventListener("nt-archive", update); update(); return () => window.removeEventListener("nt-archive", update); }, []);
+  const read = () => ({...window.ntSessionArchive.state(),teamLive:window.ntTeamLive?.state?.()});
+  const [state, setState] = React.useState(read);
+  React.useEffect(() => { const update = () => setState(read()); window.addEventListener("nt-archive", update); window.addEventListener("nt-team-live",update); update(); return () => {window.removeEventListener("nt-archive", update);window.removeEventListener("nt-team-live",update);}; }, []);
   return state;
 };
 const archiveDownload = (r) => window.ntReports.download(window.ntReports.minutes(r), window.ntReports.filename("Per-menit", r));

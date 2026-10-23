@@ -90,15 +90,35 @@ const RealArchiveStatus = ({ state }) => <div className="supervisor-archive-stat
   {state.cloudEnabled && <button type="button" className="archive-back" disabled={state.syncing} onClick={() => window.ntSessionArchive.sync()}>{state.syncing ? "Memuat…" : "Sinkronkan"}</button>}
 </div>;
 
-const TeamSessionConnections = ({ state }) => {
+const TeamSessionConnections = ({ state, memberId = null }) => {
   const [,tick] = React.useReducer(n=>n+1,0);
   React.useEffect(()=>{const id=setInterval(tick,10000);return()=>clearInterval(id);},[]);
-  const rows=realSessions(state), members=realMembers(), confirmed=state.serverConfirmed && state.online !== false && !state.cloudError;
-  const entries=members.map(m=>({member:m,record:rows.find(r=>r.ownerUid===m.uid && r.memberId===m.id)}));
-  const active=entries.filter(e=>window.ntSessionInsights.connection(e.record,{confirmed}).key==="active").length;
-  return <section className="team-connections" aria-label="Koneksi sesi pekerja"><div className="team-connections-heading"><strong><VisualIcon name="signal" size={19}/>{active} sesi mengirim</strong><small>Muse → HP → Firebase → Laptop</small></div>
-    <div className="team-connection-list">{entries.length ? entries.map(({member,record})=>{const c=window.ntSessionInsights.connection(record,{confirmed});return <Link key={member.id} to={staffPath(`/s/workers/${encodeURIComponent(member.id)}`)} className={`team-connection is-${c.key}`}><span className="archive-dot"/><span>{member.name}</span><small>{c.label}</small></Link>;}) : <p className="archive-muted">Undang pekerja untuk mulai memantau sesi.</p>}</div>
-    <details className="visual-method"><summary><VisualIcon name="info" size={15}/>Info koneksi</summary><p>HP dan laptop harus memakai akun berbeda dalam perusahaan yang sama. Ringkasan sesi diperbarui sekitar 1 menit. Status aktif berarti pembaruan sesi diterima dalam 90 detik terakhir, bukan konfirmasi Bluetooth atau kondisi keselamatan pekerja. Cakupan mengikuti {state.cloudLimit || 60} sesi terbaru; akun yang login tanpa merekam tidak ditandai aktif.</p></details>
+  const rows=realSessions(state), members=realMembers().filter(m=>!memberId || m.id===memberId);
+  const account=window.ntSession?.get(), sync=state.teamLive || window.ntTeamLive?.state?.() || {};
+  const entries=members.map(member=>({member,view:window.ntTeamLive?.view?.(member) || {label:"Belum ada sesi Live",trace:[]},record:rows.find(r=>r.ownerUid===member.uid && r.memberId===member.id)}));
+  const active=entries.filter(e=>e.view.fresh && ["live","preparing","waiting"].includes(e.view.row?.status)).length;
+  const labels={normal:"Indeks rendah",waspada:"Waspada",berisiko:"Berisiko",kritis:"Indeks tinggi",unavailable:"Belum dinilai"};
+  return <section className="team-connections team-live-panel" aria-label="Live pekerja"><div className="team-connections-heading"><strong><VisualIcon name="signal" size={19}/>Live pekerja <span className="team-live-count">{active} mengirim</span></strong><small>{account?.code} · sekitar 10 detik</small></div>
+    {sync.error && <div className="team-live-error" role="alert">{sync.error}<button type="button" className="archive-back" onClick={()=>window.ntTeamLive.retry()}>Coba lagi</button></div>}
+    <div className="team-live-grid">{entries.length ? entries.map(({member,view,record})=>{
+      const m=view.measurement, provisional=m && (m.provisional || m.quality!=="good"), points=view.trace || [], now=Date.now();
+      const plotted=points.map(p=>({...p,x:Math.max(0,Math.min(240,(p.ts-now+300000)/300000*240)),y:56-p.fi*.5}));
+      const path=plotted.map((p,i)=>(i && p.ts-plotted[i-1].ts<=20000 ? "L" : "M")+p.x.toFixed(1)+","+p.y.toFixed(1)).join("");
+      return <article key={member.id} className={`team-live-card ${view.fresh ? "is-current" : ""}`} aria-label={`Live ${member.name}`}>
+        <div className="team-live-person"><Link to={staffPath(`/s/workers/${encodeURIComponent(member.id)}`)}><strong>{member.name}</strong><small>{member.accountCode || "Pekerja"} · {member.shift || "Shift belum diatur"}</small></Link><span className={`team-live-badge ${view.fresh ? "is-current" : ""}`}><span className="archive-dot"/>{view.label}</span></div>
+        {m ? <><div className="team-live-metrics">{[["Fatigue",m.fi],["Beban",m.cli],["Engagement",m.ei]].map(([label,value])=><div key={label}><span>{label}</span><output aria-label={`${label} ${member.name}`}>{archiveNumber(value)}</output></div>)}</div>
+          <div className="team-live-classification"><span>{labels[m.classification] || "Belum dinilai"}{provisional ? " · sementara" : ""}</span><small>{view.ageSeconds} dtk lalu</small></div>
+          {plotted.length>0 && <svg viewBox="0 0 240 62" preserveAspectRatio="none" role="img" aria-label={`Tren Live fatigue ${member.name}`}><line x1="0" x2="240" y1="56" y2="56" stroke="var(--nt-bg-deep)"/><path d={path} stroke={provisional ? "#8b5cf6" : "#2563eb"} strokeWidth="2.2" vectorEffect="non-scaling-stroke" fill="none"/>{plotted.slice(-1).map(p=><circle key={p.ts} cx={p.x} cy={p.y} r="2" fill="#2563eb"/>)}</svg>}
+          {m.scope==="bands-only" && <small>Band power terbaca; indeks belum tersedia.</small>}
+          {m.scope==="frontal-only" && <small>Hasil parsial · periksa kontak sensor.</small>}
+        </> : <p className="team-live-empty">{view.fresh && view.row?.status==="preparing" ? `Persiapan · ${Math.max(0,view.row.preparationRemaining-(view.ageSeconds || 0))} dtk · ${view.row.receivedSamples.toLocaleString("id-ID")} sampel`
+          : view.fresh && view.row?.status==="waiting" ? "Paket/status diterima; menunggu hasil EEG yang dapat ditampilkan."
+          : view.row ? "Angka Live disembunyikan sampai ada pembaruan pengukuran."
+          : record ? "Arsip sesi tersedia. Perbarui aplikasi HP untuk mengirim Live."
+          : member.uid ? "Buka aplikasi pekerja dan hubungkan Muse." : "Akun pekerja belum diaktifkan."}</p>}
+      </article>;
+    }) : <p className="archive-muted">Tambahkan pekerja untuk mulai memantau.</p>}</div>
+    <details className="visual-method"><summary><VisualIcon name="info" size={15}/>Info Live</summary><p>HP dan laptop harus memakai akun berbeda dalam perusahaan yang sama. Nilai terakhir dikirim sekitar 10 detik saat aplikasi HP terbuka dan online. Hasil sementara tetap ditandai; data tanpa pembaruan selama 30 detik tidak dianggap Live. Grafik merangkum FI yang diterima selama halaman ini dibuka, maksimal 5 menit. Rerata laporan tetap memakai hasil bersih dari arsip.</p></details>
   </section>;
 };
 
@@ -148,6 +168,7 @@ const RealSupervisorWorkerDetail = ({ id }) => {
   const assessment = window.ntSessionInsights.assess(rows[0]);
   return <RealSupervisorFrame active="workers" title={member?.name || "Pekerja tidak ditemukan"} subtitle={member ? `${member.roleDesc || "Pekerja"} · Shift ${member.shift || "Belum diatur"}` : "Akun ini tidak ada dalam daftar pekerja perusahaan."} actions={<Link className="archive-back" to={staffPath("/s/workers")}>Kembali ke daftar</Link>}>
     <RealArchiveStatus state={state} />
+    {member && <TeamSessionConnections state={state} memberId={id}/>}
     {member && (!rows.length ? <div style={realCard}>Belum ada sesi Muse.</div> : <><section className="supervisor-takeaway"><div><span className="supervisor-kicker">KESIMPULAN SESI TERAKHIR</span><h2>{assessment.title}</h2><p>{assessment.action}</p></div><Link className="archive-back" to={staffPath(`/s/reports/${rows[0].id}`)}>Lihat sesi ↗</Link></section><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12 }}>{realMetric("Sesi", rows.length, "Sesi Muse tersimpan")}{realMetric("Fatigue terakhir", archiveNumber(rows[0].summary.meanFI), `${rows[0].summary.clean} hasil bersih`)}{realMetric("Beban kognitif", archiveNumber(rows[0].summary.meanCLI), "Dari EEG bersih")}{realMetric("Microsleep", rows.reduce((n, r) => n + r.summary.incidents, 0), "Indikasi seluruh sesi")}</div><section style={realCard}><h2 style={{ fontSize: 16 }}>Riwayat sesi</h2>{rows.map((r) => <Link key={r.id} to={staffPath(`/s/reports/${r.id}`)}><div className="nt-card-click" style={{ padding: 12, borderBottom: "1px solid var(--nt-bg-deep)" }}>{realDate(r.startedAt)} · FI {archiveNumber(r.summary.meanFI)} · {r.summary.clean} hasil bersih · {r.review ? "Sudah ditinjau" : "Belum ditinjau"}</div></Link>)}</section></>)}
   </RealSupervisorFrame>;
 };
@@ -199,6 +220,7 @@ const RealWorkerHome = () => {
   return <div className="nt-screen worker-home" style={{ padding: "22px 22px 100px", display: "flex", flexDirection: "column", gap: 16 }}>
     <header className="worker-home-header"><div><span>{account?.companyName}</span><h1>Halo, {account?.memberName}</h1></div><AskAIButton variant="plus" /></header>
     <WorkerSessionPanel />
+    <WorkerLiveSyncStatus />
     <WorkerCalibrationCard />
     {account?.role === "pekerja" && <WorkerAlertInbox />}
     {result.kind!=="empty" ? <section className="worker-home-results" aria-label="Hasil sesi pribadi terakhir">
