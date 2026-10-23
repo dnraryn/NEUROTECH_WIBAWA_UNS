@@ -44,7 +44,11 @@ test('real client registers owner and required team, then logs in by code withou
  assert.equal(c.ntSession.get().members.length,4);assert.ok(additional.loginCode);
  assert.equal(additional.accountCode,'P002');
  await c.ntAuth.signOut();
- const workerSession=await c.ntAuth.signInCode({code:c.ntPortal.formatLoginCode(worker.loginCode),accountCode:'P001',companyCode,password:'fixture-worker-1'});
+ await assert.rejects(c.ntAuth.signInCode({code:'P002',companyCode:'B-WRONGX',password:'fixture-add-worker-1'}));
+ const joined=await c.ntAuth.signInCode({code:'P002',companyCode,password:'fixture-add-worker-1'});
+ assert.equal(joined.memberId,additional.id);assert.equal(joined.role,'pekerja');
+ await c.ntAuth.signOut();
+ const workerSession=await c.ntAuth.signInCode({code:'P001',accountCode:'P001',companyCode,password:'fixture-worker-1'});
  assert.equal(workerSession.code,companyCode);assert.equal(workerSession.role,'pekerja');assert.equal(workerSession.members.length,1);
  assert.equal(sdk.auth().currentUser.emailVerified,false);
  assert.equal(c.ntPortal.savedAccounts().find(a=>a.loginCode===worker.loginCode).accountCode,'P001');
@@ -69,11 +73,11 @@ test('real client registers owner and required team, then logs in by code withou
  await assert.rejects(c.ntAuth.signInCode({code:worker.loginCode,password:'fixture-worker-1'}));
  assert.equal(c.ntSession.get(),null);
  await c.ntAuth.signInCode({code:worker.loginCode,password:'fixture-worker-new-2'});await c.ntAuth.signOut();
- const staffSession=await c.ntAuth.signInCode({code:supervisor.loginCode,password:'fixture-supervisor-1'});
+ const staffSession=await c.ntAuth.signInCode({code:'S001',companyCode,password:'fixture-supervisor-1'});
  assert.equal(staffSession.role,'supervisor');assert.equal(staffSession.members.length,4);
  await waitFor(()=>c.ntTeamLive.state().confirmed && c.ntTeamLive.state().rows.length===1);
  assert.equal(c.ntTeamLive.view({...worker,uid:workerSession.uid}).measurement.fi,80);
- await c.ntAuth.signOut();const restoredOwner=await c.ntAuth.signInCode({code:ownerCode,password});
+ await c.ntAuth.signOut();const restoredOwner=await c.ntAuth.signInCode({code:'M001',companyCode,password});
  assert.equal(restoredOwner.role,'management');assert.equal(restoredOwner.uid,user.uid);
  await waitFor(()=>c.ntTeamLive.state().confirmed && c.ntTeamLive.state().rows.length===1);
  assert.equal(c.ntTeamLive.view({...worker,uid:workerSession.uid}).measurement.cli,65);

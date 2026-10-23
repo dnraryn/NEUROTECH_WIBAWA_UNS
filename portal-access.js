@@ -58,6 +58,7 @@
     var entries=savedAccounts().filter(function(e){return e.loginCode!==session.loginCode;});
     entries.push({accountCode:session.accountCode,loginCode:session.loginCode,companyCode:session.code,companyName:session.companyName || session.code});
     try{window.localStorage.setItem("nt-account-access-v1",JSON.stringify(entries.slice(-100)));}catch(_){}
+    try{window.localStorage.setItem("nt-login-company",session.code);}catch(_){}
   }
   function accessLink(member,companyCode) {
     if(!accountCode(member?.accountCode) || !isLoginCode(member?.loginCode))return "";

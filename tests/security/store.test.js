@@ -209,6 +209,11 @@ test('company code onboarding reserves both required roles atomically and unveri
  assert.equal(company.memberCount,3);assert.equal(company.workerCount,1);
  const sup=(await getDoc(doc(owner.db,'companies',code,'members',supervisor.email))).data();
  assert.equal(sup.status,'invited');assert.equal(sup.uid,null);
+ const shortcut=doc(outsider.db,'companyLogins',code,'accounts','S001');
+ assert.deepEqual((await getDoc(shortcut)).data(),{loginCode:supervisor.loginCode});
+ await denied(getDocs(collection(outsider.db,'companyLogins',code,'accounts')));
+ await denied(setDoc(shortcut,{loginCode:worker.loginCode}));
+ await denied(setDoc(doc(owner.db,'companyLogins',code,'accounts','S002'),{loginCode:supervisor.loginCode}));
  const lookup=(await getDoc(doc(outsider.db,'accountLogins',supervisor.loginCode))).data();
  assert.deepEqual(Object.keys(lookup).sort(),['companyCode','email']);assert.equal(lookup.companyCode,code);
  await denied(getDocs(collection(outsider.db,'accountLogins')));

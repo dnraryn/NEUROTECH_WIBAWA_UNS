@@ -13,11 +13,10 @@ const MemberLogin = ({ portalRole = "", inviteCode = "" }) => {
   const workerOnly=window.ntPortal.workerApp();
   const link=window.ntPortal.linkAccount();
   const [step,setStep]=React.useState("code"),[code,setCode]=React.useState(""),[password,setPassword]=React.useState("");
-  const [key,setKey]=React.useState(""),[company,setCompany]=React.useState("");
+  const [key,setKey]=React.useState(""),[company,setCompany]=React.useState(()=>{try{return localStorage.getItem("nt-login-company") || "";}catch{return "";}});
   const [busy,setBusy]=React.useState(false),[error,setError]=React.useState("");
   const pending=React.useRef(false);
   React.useEffect(()=>{if(link){setCode(link.accountCode);setCompany(link.companyCode);setStep("code");setPassword("");setError("");}},[link?.loginCode,link?.accountCode,link?.companyCode]);
-  const known=window.ntPortal.savedAccounts().filter(a=>a.accountCode===window.ntPortal.accountCode(code));
   const portal=window.ntPortal.roles[workerOnly ? "pekerja" : portalRole] || {label:"NeuroTech",icon:"team"};
   const submit=async event=>{
     event.preventDefault();setError("");
@@ -25,9 +24,9 @@ const MemberLogin = ({ portalRole = "", inviteCode = "" }) => {
       if(window.ntPortal.isLoginCode(code)){setKey(window.ntPortal.loginCode(code));setCompany("");setStep("password");return;}
       const label=window.ntPortal.accountCode(code);
       if(!label){setError("Masukkan kode akun, misalnya P001 atau S001.");return;}
-      const choice=link?.accountCode===label ? link : known.length===1 ? known[0] : known.find(a=>a.companyCode===company);
-      if(!choice){setError(known.length>1 ? "Pilih perusahaan untuk kode akun ini." : "Buka tautan masuk dari pengelola satu kali di perangkat ini, lalu gunakan kode akun dan password.");return;}
-      setCode(label);setKey(choice.loginCode);setCompany(choice.companyCode);setStep("password");return;
+      const companyCode=company.trim().toUpperCase();
+      if(!/^[FBSGP]-([ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}|[A-F0-9]{12})$/.test(companyCode)){setError("Masukkan kode perusahaan, misalnya P-ST7XQ9.");return;}
+      setCode(label);setKey(label);setCompany(companyCode);setStep("password");return;
     }
     if(pending.current)return;
     pending.current=true;setBusy(true);
@@ -48,8 +47,8 @@ const MemberLogin = ({ portalRole = "", inviteCode = "" }) => {
     <p className="nt-auth-text">{step==="code" ? "Gunakan kode akun dari perusahaan Anda." : window.ntPortal.accountCode(code) || window.ntPortal.formatLoginCode(code)}</p>
     {inviteCode && <p className="nt-auth-text">Minta kode akun dan password awal kepada pengelola.</p>}
     <form onSubmit={submit}>
-      {step==="code" ? <><label className="nt-join-field" style={{marginTop:22}}><span>Kode akun</span><input className="nt-join-input login-member-code" autoComplete="username" autoCapitalize="characters" spellCheck={false} required maxLength={24} value={code} onChange={e=>{setCode(e.target.value);setError("");}} placeholder="P001"/></label>
-        {known.length>1 && link?.accountCode!==window.ntPortal.accountCode(code) && <label className="nt-join-field"><span>Perusahaan</span><select aria-label="Perusahaan" className="nt-join-input" value={company} onChange={e=>{setCompany(e.target.value);setError("");}} required><option value="">Pilih perusahaan</option>{known.map(a=><option key={a.companyCode} value={a.companyCode}>{a.companyName || a.companyCode}</option>)}</select></label>}</>
+      {step==="code" ? <><label className="nt-join-field" style={{marginTop:18}}><span>Kode perusahaan</span><input aria-label="Kode perusahaan" className="nt-join-input" autoComplete="organization" autoCapitalize="characters" spellCheck={false} maxLength={14} value={company} onChange={e=>{setCompany(e.target.value);setError("");}} placeholder="P-ST7XQ9" required={!window.ntPortal.isLoginCode(code)}/></label><label className="nt-join-field" style={{marginTop:22}}><span>Kode akun</span><input className="nt-join-input login-member-code" autoComplete="username" autoCapitalize="characters" spellCheck={false} required maxLength={24} value={code} onChange={e=>{setCode(e.target.value);setError("");}} placeholder="P001"/></label>
+        </>
         : <label className="nt-join-field" style={{marginTop:22}}><span>Password</span><input className="nt-join-input" type="password" value={password} onChange={e=>setPassword(e.target.value)} required autoComplete="current-password" autoFocus/></label>}
       {error && <p className="login-code-error" role="alert">{error}</p>}
       <button type="submit" className="nt-price-cta" style={{width:"100%",marginTop:20}} disabled={busy}>{busy ? "Memproses…" : step==="code" ? "Lanjut" : "Masuk"}</button>

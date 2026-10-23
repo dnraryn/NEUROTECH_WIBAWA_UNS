@@ -129,7 +129,14 @@ const ntAuth = {
     return (await auth.signInWithEmailAndPassword(email.trim(), password)).user;
   },
   async signInCode({code,password,accountCode,companyCode:expectedCompany}) {
-    const key=window.ntPortal.loginCode(code);
+    let key;
+    if(window.ntPortal.accountCode(code)){
+      const label=window.ntPortal.accountCode(code),company=String(expectedCompany || "").trim().toUpperCase();
+      if(!/^[FBSGP]-([ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}|[A-F0-9]{12})$/.test(company))throw new Error("Masukkan kode perusahaan yang benar.");
+      const mapping=(await db.collection("companyLogins").doc(company).collection("accounts").doc(label).get()).data();
+      if(!window.ntPortal.isLoginCode(mapping?.loginCode))throw new Error("Kode perusahaan, kode akun atau password tidak sesuai.");
+      key=window.ntPortal.loginCode(mapping.loginCode);accountCode=label;expectedCompany=company;
+    }else key=window.ntPortal.loginCode(code);
     const lookup=await db.collection("accountLogins").doc(key).get();
     const email=lookup.data()?.email,companyCode=lookup.data()?.companyCode;
     if(!email)throw new Error("Kode akun atau password tidak sesuai.");

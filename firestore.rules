@@ -177,13 +177,28 @@ service cloud.firestore {
           && (initialMember(p.companyCode,email,m.uid,m.role) || mayManage(p.companyCode,m.role)))
           || (m.status == 'active' && mayManage(p.companyCode,m.role)));
     }
+    // Company + account label is a public login identifier, never an access grant.
+    // Only a targeted lookup is public; no roster, role, password or EEG is listed.
+    match /companyLogins/{company}/accounts/{label} {
+      allow get: if company.matches('^[FBSGP]-([ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}|[A-F0-9]{12})$')
+        && label.matches('^[PSM][0-9]{3,6}$');
+      allow list, update, delete: if false;
+      allow create: if verified() && request.resource.data.keys().hasOnly(['loginCode'])
+        && shortLoginOwner(company,label,request.resource.data.loginCode);
+    }
+    function shortLoginOwner(company,label,code) {
+      let resolver = getAfter(/databases/$(database)/documents/accountLogins/$(code)).data;
+      let m = getAfter(memberPath(company,resolver.email)).data;
+      return resolver.companyCode == company && m.accountCode == label && m.loginCode == code
+        && loginOwner(code,resolver.email,company);
+    }
     function validInitial(c) {
       let s = getAfter(memberPath(c.code,c.initialSupervisorId)).data;
       let w = getAfter(memberPath(c.code,c.initialWorkerId)).data;
       return s.role == 'supervisor' && w.role == 'pekerja' && s.status == 'invited' && w.status == 'invited'
         && s.uid == null && w.uid == null && c.initialSupervisorId != c.initialWorkerId && aliasMember(s) && aliasMember(w);
     }
-    // Human-readable identifiers are private, immutable labels. The counter is
+    // Human-readable identifiers are immutable labels per company. The counter is
     // advanced in the same transaction as the member, so numbers are never reused.
     function series(role) { return role == 'pekerja' ? 'P' : role == 'supervisor' ? 'S' : 'M'; }
     function accountLabel(prefix, number) {

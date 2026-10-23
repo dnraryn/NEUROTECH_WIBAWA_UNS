@@ -36,6 +36,7 @@ function ntCreateCompanyStore({ db, auth, stamp, randomCode, randomToken, increm
   const validLoginCode = value => typeof value === "string" && /^[PSM]-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{16}$/.test(value);
   const makeLoginCode = role => {const token=randomToken();return ({pekerja:"P",supervisor:"S",management:"M"})[role]+"-"+Array.from({length:16},(_,i)=>"ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[parseInt(token.slice(i*2,i*2+2),16)%32]).join("");};
   const loginRef = value => db.collection("accountLogins").doc(value);
+  const shortLoginRef = (company, label) => db.collection("companyLogins").doc(company).collection("accounts").doc(label);
   const seriesOf = role => ({pekerja:"P",supervisor:"S",management:"M"})[role];
   const sequenceRef = (ref, role) => ref.collection("accountCodeSequences").doc(seriesOf(role));
   const shortCode = (role, number) => seriesOf(role) + String(number).padStart(3,"0");
@@ -138,6 +139,7 @@ function ntCreateCompanyStore({ db, auth, stamp, randomCode, randomToken, increm
             for(const member of initial)tx.set(memberRef(ref,member.id),{...member,uid:null,status:"invited"});
             for(const member of [owner,...initial])tx.set(loginRef(member.loginCode),{email:member.email,companyCode:code});
             for(const member of [owner,...initial])tx.set(sequenceRef(ref,member.role),{next:2,memberId:member.id});
+            for(const member of [owner,...initial])tx.set(shortLoginRef(code,member.accountCode),{loginCode:member.loginCode});
             return code;
           });
           break;
@@ -172,6 +174,7 @@ function ntCreateCompanyStore({ db, auth, stamp, randomCode, randomToken, increm
         const sequence=await nextAccountCode(tx,ctx,member);
         const changes=counter(ctx,member.id,"add",ctx.company.memberCount+1,ctx.company.workerCount+count(member.role));
         const invited={...member,uid:null,status:"invited",accountCode:sequence.accountCode};
+        tx.set(shortLoginRef(ctx.ref.id,invited.accountCode),{loginCode:invited.loginCode});
         tx.set(ref,invited);tx.set(sequence.ref,sequence.data);tx.set(loginRef(member.loginCode),{email:member.email,companyCode:ctx.ref.id});tx.update(ctx.ref,changes);
         return invited;
       });
@@ -181,10 +184,16 @@ function ntCreateCompanyStore({ db, auth, stamp, randomCode, randomToken, increm
       return transaction(async tx=>{
         const ctx=await context(tx,actor),ref=memberRef(ctx.ref,id || ctx.p.memberId),member=(await tx.get(ref)).data();
         if(!member || !member.loginCode)throw new Error("Buat identitas akun terlebih dahulu.");
-        if(member.accountCode)return member.accountCode;
+        if(member.accountCode){
+          const lookup=shortLoginRef(ctx.ref.id,member.accountCode),existing=(await tx.get(lookup)).data();
+          if(!existing){manage(ctx,actor,member.role);tx.set(lookup,{loginCode:member.loginCode});}
+          else if(existing.loginCode!==member.loginCode)throw new Error("Pemetaan kode akun tidak sesuai. Hubungi pengelola.");
+          return member.accountCode;
+        }
         manage(ctx,actor,member.role);
         const sequence=await nextAccountCode(tx,ctx,member);
         tx.update(ref,{accountCode:sequence.accountCode});tx.set(sequence.ref,sequence.data);
+        tx.set(shortLoginRef(ctx.ref.id,sequence.accountCode),{loginCode:member.loginCode});
         return sequence.accountCode;
       });
     },
