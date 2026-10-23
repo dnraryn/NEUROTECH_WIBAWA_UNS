@@ -1,7 +1,29 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
+const {webcrypto} = require('node:crypto');
 const { browser, source } = require('./helpers');
+
+test('member codes identify a specific company, person and stored role without carrying an email or granting access',async()=>{
+  const b=browser();b.c.crypto=webcrypto;b.c.TextEncoder=TextEncoder;b.load('portal-access.js');
+  const api=b.c.ntPortal,code=await api.memberCode('B-ABCDEF','worker@example.test','pekerja');
+  assert.match(code,/^P-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{4}-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{4}$/);
+  assert.equal(code.includes('@'),false);
+  assert.equal(await api.memberCode(' b-abcdef ',' WORKER@EXAMPLE.TEST ','pekerja'),code);
+  assert.equal(api.codeRole(code),'pekerja');
+  assert.equal(await api.matchesCode(code.toLowerCase().replaceAll('-',' '),'B-ABCDEF','worker@example.test','pekerja'),true);
+  assert.equal(await api.matchesCode(code,'B-ABCDEF','other@example.test','pekerja'),false);
+  assert.equal(await api.matchesCode(code,'B-OTHERX','worker@example.test','pekerja'),false);
+  assert.equal(await api.matchesCode(code.replace(/^P/,'M'),'B-ABCDEF','worker@example.test','management'),false);
+  assert.equal(api.codeRole('P-INVALID-EMAIL@example.test'),null);
+  assert.equal(api.codeRole('P-0000-1111'),null);
+  const staff=await api.memberCode('B-ABCDEF','worker@example.test','supervisor');
+  assert.equal(api.codeRole(staff),'supervisor');
+  assert.equal(await api.matchesCode(code,'B-ABCDEF','worker@example.test','supervisor'),false);
+  await assert.rejects(api.memberCode('B-ABCDEF','worker@example.test','admin'));
+  await assert.rejects(api.memberCode('B-ABCDEF','worker@example.test','constructor'));
+  assert.deepEqual(Array.from(api.apps({role:'constructor'})),[]);
+});
 
 test('authenticated portals stay isolated by stored role and staff never fall back into the worker app', () => {
   const b=browser();b.load('portal-access.js');

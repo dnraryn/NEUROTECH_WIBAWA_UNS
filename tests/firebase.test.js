@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const {webcrypto}=require('node:crypto');
 const { browser, clone } = require('./helpers');
 const flush = async () => { for (let i = 0; i < 8; i++) await new Promise((resolve) => setImmediate(resolve)); };
 async function setup(role = 'management') {
@@ -128,4 +129,18 @@ test('an authorized role change reloads the data scope even when company and UID
   await c.ntAuth.refresh();
   assert.equal(c.ntSession.get().role,'supervisor');assert.equal(resets,1);
   assert.equal(c.ntSession.get().members.length,2);
+});
+test('a member code is checked against the verified Firebase membership before publishing a session',async()=>{
+  const {b,c,queries}=await setup('pekerja');c.crypto=webcrypto;c.TextEncoder=TextEncoder;b.load('portal-access.js');
+  const own=await c.ntPortal.memberCode('A','worker','pekerja');
+  const other=await c.ntPortal.memberCode('A','other','pekerja');
+  c.ntSession.clear();let published=0;c.addEventListener('nt-session',()=>{if(c.ntSession.get())published++;});
+  queries.length=0;
+  await assert.rejects(c.ntAuth.refresh(undefined,other),/Kode anggota tidak cocok/);
+  assert.equal(c.ntSession.get(),null);assert.equal(published,0);
+  assert.equal(queries.some(q=>q.path==='companies/A/members'),false,'wrong codes must not load the company roster');
+  const session=await c.ntAuth.refresh(undefined,own);assert.equal(session.role,'pekerja');assert.equal(published,1);
+  const elevated=await c.ntPortal.memberCode('A','worker','management');
+  await assert.rejects(c.ntAuth.refresh(undefined,elevated),/Kode anggota tidak cocok/);
+  assert.equal(c.ntSession.get(),null);
 });

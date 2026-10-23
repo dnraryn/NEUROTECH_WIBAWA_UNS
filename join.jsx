@@ -221,6 +221,7 @@ const JoinFlow = () => {
               Simpan kode perusahaan Anda. Untuk mengajak pekerja, bagikan tautan undangan di bawah.
             </p>
             <div className="nt-join-code">{code}</div>
+            {window.ntSession?.get() && <MemberAccessCode companyCode={code} memberId={window.ntSession.get().memberId} role={window.ntSession.get().role}/>}
             {!isFree && <CompanyInvitePanel code={code} />}
             <p className="nt-join-sub">Paket {pkg.name} · {companyName}</p>
             <div style={{ marginTop: 22 }}>

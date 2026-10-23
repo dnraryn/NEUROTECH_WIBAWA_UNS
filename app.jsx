@@ -421,7 +421,7 @@ const App = () => {
   // Login, Join, and content pages always render in their brand-dark theme.
   React.useEffect(() => {
     const apply = () => {
-      const isInApp = ["w", "s", "m"].includes(route.app);
+      const isInApp = ["w", "s", "m"].includes(route.app) && !wrongWorkerAccount && !wrongLoginPortal && !(session && !allowedApps(session).length);
       let wantLight = false;
       try {
         const saved = localStorage.getItem("nt-theme");
@@ -434,7 +434,7 @@ const App = () => {
     apply();
     window.addEventListener("nt-theme", apply);
     return () => window.removeEventListener("nt-theme", apply);
-  }, [route.path]);
+  }, [route.path, wrongWorkerAccount, wrongLoginPortal, session?.role, session?.package]);
 
   const onLogout = async () => {
     await window.ntLogout();
@@ -482,6 +482,7 @@ const App = () => {
             <div className="app-topbar-actions" style={{ display: "flex", alignItems: "center", gap: 12 }}>
               {!session && <DeviceButton />}
               {session && route.app !== "w" && <span className="portal-workspace-label">{ROLE_LABEL[session.role]}</span>}
+              {session && route.app !== "w" && <details className="portal-own-code"><summary>Kode saya</summary><MemberAccessCode companyCode={session.code} memberId={session.memberId} role={session.role}/></details>}
               {session ? (
                 <div className="app-account" style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span className="app-account-label" style={{ fontSize: 12, color: "var(--nt-text-2)" }}>

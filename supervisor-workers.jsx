@@ -18,10 +18,12 @@ const SupervisorWorkersList = () => {
   const [statusFilter, setStatusFilter] = React.useState(null);
   const [addOpen, setAddOpen] = React.useState(false);
   const [removeTarget, setRemoveTarget] = React.useState(null);
+  const [codeTarget, setCodeTarget] = React.useState(null);
   const [form, setForm] = React.useState({ name: "", email: "", role: "pekerja", roleDesc: "", shift: "Pagi" });
   const session = window.ntSession?.get();
   const archive = useSessionArchive();
   const workers = session ? realWorkerSummaries(archive) : WORKERS;
+  const codeMember = session?.members?.find(m=>m.id === codeTarget);
   const availableRoles = !session || session.uid === session.ownerUid ? ROLE_OPTIONS
     : ROLE_OPTIONS.filter((r) => r.v === "pekerja" || (session.role === "management" && r.v === "supervisor"));
 
@@ -176,6 +178,7 @@ const SupervisorWorkersList = () => {
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: "var(--nt-text)" }}>{w.name}</div>
                       {session && <small className={`worker-connection-label is-${w.connection.key}`}>{w.connection.label}</small>}
+                      {session && <button type="button" className="worker-code-action" aria-label={`Kode masuk ${w.name}`} onClick={e=>{e.preventDefault();e.stopPropagation();setCodeTarget(w.id);}}>Kode masuk ↗</button>}
                       {(w.roleDesc || (session && w.recordedAt)) && (
                         <div style={{ fontSize: 10.5, color: "var(--nt-text-3)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{session ? realDate(w.recordedAt) : w.roleDesc}</div>
                       )}
@@ -214,6 +217,10 @@ const SupervisorWorkersList = () => {
       </div>
 
       {/* Tambah pekerja */}
+      <Modal open={!!codeTarget} onClose={()=>setCodeTarget(null)} title={`Kode masuk ${codeMember?.name || "anggota"}`} width={420}
+        actions={<NeuroBtn onClick={()=>setCodeTarget(null)}>Tutup</NeuroBtn>}>
+        {codeMember ? <><MemberAccessCode companyCode={session.code} memberId={codeMember.id} role={codeMember.role}/><p className="archive-muted">Bagikan kode kepada anggota ini. Ia tetap masuk menggunakan email dan password miliknya.{codeMember.status === "invited" ? " Aktifkan akun dan verifikasi email terlebih dahulu." : ""}</p></> : <p>Anggota sudah tidak tersedia.</p>}
+      </Modal>
       <Modal
         open={addOpen}
         onClose={() => setAddOpen(false)}

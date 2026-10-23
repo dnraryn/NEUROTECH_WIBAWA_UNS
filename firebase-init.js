@@ -56,7 +56,7 @@ const ntSession = {
     ntEmitSession(changed);
   },
 };
-async function ntLoadSession(expectedCode) {
+async function ntLoadSession(expectedCode, expectedMemberCode) {
   const load = ++ntSessionLoad, epoch = ntSessionEpoch, user = auth.currentUser;
   if (!user || user.isAnonymous || !user.emailVerified) { ntSession.clear(); return null; }
   const profile = (await db.collection("users").doc(user.uid).get()).data();
@@ -71,6 +71,9 @@ async function ntLoadSession(expectedCode) {
   const company = companySnap.data(), own = ownSnap.data();
   if (company?.schemaVersion !== 2 || own?.status !== "active" || own.uid !== user.uid || own.role !== profile.role) {
     throw new Error("Keanggotaan tidak aktif atau perusahaan belum dimigrasikan.");
+  }
+  if (expectedMemberCode && !await window.ntPortal.matchesCode(expectedMemberCode,company.code,own.id,own.role)) {
+    throw new Error("Kode anggota tidak cocok dengan akun ini. Periksa kode atau pilih Masuk dengan akun.");
   }
   const query = ref.collection("members");
   const members = ["supervisor", "management"].includes(profile.role)
@@ -135,9 +138,9 @@ const ntAuth = {
     return auth.currentUser.sendEmailVerification();
   },
   resetPassword(email) { return auth.sendPasswordResetEmail(email.trim()); },
-  async refresh(code) {
+  async refresh(code, memberCode) {
     try {
-      const result = await ntLoadSession(code);
+      const result = await ntLoadSession(code, memberCode);
       ntAllowAutomaticRestore = true;
       return result;
     } catch (error) { ntSession.clear(); throw error; }
@@ -154,7 +157,7 @@ const ntCompanyStore = window.ntCreateCompanyStore({
 });
 const ntCompany = {
   create(data) { return ntCompanyStore.create(data); },
-  async acceptInvitation(code) { await ntCompanyStore.acceptInvitation(code); return ntAuth.refresh(code); },
+  async acceptInvitation(code, memberCode) { await ntCompanyStore.acceptInvitation(code); return ntAuth.refresh(code, memberCode); },
   createJoinLink(code) { return ntCompanyStore.createJoinLink(code); },
   revokeJoinLink(code, token) { return ntCompanyStore.revokeJoinLink(code, token); },
   async joinWithLink(code, token, name) { await ntCompanyStore.joinWithLink(code, token, name); return ntAuth.refresh(code); },

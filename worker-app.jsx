@@ -49,6 +49,23 @@ const VisualIcon = ({name="signal",size=20}) => {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]||paths.signal}/></svg>;
 };
 
+const MemberAccessCode = ({ companyCode, memberId, role }) => {
+  const [code,setCode] = React.useState(""), [error,setError] = React.useState("");
+  const [copied,setCopied] = React.useState(false);
+  React.useEffect(()=>{
+    let current=true;setCode("");setError("");setCopied(false);
+    window.ntPortal.memberCode(companyCode,memberId,role).then(value=>{if(current)setCode(value);})
+      .catch(()=>{if(current)setError("Kode belum dapat ditampilkan. Login dengan email tetap tersedia.");});
+    return()=>{current=false;};
+  },[companyCode,memberId,role]);
+  return <section className="member-access-code" aria-label="Kode anggota"><div><small>Kode anggota · {window.ntPortal.roles[role]?.label}</small><output>{code || (error ? "Belum tersedia" : "Menyiapkan…")}</output></div>
+    <button type="button" disabled={!code} aria-label="Salin kode anggota" onClick={async()=>{
+      try{await navigator.clipboard.writeText(code);setCopied(true);}catch{setError("Salin kode yang tertera secara manual.");}
+    }}>{copied ? <VisualIcon name="check" size={18}/> : "Salin"}</button>
+    <p>{error || "Masukkan kode, lalu login dengan akun Anda."}</p>
+  </section>;
+};
+
 const WorkerCalibrationCard = () => {
   const [, refresh] = React.useReducer((n) => n + 1, 0);
   React.useEffect(() => {
@@ -156,4 +173,4 @@ const WorkerAppInstall = () => {
     <Link to="/landing" className="worker-app-back">Kembali ke website</Link>
   </div></main>;
 };
-Object.assign(window, { WorkerAppInstall, WorkerAppInstallCard, WorkerCalibrationCard, WorkerSignalDetails, WorkerSignalStatus, VisualIcon });
+Object.assign(window, { WorkerAppInstall, WorkerAppInstallCard, WorkerCalibrationCard, WorkerSignalDetails, WorkerSignalStatus, VisualIcon, MemberAccessCode });
