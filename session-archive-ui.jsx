@@ -101,6 +101,7 @@ const WorkerSessionPanel = ({ compact = false }) => {
     : !device.online ? "Offline · menunggu koneksi"
     : archive.syncing ? "Menyimpan…"
     : archive.cloudError ? "Sinkronisasi tertunda"
+    : !archive.serverConfirmed ? "Memeriksa Firebase…"
     : pending && !active ? "Menunggu sinkronisasi" : pending || !own.length ? "Sinkron otomatis" : "Tersimpan di Firebase";
   return <section className={`worker-session-panel ${compact ? "worker-session-panel--compact" : "worker-session-panel--hero"}`} aria-label="Koneksi dan pengiriman sesi">
     <div className="worker-session-heading"><div><span className="worker-device-badge"><span />{device.connected ? "Muse terhubung" : "MUSE EEG"}</span><h2>{active ? "Sesi berlangsung" : device.connected ? "Muse siap" : "Mulai pemantauan"}</h2></div>{!compact && <svg className="worker-muse-art" viewBox="0 0 100 76" aria-hidden="true"><path d="M12 54V41a38 38 0 0 1 76 0v13"/><rect x="8" y="40" width="15" height="26" rx="7"/><rect x="77" y="40" width="15" height="26" rx="7"/><path d="M30 37h9l5-10 9 24 6-14h11"/></svg>}</div>
@@ -114,6 +115,7 @@ const WorkerSessionPanel = ({ compact = false }) => {
       {device.connected && <><button type="button" className="frm-button" onClick={() => window.ntMuseClearBaseline?.()}>Kalibrasi ulang</button><p>Kalibrasi saat terjaga, mata terbuka, dan duduk tenang.</p></>}
       {device.wakeSupported && <label className="worker-wake-control"><input type="checkbox" checked={device.keepAwake} onChange={(e) => window.ntMobileMonitor.setKeepAwake(e.target.checked)} /><span>Jaga layar tetap menyala<small>{device.awake ? "Aktif selama Muse tersambung" : device.keepAwake ? "Menunggu sesi aktif / izin browser" : "Opsional selama pemantauan"}</small></span></label>}
       <p>Ringkasan dikirim otomatis setiap sekitar 1 menit dan saat sesi selesai. Hindari mengunci ponsel selama merekam.</p>
+      <p>Tujuan: {account?.companyName || "Perusahaan"} · {account?.code || "lokal"}. Supervisor/manajemen membuka portal perusahaan yang sama di laptop, tanpa memasangkan Muse lagi.{archive.lastSyncedAt ? ` Pembaruan Firebase terakhir: ${new Date(archive.lastSyncedAt).toLocaleTimeString("id-ID")}.` : ""}</p>
       {active && <p>{active.summary.partial} hasil terbatas · tidak masuk rerata laporan.</p>}
       {(archive.error || archive.cloudError || device.message) && <p role="status">{archive.error || archive.cloudError || device.message}</p>}
       {!compact && active && <button type="button" className="frm-button" disabled={busy} onClick={end}>{busy ? "Menyelesaikan…" : "Akhiri sesi"}</button>}

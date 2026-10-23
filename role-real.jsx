@@ -16,6 +16,7 @@ const realWorkerSummaries = (state) => {
     return { id: member.id, name: member.name, systemRole: member.role,
       role: member.roleDesc || ROLE_LABEL_ID[member.role] || "Anggota", shift: member.shift || "Belum diatur",
       fi, cli, ei: summary?.meanEI ?? null, hrv: null, readiness: null, status,
+      connection: window.ntSessionInsights.connection(latest,{confirmed:state.serverConfirmed && state.online !== false}),
       assessment, recordedAt: latest?.startedAt || null, img: NT_IMG[i % NT_IMG.length] };
   });
 };
@@ -57,7 +58,7 @@ const ArchiveReviewSummary = ({ rows, onOpen }) => {
     <div className="review-summary-icon" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none"><rect x="11" y="7" width="26" height="34" rx="6" stroke="currentColor" strokeWidth="2"/><path d="M19 7V5h10v2M18 20h12M18 26h8M26 34l3 3 6-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg></div>
     <div><span className="supervisor-kicker">TINDAK LANJUT</span><h2>{pending} laporan belum ditinjau</h2><p>{reviewed} ditinjau dari {finished.length} sesi selesai</p>
       <div className="review-summary-track" role="img" aria-label={`${reviewed} dari ${finished.length} laporan selesai sudah ditinjau`}><span style={{width:`${finished.length ? reviewed/finished.length*100 : 0}%`}} /></div>
-    </div><button type="button" className="archive-primary" onClick={onOpen || (()=>navigate('/s/reports'))}>Buka laporan <span aria-hidden="true">↗</span></button>
+    </div><button type="button" className="archive-primary" onClick={onOpen || (()=>navigate(staffPath('/s/reports')))}>Buka laporan <span aria-hidden="true">↗</span></button>
   </section>;
 };
 
@@ -84,10 +85,22 @@ const RealSupervisorFrame = ({ active, title, subtitle, children, actions }) => 
 </div>;
 
 const RealArchiveStatus = ({ state }) => <div className="supervisor-archive-status">
-  <span role="status"><span className={`archive-dot ${state.liveUpdates && !state.cloudError ? "is-active" : ""}`} />{!state.ready ? "Memuat arsip…" : state.error || state.cloudError ? "Sinkronisasi perlu diperiksa" : !state.cloudEnabled ? "Pratinjau lokal" : state.syncing ? "Menyinkronkan…" : state.liveUpdates ? "Pembaruan otomatis" : "Menunggu sinkronisasi"}{state.lastSyncedAt && <small> · {new Date(state.lastSyncedAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}</small>}</span>
+  <span role="status"><span className={`archive-dot ${state.serverConfirmed && state.online !== false && !state.cloudError ? "is-active" : ""}`} />{!state.ready ? "Memuat arsip…" : state.online === false ? "Laptop offline" : state.error || state.cloudError ? "Sinkronisasi perlu diperiksa" : !state.cloudEnabled ? "Pratinjau lokal" : state.syncing ? "Menyinkronkan…" : state.serverConfirmed ? "Terhubung ke Firebase" : "Memeriksa koneksi Firebase"}{state.lastSyncedAt && <small> · {new Date(state.lastSyncedAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}</small>}</span>
   <details><summary>Info data</summary><p>{state.error || state.cloudError || "Ringkasan sesi, bukan status keselamatan saat ini. Hasil terbatas dikecualikan dari rerata; kalibrasi diperiksa terpisah untuk kesimpulan."}{state.cloudEnabled ? ` Hingga ${state.cloudLimit || 60} sesi cloud terbaru.` : " Data berasal dari browser ini."}</p></details>
   {state.cloudEnabled && <button type="button" className="archive-back" disabled={state.syncing} onClick={() => window.ntSessionArchive.sync()}>{state.syncing ? "Memuat…" : "Sinkronkan"}</button>}
 </div>;
+
+const TeamSessionConnections = ({ state }) => {
+  const [,tick] = React.useReducer(n=>n+1,0);
+  React.useEffect(()=>{const id=setInterval(tick,10000);return()=>clearInterval(id);},[]);
+  const rows=realSessions(state), members=realMembers(), confirmed=state.serverConfirmed && state.online !== false && !state.cloudError;
+  const entries=members.map(m=>({member:m,record:rows.find(r=>r.ownerUid===m.uid && r.memberId===m.id)}));
+  const active=entries.filter(e=>window.ntSessionInsights.connection(e.record,{confirmed}).key==="active").length;
+  return <section className="team-connections" aria-label="Koneksi sesi pekerja"><div className="team-connections-heading"><strong><VisualIcon name="signal" size={19}/>{active} sesi mengirim</strong><small>Muse → HP → Firebase → Laptop</small></div>
+    <div className="team-connection-list">{entries.length ? entries.map(({member,record})=>{const c=window.ntSessionInsights.connection(record,{confirmed});return <Link key={member.id} to={staffPath(`/s/workers/${encodeURIComponent(member.id)}`)} className={`team-connection is-${c.key}`}><span className="archive-dot"/><span>{member.name}</span><small>{c.label}</small></Link>;}) : <p className="archive-muted">Undang pekerja untuk mulai memantau sesi.</p>}</div>
+    <details className="visual-method"><summary><VisualIcon name="info" size={15}/>Info koneksi</summary><p>HP dan laptop harus memakai akun berbeda dalam perusahaan yang sama. Ringkasan sesi diperbarui sekitar 1 menit. Status aktif berarti pembaruan sesi diterima dalam 90 detik terakhir, bukan konfirmasi Bluetooth atau kondisi keselamatan pekerja. Cakupan mengikuti {state.cloudLimit || 60} sesi terbaru; akun yang login tanpa merekam tidak ditandai aktif.</p></details>
+  </section>;
+};
 
 const SupervisorDailyTrend = ({ points }) => {
   const valid = points.filter((p) => Number.isFinite(p.fi)), start = valid.length ? Date.parse(valid[0].date + "T00:00:00Z") : 0;
@@ -114,6 +127,7 @@ const RealSupervisorDashboard = () => {
   return <RealSupervisorFrame active="overview" title="Overview Tim" subtitle="Ringkasan sesi pekerja"
     actions={<div style={{ display: "flex", gap: 6 }}>{[[1, "Hari ini"], [7, "7 hari"], [30, "30 hari"]].map(([n, label]) => <button key={n} type="button" className="archive-back" aria-pressed={days === n} onClick={() => setDays(n)} style={{ fontWeight: days === n ? 800 : 500 }}>{label}</button>)}</div>}>
     <RealArchiveStatus state={state} />
+    <TeamSessionConnections state={state}/>
     <div className="workspace-action-grid"><StaffAlertSummary/><ArchiveReviewSummary rows={rows}/></div>
     <div className="supervisor-kpis">
       {realMetric("Pekerja terdaftar", realMembers().length, `${eligible} sesi dapat dinilai`)}
@@ -122,9 +136,9 @@ const RealSupervisorDashboard = () => {
       {realMetric("Indikasi microsleep", incidents, "Perlu tinjauan petugas")}
     </div>
     <div className="supervisor-chart-grid"><SupervisorDailyTrend points={data.trend} /><section className="supervisor-chart-card"><div className="supervisor-section-heading"><h2>Hasil sesi pekerja</h2><span>Sesi terakhir pada periode ini</span></div><TeamDistribution categories={categories}/><div className="supervisor-status-legend">{categories.map((c) => <div key={c.key}><span><i style={{ background: c.color }} />{c.label}</span><strong>{c.count}</strong></div>)}</div></section></div>
-    <section className="supervisor-takeaway" aria-label="Kesimpulan sesi tim"><div><span className="supervisor-kicker">TINJAUAN TIM</span><h2>{priority.length ? `${priority.length} pekerja perlu ditinjau` : eligible ? "Pantau sesi berikutnya" : "Belum cukup data untuk kesimpulan"}</h2><p>{priority[0]?.assessment.action || (eligible ? "Kesimpulan mengikuti sesi terakhir, bukan kondisi saat ini." : "Lengkapi kalibrasi dan rekam EEG bersih.")}</p></div><Link className="archive-primary" to="/s/workers">Lihat pekerja</Link></section>
-    <section className="supervisor-chart-card"><div className="supervisor-section-heading"><h2>Sesi Muse terbaru</h2><Link to="/s/reports">Semua laporan ↗</Link></div>
-      {!latest.length ? <p className="archive-muted">Belum ada sesi Muse pada periode ini.</p> : <div className="supervisor-session-list">{latest.map((r) => { const assessment = window.ntSessionInsights.assess(r); return <Link key={r.id} to={`/s/reports/${r.id}`} className="supervisor-session-row"><span><strong>{realName(r.memberId)}</strong><small>{realDate(r.startedAt)}</small></span><span className={`supervisor-result-tag is-${assessment.status}`}>{assessment.title}</span><span className="supervisor-row-score">{archiveNumber(r.summary.meanFI)}<small>FI</small></span></Link>; })}</div>}
+    <section className="supervisor-takeaway" aria-label="Kesimpulan sesi tim"><div><span className="supervisor-kicker">TINJAUAN TIM</span><h2>{priority.length ? `${priority.length} pekerja perlu ditinjau` : eligible ? "Pantau sesi berikutnya" : "Belum cukup data untuk kesimpulan"}</h2><p>{priority[0]?.assessment.action || (eligible ? "Kesimpulan mengikuti sesi terakhir, bukan kondisi saat ini." : "Lengkapi kalibrasi dan rekam EEG bersih.")}</p></div><Link className="archive-primary" to={staffPath("/s/workers")}>Lihat pekerja</Link></section>
+    <section className="supervisor-chart-card"><div className="supervisor-section-heading"><h2>Sesi Muse terbaru</h2><Link to={staffPath("/s/reports")}>Semua laporan ↗</Link></div>
+      {!latest.length ? <p className="archive-muted">Belum ada sesi Muse pada periode ini.</p> : <div className="supervisor-session-list">{latest.map((r) => { const assessment = window.ntSessionInsights.assess(r); return <Link key={r.id} to={staffPath(`/s/reports/${r.id}`)} className="supervisor-session-row"><span><strong>{realName(r.memberId)}</strong><small>{realDate(r.startedAt)}</small></span><span className={`supervisor-result-tag is-${assessment.status}`}>{assessment.title}</span><span className="supervisor-row-score">{archiveNumber(r.summary.meanFI)}<small>FI</small></span></Link>; })}</div>}
     </section>
   </RealSupervisorFrame>;
 };
@@ -132,27 +146,27 @@ const RealSupervisorDashboard = () => {
 const RealSupervisorWorkerDetail = ({ id }) => {
   const state = useSessionArchive(), member = window.ntSession?.get()?.members?.find((m) => m.id === id), rows = realSessions(state).filter((r) => r.memberId === id);
   const assessment = window.ntSessionInsights.assess(rows[0]);
-  return <RealSupervisorFrame active="workers" title={member?.name || "Pekerja tidak ditemukan"} subtitle={member ? `${member.roleDesc || "Pekerja"} · Shift ${member.shift || "Belum diatur"}` : "Akun ini tidak ada dalam daftar pekerja perusahaan."} actions={<Link className="archive-back" to="/s/workers">Kembali ke daftar</Link>}>
+  return <RealSupervisorFrame active="workers" title={member?.name || "Pekerja tidak ditemukan"} subtitle={member ? `${member.roleDesc || "Pekerja"} · Shift ${member.shift || "Belum diatur"}` : "Akun ini tidak ada dalam daftar pekerja perusahaan."} actions={<Link className="archive-back" to={staffPath("/s/workers")}>Kembali ke daftar</Link>}>
     <RealArchiveStatus state={state} />
-    {member && (!rows.length ? <div style={realCard}>Belum ada sesi Muse.</div> : <><section className="supervisor-takeaway"><div><span className="supervisor-kicker">KESIMPULAN SESI TERAKHIR</span><h2>{assessment.title}</h2><p>{assessment.action}</p></div><Link className="archive-back" to={`/s/reports/${rows[0].id}`}>Lihat sesi ↗</Link></section><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12 }}>{realMetric("Sesi", rows.length, "Sesi Muse tersimpan")}{realMetric("Fatigue terakhir", archiveNumber(rows[0].summary.meanFI), `${rows[0].summary.clean} hasil bersih`)}{realMetric("Beban kognitif", archiveNumber(rows[0].summary.meanCLI), "Dari EEG bersih")}{realMetric("Microsleep", rows.reduce((n, r) => n + r.summary.incidents, 0), "Indikasi seluruh sesi")}</div><section style={realCard}><h2 style={{ fontSize: 16 }}>Riwayat sesi</h2>{rows.map((r) => <Link key={r.id} to={`/s/reports/${r.id}`}><div className="nt-card-click" style={{ padding: 12, borderBottom: "1px solid var(--nt-bg-deep)" }}>{realDate(r.startedAt)} · FI {archiveNumber(r.summary.meanFI)} · {r.summary.clean} hasil bersih · {r.review ? "Sudah ditinjau" : "Belum ditinjau"}</div></Link>)}</section></>)}
+    {member && (!rows.length ? <div style={realCard}>Belum ada sesi Muse.</div> : <><section className="supervisor-takeaway"><div><span className="supervisor-kicker">KESIMPULAN SESI TERAKHIR</span><h2>{assessment.title}</h2><p>{assessment.action}</p></div><Link className="archive-back" to={staffPath(`/s/reports/${rows[0].id}`)}>Lihat sesi ↗</Link></section><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12 }}>{realMetric("Sesi", rows.length, "Sesi Muse tersimpan")}{realMetric("Fatigue terakhir", archiveNumber(rows[0].summary.meanFI), `${rows[0].summary.clean} hasil bersih`)}{realMetric("Beban kognitif", archiveNumber(rows[0].summary.meanCLI), "Dari EEG bersih")}{realMetric("Microsleep", rows.reduce((n, r) => n + r.summary.incidents, 0), "Indikasi seluruh sesi")}</div><section style={realCard}><h2 style={{ fontSize: 16 }}>Riwayat sesi</h2>{rows.map((r) => <Link key={r.id} to={staffPath(`/s/reports/${r.id}`)}><div className="nt-card-click" style={{ padding: 12, borderBottom: "1px solid var(--nt-bg-deep)" }}>{realDate(r.startedAt)} · FI {archiveNumber(r.summary.meanFI)} · {r.summary.clean} hasil bersih · {r.review ? "Sudah ditinjau" : "Belum ditinjau"}</div></Link>)}</section></>)}
   </RealSupervisorFrame>;
 };
 
 const realIncidentRows = (state) => realSessions(state).flatMap((r) => r.minutes.filter((m) => m.incidents > 0).map((m) => ({ id: `${r.id}:${m.minute}`, session: r, minute: m, timestamp: r.startedAt + m.minute * 60000 }))).sort((a, b) => b.timestamp - a.timestamp);
 const RealSupervisorAlerts = () => {
   const state = useSessionArchive(), incidents = realIncidentRows(state);
-  return <RealSupervisorFrame active="alerts" title="Alert & Insiden" subtitle="Indikasi dari sesi tersimpan" actions={<Link className="archive-back" to="/s/reports">Buka laporan</Link>}>
+  return <RealSupervisorFrame active="alerts" title="Alert & Insiden" subtitle="Indikasi dari sesi tersimpan" actions={<Link className="archive-back" to={staffPath("/s/reports")}>Buka laporan</Link>}>
     <RealArchiveStatus state={state} />
     <StaffAlertCenter />
     <h2 className="section-title">Indikasi dari sesi EEG</h2>
-    {!incidents.length ? <div style={realCard}>Belum ada indikasi microsleep tercatat.</div> : <div style={{ display: "grid", gap: 10 }}>{incidents.map((entry) => <Link key={entry.id} to={`/s/alerts/${encodeURIComponent(entry.id)}`}><div className="nt-card-click" style={{ ...realCard, display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><span><strong>{realName(entry.session.memberId)}</strong><small style={{ display: "block", color: "var(--nt-text-3)" }}>{realDate(entry.timestamp)} · {entry.minute.incidents} indikasi</small></span><span>Lihat sesi →</span></div></Link>)}</div>}
+    {!incidents.length ? <div style={realCard}>Belum ada indikasi microsleep tercatat.</div> : <div style={{ display: "grid", gap: 10 }}>{incidents.map((entry) => <Link key={entry.id} to={staffPath(`/s/alerts/${encodeURIComponent(entry.id)}`)}><div className="nt-card-click" style={{ ...realCard, display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><span><strong>{realName(entry.session.memberId)}</strong><small style={{ display: "block", color: "var(--nt-text-3)" }}>{realDate(entry.timestamp)} · {entry.minute.incidents} indikasi</small></span><span>Lihat sesi →</span></div></Link>)}</div>}
   </RealSupervisorFrame>;
 };
 const RealSupervisorAlertDetail = ({ id }) => {
   const state = useSessionArchive(), entry = realIncidentRows(state).find((e) => e.id === id);
-  return <RealSupervisorFrame active="alerts" title={entry ? "Indikasi microsleep" : "Insiden tidak ditemukan"} subtitle={entry ? `${realName(entry.session.memberId)} · ${realDate(entry.timestamp)}` : "Sesi mungkin belum tersinkron atau sudah tidak tersedia."} actions={<Link className="archive-back" to="/s/alerts">Kembali ke alert</Link>}>
+  return <RealSupervisorFrame active="alerts" title={entry ? "Indikasi microsleep" : "Insiden tidak ditemukan"} subtitle={entry ? `${realName(entry.session.memberId)} · ${realDate(entry.timestamp)}` : "Sesi mungkin belum tersinkron atau sudah tidak tersedia."} actions={<Link className="archive-back" to={staffPath("/s/alerts")}>Kembali ke alert</Link>}>
     <RealArchiveStatus state={state} />
-    {entry && <div style={realCard}><p>Algoritma menandai {entry.minute.incidents} kejadian pada menit ke-{entry.minute.minute + 1} sesi Muse. Data yang disimpan berupa agregat per menit, sehingga gelombang EEG mentah dan durasi kejadian tidak tersedia di arsip.</p><p>Hasil ini adalah indikasi sementara. Supervisor perlu mengevaluasi kondisi pekerja sebelum mengambil tindakan K3.</p><Link style={{ color: "#fff" }} className="archive-primary" to={`/s/reports/${entry.session.id}`}>Buka laporan sesi</Link></div>}
+    {entry && <div style={realCard}><p>Algoritma menandai {entry.minute.incidents} kejadian pada menit ke-{entry.minute.minute + 1} sesi Muse. Data yang disimpan berupa agregat per menit, sehingga gelombang EEG mentah dan durasi kejadian tidak tersedia di arsip.</p><p>Hasil ini adalah indikasi sementara. Supervisor perlu mengevaluasi kondisi pekerja sebelum mengambil tindakan K3.</p><Link style={{ color: "#fff" }} className="archive-primary" to={staffPath(`/s/reports/${entry.session.id}`)}>Buka laporan sesi</Link></div>}
   </RealSupervisorFrame>;
 };
 
@@ -169,7 +183,7 @@ const RealSupervisorSchedule = () => {
     finally { setSaving(false); }
   };
   return <RealSupervisorFrame active="schedule" title="Jadwal Shift" subtitle="Pengelompokan anggota per shift">
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 12 }}>{["Pagi", "Sore", "Malam"].map((shift) => <section key={shift} style={realCard}><h2 style={{ fontSize: 17, marginTop: 0 }}>{shift}</h2>{members.filter((m) => m.shift === shift).map((m) => <div key={m.id} style={{ padding: "7px 0", display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}><Link to={`/s/workers/${encodeURIComponent(m.id)}`}>{m.name}</Link><select aria-label={`Shift ${m.name}`} value={m.shift} disabled={saving} onChange={(event) => changeShift(m.id, event.target.value)}>{["Pagi", "Sore", "Malam"].map((option) => <option key={option}>{option}</option>)}</select></div>)}{!members.some((m) => m.shift === shift) && <p style={{ color: "var(--nt-text-3)" }}>Belum ada pekerja</p>}</section>)}</div>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 12 }}>{["Pagi", "Sore", "Malam"].map((shift) => <section key={shift} style={realCard}><h2 style={{ fontSize: 17, marginTop: 0 }}>{shift}</h2>{members.filter((m) => m.shift === shift).map((m) => <div key={m.id} style={{ padding: "7px 0", display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}><Link to={staffPath(`/s/workers/${encodeURIComponent(m.id)}`)}>{m.name}</Link><select aria-label={`Shift ${m.name}`} value={m.shift} disabled={saving} onChange={(event) => changeShift(m.id, event.target.value)}>{["Pagi", "Sore", "Malam"].map((option) => <option key={option}>{option}</option>)}</select></div>)}{!members.some((m) => m.shift === shift) && <p style={{ color: "var(--nt-text-3)" }}>Belum ada pekerja</p>}</section>)}</div>
   </RealSupervisorFrame>;
 };
 
@@ -212,7 +226,7 @@ const CompanyArchiveOverview = ({ state, data }) => {
     const segment = previous && date - previous.date === 86400000 ? `M${previous.x},${previous.y}L${x},${y}` : "";
     previous = { date, x, y }; return { ...p, x, y, segment };
   });
-  return <><RealArchiveStatus state={state} /><div className="workspace-action-grid"><StaffAlertSummary/><ArchiveReviewSummary rows={data.rows}/></div><section className="neu-surface" aria-label="Ringkasan hasil perusahaan" style={{ padding: 18 }}>
+  return <><RealArchiveStatus state={state} /><TeamSessionConnections state={state}/><div className="workspace-action-grid"><StaffAlertSummary/><ArchiveReviewSummary rows={data.rows}/></div><section className="neu-surface" aria-label="Ringkasan hasil perusahaan" style={{ padding: 18 }}>
     <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 14 }}><strong>Hasil perusahaan · {data.sessions} sesi</strong><span style={{ fontSize: 12, color: "var(--nt-text-3)" }}>{data.members} anggota dengan sesi</span></div>
     {data.clean > 0 ? <div className="company-results visual-company-rings">{[["Fatigue rata-rata",data.meanFI,"#2563eb"],["Beban kognitif",data.meanCLI,"#8b5cf6"],["Engagement",data.meanEI,"#0891b2"]].map(([label,value,color])=><ArchiveMetricRing key={label} label={label} value={value} color={color}/>)}</div> : <div className="personal-result-empty"><VisualIcon name="chart" size={38}/><strong>Belum ada hasil EEG tersimpan</strong></div>}
     <div className="visual-summary-line"><span className="supervisor-result-tag">{data.clean ? labels[window.ntSessionInsights.status(data.meanFI,data.meanCLI)] : "Belum dinilai"}</span><span>{data.clean} hasil bersih</span><details className="visual-info"><summary aria-label="Metode ringkasan perusahaan" title="Metode ringkasan perusahaan"><VisualIcon name="info"/></summary><p>{data.partial} hasil terbatas dikecualikan; {data.provisional} hasil bersih masih memakai acuan sementara. Indeks prototipe untuk bahan evaluasi K3.</p></details></div>

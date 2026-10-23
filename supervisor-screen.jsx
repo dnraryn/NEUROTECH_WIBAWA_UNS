@@ -23,11 +23,11 @@ const SupervisorSidebar = ({ active = "overview" }) => {
   const messages = useWorkerAlerts();
   const workers = session ? realWorkerSummaries(archive) : WORKERS;
   const items = [
-    { id: "overview", l: "Overview Tim",   to: "/s/overview" },
-    { id: "workers",  l: "Pekerja",         to: "/s/workers" },
-    { id: "alerts",   l: "Alert & Insiden", to: "/s/alerts", badge: session ? messages.rows.filter(r=>!r.resolvedAt).length : 3 },
-    { id: "schedule", l: "Jadwal Shift",    to: "/s/schedule" },
-    { id: "reports",  l: "Laporan SMK3",    to: "/s/reports" },
+    { id: "overview", l: "Overview Tim",   to: staffPath("/s/overview") },
+    { id: "workers",  l: "Pekerja",         to: staffPath("/s/workers") },
+    { id: "alerts",   l: "Alert & Insiden", to: staffPath("/s/alerts"), badge: session ? messages.rows.filter(r=>!r.resolvedAt).length : 3 },
+    { id: "schedule", l: "Jadwal Shift",    to: staffPath("/s/schedule") },
+    { id: "reports",  l: "Laporan SMK3",    to: staffPath("/s/reports") },
   ];
 
   // Magic-line active indicator — a single absolutely-positioned pill that
@@ -70,6 +70,7 @@ const SupervisorSidebar = ({ active = "overview" }) => {
     const t = setTimeout(measure, 360);
     return () => clearTimeout(t);
   }, [hl, collapsed]);
+  if (session?.role === "management") return <ManagementSidebar active={active === "reports" ? "report" : active}/>;
   return (
     <aside className="nt-sb-aside" style={{
       padding: "22px 14px 16px",
@@ -81,7 +82,7 @@ const SupervisorSidebar = ({ active = "overview" }) => {
     }}>
       {/* Brand + hamburger row */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "0 4px" }}>
-        <Link to="/s/overview" className="nt-sb-label" style={{ display: "flex", minWidth: 0 }}>
+        <Link to={staffPath("/s/overview")} className="nt-sb-label" style={{ display: "flex", minWidth: 0 }}>
           <NeuroLogo size={22} />
         </Link>
         <SidebarToggle />
@@ -109,7 +110,7 @@ const SupervisorSidebar = ({ active = "overview" }) => {
         width={420}>
         <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 360, overflowY: "auto" }}>
           {workers.map((w) => (
-            <Link key={w.id} to={`/s/workers/${w.id}`} onClick={() => setSearchOpen(false)}>
+            <Link key={w.id} to={staffPath(`/s/workers/${w.id}`)} onClick={() => setSearchOpen(false)}>
               <div style={{
                 padding: "10px 12px", borderRadius: 12,
                 background: "var(--nt-surface)", boxShadow: "var(--nt-shadow-out-sm)",
@@ -264,9 +265,9 @@ const SupervisorDashboard = () => {
         </div>
 
         {[
-          { l: "Anggota shift pagi", v: `${pagiWorkers.length} / ${WORKERS.length}`, sub: "Roster simulasi", c: "#3B82F6", icon: "👥", to: "/s/workers" },
-          { l: "Alert simulasi", v: String(ALERTS.length), sub: `${ALERTS.filter((a) => !a.action).length} belum ditindak`, c: "#1D4ED8", icon: "🔔", to: "/s/alerts" },
-          { l: "Microsleep", v: String(pagiWorkers.filter((w) => w.microsleep).length), sub: "Indikasi simulasi shift pagi", c: "#1E3A8A", icon: "💤", to: "/s/alerts/a-1142" },
+          { l: "Anggota shift pagi", v: `${pagiWorkers.length} / ${WORKERS.length}`, sub: "Roster simulasi", c: "#3B82F6", icon: "👥", to: staffPath("/s/workers") },
+          { l: "Alert simulasi", v: String(ALERTS.length), sub: `${ALERTS.filter((a) => !a.action).length} belum ditindak`, c: "#1D4ED8", icon: "🔔", to: staffPath("/s/alerts") },
+          { l: "Microsleep", v: String(pagiWorkers.filter((w) => w.microsleep).length), sub: "Indikasi simulasi shift pagi", c: "#1E3A8A", icon: "💤", to: staffPath("/s/alerts/a-1142") },
         ].map((k, i) => (
           <Link key={i} to={k.to}>
             <div className="neu-surface nt-card-click" style={{ padding: 16, display: "flex", flexDirection: "column", justifyContent: "space-between", height: "100%" }}>
@@ -312,7 +313,7 @@ const SupervisorDashboard = () => {
             {pagiWorkers.map((w) => {
               const s = STATUS_MAP[w.status];
               return (
-                <Link key={w.id} to={`/s/workers/${w.id}`}>
+                <Link key={w.id} to={staffPath(`/s/workers/${w.id}`)}>
                   <div className="nt-card-click" style={{
                     padding: 14,
                     borderRadius: 18,
@@ -385,7 +386,7 @@ const SupervisorDashboard = () => {
         {/* Right column: alerts + recommendation */}
         <div style={{ display: "flex", flexDirection: "column", gap: 14, minHeight: 0 }}>
           {/* Critical alert hero */}
-          <Link to={`/s/alerts/${criticalAlert.id}`}>
+          <Link to={staffPath(`/s/alerts/${criticalAlert.id}`)}>
             <div className="neu-surface nt-card-click" style={{ padding: 18, position: "relative", overflow: "hidden" }}>
               <span style={{
                 position: "absolute", inset: 0,
@@ -448,7 +449,7 @@ const SupervisorDashboard = () => {
           <div className="neu-surface" style={{ padding: 16, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: "var(--nt-text)" }}>Feed Alert</div>
-              <Link to="/s/alerts">
+              <Link to={staffPath("/s/alerts")}>
                 <span style={{ fontSize: 10.5, color: "var(--nt-brand-mid)", letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 700, cursor: "pointer" }}>Lihat semua →</span>
               </Link>
             </div>
@@ -456,7 +457,7 @@ const SupervisorDashboard = () => {
               {ALERTS.slice(0, 6).map((a) => {
                 const s = STATUS_MAP[a.status];
                 return (
-                  <Link key={a.id} to={`/s/alerts/${a.id}`}>
+                  <Link key={a.id} to={staffPath(`/s/alerts/${a.id}`)}>
                     <div className="nt-card-click" style={{
                       display: "flex", alignItems: "center", gap: 10,
                       padding: "8px 10px",

@@ -76,7 +76,7 @@ async function ntLoadSession(expectedCode) {
   const members = ["supervisor", "management"].includes(profile.role)
     ? (await query.get()).docs.map((d) => d.data()) : [own];
   if (epoch !== ntSessionEpoch || load !== ntSessionLoad || auth.currentUser?.uid !== user.uid) return null;
-  const changed = !ntCurrentSession || ntCurrentSession.uid !== user.uid || ntCurrentSession.code !== company.code;
+  const changed = !ntCurrentSession || ntCurrentSession.uid !== user.uid || ntCurrentSession.code !== company.code || ntCurrentSession.role !== own.role;
   ntCurrentSession = { uid: user.uid, code: company.code, companyName: company.companyName, package: company.package,
     ownerUid: company.ownerUid, memberName: own.name, memberId: own.id, role: own.role, roleDesc: own.roleDesc, members };
   sessionStorage.removeItem("nt-demo");

@@ -29,6 +29,20 @@ before(async () => {
 });
 after(async () => { await env?.cleanup(); });
 
+test('a worker recording update reaches both staff portals while other workers and companies remain isolated',async()=>{
+  const path=['companies','A','sessions',sid(30)], worker=client('A-worker');
+  await assertSucceeds(setDoc(doc(worker,...path),record(30,'A-worker','recording')));
+  const observe=db=>new Promise((resolve,reject)=>{
+    let stop;const timer=setTimeout(()=>{stop?.();reject(Error('session synchronization timeout'));},7000);
+    stop=onSnapshot(doc(db,...path),snap=>{if(snap.data()?.receivedSamples===2048){clearTimeout(timer);stop();resolve(snap.data());}},reject);
+  });
+  const received=Promise.all([observe(client('A-supervisor')),observe(client('A-owner'))]);
+  await assertSucceeds(updateDoc(doc(worker,...path),{receivedSamples:2048,updatedAt:Date.now(),savedAt:serverTimestamp()}));
+  for(const result of await received){assert.equal(result.ownerUid,'A-worker');assert.equal(result.status,'recording');}
+  await assertFails(getDoc(doc(client('A-other'),...path)));
+  await assertFails(getDoc(doc(client('B-supervisor'),...path)));
+});
+
 test('staff alert reaches only its worker; acknowledgement and closure synchronize across accounts', async () => {
   const staff=client('A-supervisor'), worker=client('A-worker');
   const path=['companies','A','workerAlerts','message-1'];

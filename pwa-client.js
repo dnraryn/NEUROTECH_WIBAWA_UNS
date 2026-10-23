@@ -9,7 +9,7 @@
   }
   window.ntPWA = {
     state: function () {
-      return { installed: installed, canInstall: !!promptEvent && !installed, ready: ready,
+      return { installed: installed, standalone: !!media?.matches || window.navigator.standalone === true, canInstall: !!promptEvent && !installed, ready: ready,
         updateAvailable: !!registration?.waiting, canUpdate: !busySession() };
     },
     install: async function () {

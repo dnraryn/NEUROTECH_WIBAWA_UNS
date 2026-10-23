@@ -1,8 +1,17 @@
 // Each member authenticates with Firebase Auth before any company data is read.
 const PKG_LABEL = { free: "Free", bronze: "Bronze", silver: "Silver", gold: "Gold", platinum: "Platinum" };
 const ROLE_LANDING = { pekerja: "/w/readiness", supervisor: "/s/overview", management: "/m/overview" };
-const MemberLogin = ({ inviteCode = "", inviteToken = "" }) => {
+const PortalSessionGate = ({ session, workerOnly = false }) => <main className="nt-auth-screen"><section className="nt-auth-box">
+  <Brand size={30}/><div className="portal-symbol"><VisualIcon name={workerOnly ? "signal" : "team"} size={34}/></div>
+  <h1 className="nt-auth-title">{!window.ntPortal.apps(session).length ? "Akses belum tersedia" : workerOnly ? "Aplikasi khusus pekerja" : "Portal akun berbeda"}</h1>
+  <p className="nt-auth-text">Akun ini terdaftar sebagai {window.ntPortal.roles[session.role]?.label || "anggota"}.{!window.ntPortal.apps(session).length ? " Hubungi pemilik perusahaan untuk memeriksa peran dan paket akun." : workerOnly ? " Buka portal petugas melalui browser laptop." : " Gunakan portal sesuai peran akun Anda."}</p>
+  {!!window.ntPortal.apps(session).length && <a className="nt-price-cta portal-browser-link" href={`/?portal=web#${window.ntPortal.login(session.role)}`} target="_blank" rel="noopener">Buka portal {window.ntPortal.roles[session.role]?.label || "akun"}</a>}
+  <button type="button" className="nt-auth-demo" onClick={async()=>{await window.ntLogout();navigate(window.ntPortal.login(workerOnly?"pekerja":null));}}>Ganti akun</button>
+</section></main>;
+const MemberLogin = ({ inviteCode = "", inviteToken = "", portalRole = "" }) => {
   const isInvite = !!inviteCode && !!inviteToken;
+  const selectedRole = isInvite || window.ntPortal.workerApp() ? "pekerja" : portalRole;
+  const portal = window.ntPortal.roles[selectedRole];
   const [memberName, setMemberName] = React.useState("");
   const [code, setCode] = React.useState(inviteCode);
   const [email, setEmail] = React.useState("");
@@ -30,6 +39,7 @@ const MemberLogin = ({ inviteCode = "", inviteToken = "" }) => {
     if (!session && isInvite) session = await window.ntCompany.joinWithLink(inviteCode, inviteToken, memberName || window.NT_FIREBASE.auth.currentUser?.displayName || "Pekerja");
     else if (!session && code.trim()) session = await window.ntCompany.acceptInvitation(code);
     if (!session) throw new Error("Keanggotaan belum tersedia. Hubungi pengelola perusahaan.");
+    if (!window.ntPortal.matches(session,selectedRole)) return;
     window.toast?.("Selamat datang, " + session.memberName + "!", { kind: "success" });
     navigate(ROLE_LANDING[session.role] || "/w/readiness");
   };
@@ -48,17 +58,23 @@ const MemberLogin = ({ inviteCode = "", inviteToken = "" }) => {
     if (!user.emailVerified) { setVerify(true); return; }
     await enter();
   });
+  if (!portal && !isInvite) return <main className="nt-auth-screen"><section className="nt-auth-box portal-picker">
+    <Brand size={30}/><h1 className="nt-auth-title">Masuk ke ruang Anda</h1><p className="nt-auth-text">Pilih portal sesuai akun perusahaan.</p>
+    <div className="portal-choices">{Object.entries(window.ntPortal.roles).map(([role,p])=><Link key={role} to={window.ntPortal.login(role)} className="portal-choice"><span className="portal-choice-icon"><VisualIcon name={p.icon} size={25}/></span><span><strong>{p.label}</strong><small>{p.description}</small></span><span aria-hidden="true">↗</span></Link>)}</div>
+    <div className="nt-auth-foot"><Link to="/join">Daftarkan perusahaan</Link></div>
+  </section></main>;
   return (
     <div className="nt-auth-screen">
       <span className="nt-landing-orb nt-landing-orb--a" />
       <span className="nt-landing-orb nt-landing-orb--b" />
       <div className="nt-auth-box">
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 6 }}><Brand size={30} /></div>
-        <h1 className="nt-auth-title">{verify ? "Verifikasi email Anda" : register ? isInvite ? "Bergabung sebagai pekerja" : "Aktifkan akun anggota" : "Masuk ke NeuroTech"}</h1>
+        <div className="portal-symbol"><VisualIcon name={portal.icon} size={28}/><span>{portal.label}</span></div>
+        <h1 className="nt-auth-title">{verify ? "Verifikasi email Anda" : register ? isInvite ? "Bergabung sebagai pekerja" : "Aktifkan akun anggota" : `Masuk ${portal.label}`}</h1>
         <p className="nt-auth-text">
           {verify ? "Buka tautan verifikasi di email Anda. Setelah selesai, tekan tombol di bawah."
             : register ? isInvite ? "Isi data Anda sendiri. Setelah verifikasi email, Anda langsung bergabung sebagai pekerja." : "Untuk undangan email lama, gunakan email yang didaftarkan pengelola."
-            : "Masuk dengan email dan password Anda."}
+            : portal.description}
         </p>
         <form onSubmit={(event) => { event.preventDefault(); if (!busy) verify ? run(enter) : submit(); }}>
           {!isInvite && <label className="nt-join-field" style={{ marginTop: 18 }}>
@@ -85,7 +101,8 @@ const MemberLogin = ({ inviteCode = "", inviteToken = "" }) => {
             {busy ? "Memproses…" : verify ? "Saya sudah verifikasi · lanjut" : register ? "Buat akun & kirim verifikasi" : "Masuk"}
           </button>
         </form>
-        {!verify && !register && !isInvite && <button type="button" className="nt-auth-demo" disabled={busy} onClick={goDemo}>Coba mode demo <span>Simulasi tanpa akun atau Muse</span></button>}
+        {!verify && !register && !isInvite && <button type="button" className="nt-auth-demo" disabled={busy} onClick={async()=>{await goDemo();navigate(window.ntPortal.roles[selectedRole].home);}}>Coba mode demo <span>Simulasi {portal.label.toLowerCase()}</span></button>}
+        {!window.ntPortal.workerApp() && !isInvite && <div className="nt-auth-foot"><Link to="/login">Pilih portal lain</Link></div>}
         {verify ? <div className="nt-auth-foot">
           <a onClick={() => run(async () => { await window.ntAuth.resendVerification(); window.toast?.("Email verifikasi dikirim.", { kind: "info" }); })}>Kirim ulang email</a>
           {" · "}<a onClick={() => run(async () => { await window.ntAuth.signOut(); setVerify(false); })}>Ganti akun</a>
@@ -99,11 +116,11 @@ const MemberLogin = ({ inviteCode = "", inviteToken = "" }) => {
               await window.ntAuth.resetPassword(email);
               window.toast?.("Jika akun tersedia, tautan reset password dikirim ke email Anda.", { kind: "info" });
             })}>Lupa password?</a>
-            {" · "}<a onClick={() => navigate("/join")}>Daftarkan perusahaan</a>
+            {!window.ntPortal.workerApp() && <>{" · "}<a onClick={() => navigate("/join")}>Daftarkan perusahaan</a></>}
           </div>
         </>}
       </div>
     </div>
   );
 };
-Object.assign(window, { MemberLogin });
+Object.assign(window, { MemberLogin, PortalSessionGate });

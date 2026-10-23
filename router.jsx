@@ -22,6 +22,7 @@ const useHashRoute = () => {
   return parseRoute(hash);
 };
 
+const staffPath = (path) => window.ntPortal.staffPath(path);
 const navigate = (to) => {
   if (typeof window === "undefined") return;
   const h = to.startsWith("#") ? to : "#" + to;

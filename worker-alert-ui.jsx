@@ -33,7 +33,7 @@ const WorkerAlertNotice = () => {
 };
 const StaffAlertSummary = () => {
   const state=useWorkerAlerts();const open=state.rows.filter(r=>!r.resolvedAt),confirmed=open.filter(r=>r.acknowledgedAt);
-  return <section className="staff-alert-summary"><div className="message-art" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none"><path d="M9 8h30v24H22l-10 8v-8H9zM16 16h16M16 23h10" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round"/></svg></div><div><small>PESAN & TINDAK LANJUT</small><h2>{state.error?"Periksa koneksi pesan":`${open.length} alert aktif`}</h2><p>{confirmed.length} dikonfirmasi pekerja · {state.rows.filter(r=>r.resolvedAt).length} selesai</p></div><Link className="archive-primary" to="/s/alerts">Kelola alert ↗</Link></section>;
+  return <section className="staff-alert-summary"><div className="message-art" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none"><path d="M9 8h30v24H22l-10 8v-8H9zM16 16h16M16 23h10" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round"/></svg></div><div><small>PESAN & TINDAK LANJUT</small><h2>{state.error?"Periksa koneksi pesan":`${open.length} alert aktif`}</h2><p>{confirmed.length} dikonfirmasi pekerja · {state.rows.filter(r=>r.resolvedAt).length} selesai</p></div><Link className="archive-primary" to={staffPath("/s/alerts")}>Kelola alert ↗</Link></section>;
 };
 const StaffAlertCenter = () => {
   const state=useWorkerAlerts(),members=(window.ntSession?.get()?.members||[]).filter(m=>m.role==="pekerja"&&m.uid);

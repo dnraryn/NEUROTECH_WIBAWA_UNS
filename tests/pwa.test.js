@@ -29,6 +29,7 @@ test('installation requires a browser prompt and can be retried after dismissal;
   b.c.dispatchEvent(prompt); assert.equal(b.c.ntPWA.state().canInstall, true);
   b.emit('appinstalled'); assert.equal(b.c.ntPWA.state().installed, true);
   assert.equal(b.c.ntPWA.state().canInstall, false);
+  assert.equal(b.c.ntPWA.state().standalone,false,'installing does not turn this browser tab into the worker application');
 });
 
 test('service worker updates cannot reload an active measurement or an unfinished archive', async () => {

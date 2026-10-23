@@ -166,7 +166,7 @@ const WorkerProfile = () => {
             await window.ntLogout();
             setSignOutModal(false);
             window.toast?.("Anda telah keluar", { kind: "success" });
-            navigate("/login");
+            navigate("/login/pekerja");
           }}>Keluar</NeuroBtn>
         </>
       }

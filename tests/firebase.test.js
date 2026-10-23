@@ -121,3 +121,11 @@ test('ordinary refresh preserves Bluetooth identity; revoked membership clears t
   assert.equal(c.ntSession.get(), null); assert.equal(count, 1);
   assert.equal(c.WORKERS_BY_ID.owner, undefined);
 });
+test('an authorized role change reloads the data scope even when company and UID stay the same',async()=>{
+  const {c,paths}=await setup('pekerja');let resets=0;
+  c.addEventListener('nt-session',()=>resets++);
+  paths.get('users/worker').role='supervisor';paths.get('companies/A/members/worker').role='supervisor';
+  await c.ntAuth.refresh();
+  assert.equal(c.ntSession.get().role,'supervisor');assert.equal(resets,1);
+  assert.equal(c.ntSession.get().members.length,2);
+});

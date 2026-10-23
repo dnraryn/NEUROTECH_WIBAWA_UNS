@@ -151,7 +151,7 @@ const WorkerAppInstall = () => {
     <h1 className="nt-auth-title">Satu ketukan, siap pantau.</h1>
     <p className="nt-auth-text">Pasang NeuroTech di layar utama HP untuk mengakses Muse, hasil sesi, dan riwayat pribadi Anda.</p>
     <WorkerAppInstallCard always />
-    <button className="nt-price-cta" type="button" onClick={() => navigate(account ? "/w/readiness" : "/login")}>{account ? "Buka beranda pekerja" : "Masuk ke akun pekerja"}</button>
+    <button className="nt-price-cta" type="button" onClick={() => navigate(account?.role === "pekerja" ? "/w/readiness" : "/login/pekerja")}>{account?.role === "pekerja" ? "Buka beranda pekerja" : "Masuk ke akun pekerja"}</button>
     <p className="worker-app-limits">Untuk pengukuran Muse, gunakan Chrome Android dan tetap buka aplikasi selama sesi. Login dan sinkronisasi memerlukan internet.</p>
     <Link to="/landing" className="worker-app-back">Kembali ke website</Link>
   </div></main>;

@@ -93,5 +93,13 @@
     }[result.status];
     return result;
   }
-  window.ntSessionInsights = { rows: rows, aggregate: aggregate, status: status, day: day, assess: assess };
+  function connection(record, options) {
+    options = options || {};
+    if (!record) return { key:"none", label:"Belum ada sesi" };
+    if (record.status !== "recording") return {key:"ended",label:"Sesi selesai"};
+    if (!options.confirmed) return {key:"unknown",label:"Belum terkonfirmasi"};
+    var age = (options.now ?? Date.now()) - record.updatedAt;
+    return age >= -5000 && age <= 90000 ? {key:"active",label:"Sesi mengirim"} : {key:"stale",label:"Pembaruan terhenti"};
+  }
+  window.ntSessionInsights = { rows: rows, aggregate: aggregate, status: status, day: day, assess: assess, connection: connection };
 })();

@@ -1,6 +1,15 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {browser}=require('./helpers');
 function setup(){const b=browser();b.load('session-insights.js');return b.c.ntSessionInsights;}
+test('session delivery status expires without new uploads and never treats cached data as online',()=>{
+ const api=setup(),record={status:'recording',updatedAt:1000};
+ assert.equal(api.connection(record,{confirmed:true,now:91000}).key,'active');
+ assert.equal(api.connection(record,{confirmed:true,now:91001}).key,'stale');
+ assert.equal(api.connection(record,{confirmed:false,now:2000}).key,'unknown');
+ assert.equal(api.connection({...record,status:'completed'},{confirmed:true,now:2000}).key,'ended');
+ assert.equal(api.connection(null,{confirmed:true}).key,'none');
+ assert.equal(api.connection(record,{confirmed:true,now:-9000}).key,'stale');
+});
 const minute=(fi=40,changes={})=>({minute:0,n:60,partial:0,provisional:0,fi:fi*60,cli:40*60,ei:50*60,incidents:0,...changes});
 const row=(minutes=[minute()],changes={})=>({source:'muse',algorithmVersion:'eeg-heuristic-v4',minutes,...changes});
 test('conclusions require enough calibrated results and do not classify empty, demo, legacy, or calibration-only data',()=>{

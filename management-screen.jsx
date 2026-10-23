@@ -48,6 +48,14 @@ const ManagementSidebar = ({ active = "overview" }) => {
     (session && session.role === "management" ? "Manajemen" : "HSE Manager");
   const initials = ownerName.split(/\s+/).filter(Boolean)
     .map((w) => (w[0] || "").toUpperCase()).slice(0, 2).join("") || "AR";
+  if (session) {
+    NAV[0].to = "/m/overview";
+    NAV.find(n=>n.id === "report").to = "/m/reports";
+    NAV.splice(1,0,
+      {id:"workers",label:"Anggota",to:"/m/workers",icon:<VisualIcon name="team" size={16}/>},
+      {id:"alerts",label:"Alert pekerja",to:"/m/alerts",icon:<VisualIcon name="message" size={16}/>},
+      {id:"schedule",label:"Jadwal shift",to:"/m/schedule",icon:<VisualIcon name="history" size={16}/>});
+  }
 
   const navIndex = (zoomKey) => NAV.findIndex((n) => n.zoom === zoomKey);
 
@@ -96,6 +104,9 @@ const ManagementSidebar = ({ active = "overview" }) => {
     setHl(it.id);
     _mgmtLastActive = it.id;
     if (it.to) { navigate(it.to); return; }
+    if ((it.zoom || it.id === "settings") && !window._mgmtOpenZoom) {
+      window._mgmtPendingZoom = it.zoom || "settings"; navigate("/m/overview"); return;
+    }
     // Pola Fatigue / Indeks Lini / Insight AI / Laporan SMK3 → open zoom modal
     // inside this dashboard with a direction matching the sidebar item's
     // position relative to whatever is currently open (or Overview as origin).
@@ -208,8 +219,7 @@ const _MGMT_DAYS = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabt
 const ManagementDashboard = () => {
   const session = window.ntSession?.get();
   const archive = useSessionArchive();
-  const [view, setView] = React.useState("company");
-  const companyView = !!session && view === "company";
+  const companyView = !!session;
   const [now, setNow] = React.useState(Date.now());
   const [signalDetails, setSignalDetails] = React.useState(false);
   const [diagnosticsBusy, setDiagnosticsBusy] = React.useState(false);
@@ -238,6 +248,7 @@ const ManagementDashboard = () => {
   React.useEffect(() => {
     const fn = (k, dir) => { setZoomDir(dir || "down"); setZoom(k); };
     window._mgmtOpenZoom = fn;
+    if (window._mgmtPendingZoom) { fn(window._mgmtPendingZoom); delete window._mgmtPendingZoom; }
     return () => { if (window._mgmtOpenZoom === fn) delete window._mgmtOpenZoom; };
   }, []);
   React.useEffect(() => { window._mgmtCurrentZoom = zoom; window.dispatchEvent(new Event("nt-management-zoom")); }, [zoom]);
@@ -351,7 +362,6 @@ const ManagementDashboard = () => {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-          {session && <button type="button" className="frm-button" onClick={() => { setView(companyView ? "live" : "company"); setNow(Date.now()); }}>{companyView ? "Sesi perangkat ini" : "Ringkasan perusahaan"}</button>}
           {!demo && !companyView && <button type="button" className="frm-button" onClick={openMetrics}>Data sesi</button>}
           <div style={{
             display: "flex", gap: 3, padding: 3, borderRadius: 999,
@@ -654,7 +664,7 @@ const ManagementDashboard = () => {
         title={heatCell ? heatCell.shift + " · " + heatCell.hour + " setelah mulai" : ""}
         subtitle={heatCell ? "Rata-rata Fatigue Index pada slot ini: " + heatCell.fi + ". Hasil adalah estimasi prototipe; evaluasi bersama kondisi pekerja dan kualitas pengukuran." : ""}
         tone={heatCell?.fi > 70 ? "danger" : heatCell?.fi > 50 ? "warn" : "success"}
-        actions={<><NeuroBtn tone="ghost" onClick={() => setHeatCell(null)}>Tutup</NeuroBtn><Link to="/s/schedule"><NeuroBtn tone="primary" onClick={() => setHeatCell(null)}>Tinjau jadwal</NeuroBtn></Link></>}
+        actions={<><NeuroBtn tone="ghost" onClick={() => setHeatCell(null)}>Tutup</NeuroBtn><Link to={staffPath("/s/schedule")}><NeuroBtn tone="primary" onClick={() => setHeatCell(null)}>Tinjau jadwal</NeuroBtn></Link></>}
       />
 
       {/* ── Pola Fatigue zoom modal — larger heatmap when opened from sidebar */}

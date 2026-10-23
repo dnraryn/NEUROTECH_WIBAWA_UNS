@@ -6,6 +6,7 @@
   var lastResult = null, lastCloudSave = 0, lastUiEmit = 0, lastSyncedAt = null, cachedState = null, revisions = new Map(), savedRevisions = new Map();
   var localQueue = Promise.resolve(), cloudRows = [], reviews = {}, cloudError = "";
   var cloudUnsubscribers = [], cloudListening = false, syncRequested = false;
+  var serverConfirmed = false;
   var CLOUD_SAVE_MS = 60000;
   var clone = function (x) { return JSON.parse(JSON.stringify(x)); };
   var session = function () { return window.ntSession?.get?.() || null; };
@@ -188,7 +189,7 @@
     var combined = new Map();
     cloudRows.forEach(function (r) { combined.set(r.id, r); });
     records.forEach(function (r) { var remote = combined.get(r.id); if (!remote || r.updatedAt >= remote.updatedAt) combined.set(r.id, r); });
-    cachedState = { ready: ready, storage: storage, error: error, cloudError: cloudError, syncing: syncing, cloudEnabled: cloudEnabled(), liveUpdates: cloudListening, lastSyncedAt: lastSyncedAt, cloudLimit: 60,
+    cachedState = { ready: ready, storage: storage, error: error, cloudError: cloudError, syncing: syncing, cloudEnabled: cloudEnabled(), liveUpdates: cloudListening, serverConfirmed: serverConfirmed, online: window.navigator.onLine !== false, lastSyncedAt: lastSyncedAt, cloudLimit: 60,
       activeId: active?.id || null, rows: Array.from(combined.values()).sort(function (a, b) { return b.startedAt - a.startedAt; }).map(function (r) {
         return Object.assign(clone(r), { summary: summary(r), review: clone(reviews[r.id] || null),
           synced: r.source !== "demo" && (r._remote === true || ((savedRevisions.get(r.id) || 0) >= (revisions.get(r.id) || 1))) });
@@ -238,14 +239,15 @@
     }
   }
   function stopCloudListeners() {
-    var previous = cloudUnsubscribers; cloudUnsubscribers = []; cloudListening = false;
+    var previous = cloudUnsubscribers; cloudUnsubscribers = []; cloudListening = false; serverConfirmed = false;
     previous.forEach(function (unsubscribe) { unsubscribe(); });
   }
   function acceptSessions(result, generation) {
     if (generation !== epoch) return;
     cloudRows = result.docs.map(function (d) { var r = d.data(); delete r.savedAt; return Object.assign(r, { _remote: true }); }).filter(validRecord);
     cloudError = cloudRows.length !== result.docs.length ? "Sebagian arsip memiliki format tidak valid dan tidak ditampilkan." : "";
-    if (result.metadata?.fromCache !== true) lastSyncedAt = now();
+    serverConfirmed = result.metadata?.fromCache === false && result.metadata?.hasPendingWrites !== true;
+    if (serverConfirmed) lastSyncedAt = now();
     emit();
   }
   function acceptReviews(result, generation) {
@@ -351,7 +353,8 @@
     }).catch(function () {});
   });
   window.addEventListener("nt-session", loadIdentity);
-  window.addEventListener("online", function () { sync(); });
+  window.addEventListener("online", function () { emit(); sync(); });
+  window.addEventListener("offline", function () { serverConfirmed = false; emit(); });
   window.addEventListener("pagehide", function () { if (active) { active.updatedAt = now(); persist(active); } });
   window.document?.addEventListener("visibilitychange", function () {
     if (active) { active.updatedAt = now(); persist(active); }

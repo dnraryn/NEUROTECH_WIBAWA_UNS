@@ -3,13 +3,29 @@ const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const { browser, source } = require('./helpers');
 
-test('staff can measure their own Muse data while workers remain locked to the personal area', () => {
+test('authenticated portals stay isolated by stored role and staff never fall back into the worker app', () => {
+  const b=browser();b.load('portal-access.js');
   const code = source('app.jsx');
-  const { allowedApps } = vm.runInNewContext(code.slice(code.indexOf('const ROLE_HOME'), code.indexOf('// Resolve a route')) + '\n({ allowedApps });');
+  const { allowedApps } = vm.runInContext(code.slice(code.indexOf('const ROLE_HOME'), code.indexOf('// Resolve a route')) + '\n({ allowedApps });',b.c);
   assert.deepEqual(Array.from(allowedApps({ role: 'pekerja', package: 'bronze' })), ['w']);
-  assert.deepEqual(Array.from(allowedApps({ role: 'supervisor', package: 'bronze' })), ['w', 's']);
-  assert.deepEqual(Array.from(allowedApps({ role: 'management', package: 'gold' })), ['w', 's', 'm']);
-  assert.deepEqual(Array.from(allowedApps({ role: 'management', package: 'free' })), ['w']);
+  assert.deepEqual(Array.from(allowedApps({ role: 'supervisor', package: 'bronze' })), ['s']);
+  assert.deepEqual(Array.from(allowedApps({ role: 'management', package: 'gold' })), ['m']);
+  assert.deepEqual(Array.from(allowedApps({ role: 'management', package: 'free' })), []);
+  assert.deepEqual(Array.from(allowedApps({ role: 'forged', package: 'gold' })), []);
+  assert.equal(b.c.ntPortal.matches({role:'pekerja'},'supervisor'),false);
+  assert.equal(b.c.ntPortal.matches({role:'management'},'management'),true);
+});
+
+test('installed and app-link launches are worker-only; management links stay in its own portal',()=>{
+  const b=browser();b.c.URLSearchParams=URLSearchParams;b.c.location={search:''};b.load('portal-access.js');
+  assert.equal(b.c.ntPortal.workerApp(),false);
+  b.c.location.search='?app=worker';assert.equal(b.c.ntPortal.workerApp(),true);
+  b.c.location.search='?portal=web';b.c.ntPWA={state:()=>({installed:true,standalone:false})};assert.equal(b.c.ntPortal.workerApp(),false);
+  b.c.ntPWA.state=()=>({installed:true,standalone:true});assert.equal(b.c.ntPortal.workerApp(),true);
+  b.c.ntSession.set({role:'management'});
+  assert.equal(b.c.ntPortal.staffPath('/s/workers/member%40example.test'),'/m/workers/member%40example.test');
+  assert.equal(b.c.ntPortal.staffPath('/w/live'),'/w/live');
+  b.c.ntSession.clear();assert.equal(b.c.ntPortal.staffPath('/s/reports'),'/s/reports');
 });
 
 test('real members have no fabricated health measurements and background ticks cannot invent them', async () => {

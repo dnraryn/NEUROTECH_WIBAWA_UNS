@@ -86,7 +86,7 @@ const SupervisorWorkersList = () => {
         title="Pekerja"
         right={
           <div style={{ display: "flex", gap: 8 }}>
-            <NeuroBtn tone="default" size="sm" onClick={() => session ? navigate("/s/reports") : window.toast?.("Export pekerja → CSV (mock)", { kind: "info" })}>
+            <NeuroBtn tone="default" size="sm" onClick={() => session ? navigate(staffPath("/s/reports")) : window.toast?.("Export pekerja → CSV (mock)", { kind: "info" })}>
               {session ? "Buka laporan" : "Export CSV"}
             </NeuroBtn>
             <NeuroBtn tone="primary" size="sm" onClick={() => setAddOpen(true)}>
@@ -158,7 +158,7 @@ const SupervisorWorkersList = () => {
           {filtered.map((w) => {
             const s = STATUS_MAP[w.status];
             return (
-              <Link key={w.id} to={`/s/workers/${w.id}`}>
+              <Link key={w.id} to={staffPath(`/s/workers/${w.id}`)}>
                 <div className="nt-card-click" style={{
                   display: "grid",
                   gridTemplateColumns: session ? "1.9fr 1.05fr 0.85fr 0.58fr 0.58fr 0.95fr 44px" : "1.9fr 1.05fr 0.85fr 0.58fr 0.58fr 0.58fr 0.68fr 0.95fr 44px",
@@ -175,6 +175,7 @@ const SupervisorWorkersList = () => {
                     }}>{w.name.split(" ").map((x) => x[0]).slice(0, 2).join("")}</div>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: "var(--nt-text)" }}>{w.name}</div>
+                      {session && <small className={`worker-connection-label is-${w.connection.key}`}>{w.connection.label}</small>}
                       {(w.roleDesc || (session && w.recordedAt)) && (
                         <div style={{ fontSize: 10.5, color: "var(--nt-text-3)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{session ? realDate(w.recordedAt) : w.roleDesc}</div>
                       )}
@@ -319,7 +320,7 @@ const SupervisorWorkerDetail = ({ id }) => {
       <div className="nt-screen" style={{ padding: 0, display: "grid", gridTemplateColumns: "228px 1fr" }}>
         <SupervisorSidebar active="workers" />
         <main style={{ padding: 28 }}>
-          <PageHeader backTo="/s/workers" title="Pekerja tidak ditemukan" />
+          <PageHeader backTo={staffPath("/s/workers")} title="Pekerja tidak ditemukan" />
           <div className="neu-surface" style={{ padding: 24, fontSize: 13, color: "var(--nt-text-2)" }}>
             ID pekerja <code>{id}</code> tidak ada di sistem.
           </div>
@@ -337,7 +338,7 @@ const SupervisorWorkerDetail = ({ id }) => {
 
     <main style={{ padding: "22px 28px 22px 6px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 16 }}>
       <PageHeader
-        backTo="/s/workers"
+        backTo={staffPath("/s/workers")}
         eyebrow={`${w.role} · Shift ${w.shift} · Upd ${w.t}`}
         title={w.name}
         right={
@@ -462,7 +463,7 @@ const SupervisorWorkerDetail = ({ id }) => {
       <div className="neu-surface" style={{ padding: 18 }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "var(--nt-text)" }}>Alert pekerja ini</div>
-          <Link to="/s/alerts"><span style={{ fontSize: 10.5, color: "var(--nt-brand-mid)", letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 700, cursor: "pointer" }}>Semua alert →</span></Link>
+          <Link to={staffPath("/s/alerts")}><span style={{ fontSize: 10.5, color: "var(--nt-brand-mid)", letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 700, cursor: "pointer" }}>Semua alert →</span></Link>
         </div>
         {relatedAlerts.length === 0 ? (
           <div style={{ fontSize: 12, color: "var(--nt-text-3)", padding: "12px 0" }}>Tidak ada alert hari ini untuk pekerja ini.</div>
@@ -471,7 +472,7 @@ const SupervisorWorkerDetail = ({ id }) => {
             {relatedAlerts.map((a) => {
               const sa = STATUS_MAP[a.status];
               return (
-                <Link key={a.id} to={`/s/alerts/${a.id}`}>
+                <Link key={a.id} to={staffPath(`/s/alerts/${a.id}`)}>
                   <div className="nt-card-click" style={{
                     display: "flex", alignItems: "center", gap: 12,
                     padding: "10px 14px", borderRadius: 12,

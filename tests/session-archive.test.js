@@ -158,6 +158,15 @@ test('cloud listeners are owner scoped, update reports automatically, and reject
   listeners[0].next({ docs: [{ data: () => ({ ...row, updatedAt: 1500 }) }], metadata: { fromCache: false } });
   assert.equal(b.c.ntSessionArchive.state().rows.length, 1);
   assert.ok(b.c.ntSessionArchive.state().lastSyncedAt);
+  assert.equal(b.c.ntSessionArchive.state().serverConfirmed,true);
+  listeners[0].next({docs:[{data:()=>row}],metadata:{fromCache:true}});
+  assert.equal(b.c.ntSessionArchive.state().serverConfirmed,false);
+  listeners[0].next({docs:[{data:()=>row}],metadata:{fromCache:false,hasPendingWrites:true}});
+  assert.equal(b.c.ntSessionArchive.state().serverConfirmed,false);
+  listeners[0].next({docs:[{data:()=>row}],metadata:{fromCache:false}});
+  b.c.navigator.onLine=false;b.emit('offline');
+  assert.equal(b.c.ntSessionArchive.state().serverConfirmed,false);
+  assert.equal(b.c.ntSessionArchive.state().online,false);
   b.c.ntSession.clear(); await settle(); assert.ok(listeners.every(listener => listener.stopped));
   listeners[0].next({ docs: [{ data: () => row }] });
   assert.equal(b.c.ntSessionArchive.state().rows.length, 0);
