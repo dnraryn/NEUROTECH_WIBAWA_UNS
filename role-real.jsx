@@ -235,7 +235,7 @@ const RealWorkerHome = () => {
   </div>;
 };
 
-const RealWorkerHistory = () => <div className="nt-screen personal-archive" style={{ padding: "20px 16px 100px" }}><Link className="archive-back" to="/w/readiness">← Kembali ke halaman pribadi</Link><h1 style={{ fontSize: 22 }}>Arsip pribadi</h1><SessionArchiveHub ownOnly /><NeuroTabBar active="chart" /></div>;
+const RealWorkerHistory = () => <div className="nt-screen personal-archive" style={{ padding: "20px 16px 100px" }}><SessionArchiveHub ownOnly backTo="/w/readiness" heading="Arsip pribadi" /><NeuroTabBar active="chart" /></div>;
 
 const CompanyArchiveOverview = ({ state, data }) => {
   const labels = { normal: "Normal", waspada: "Waspada", berisiko: "Berisiko", kritis: "Kritis", unavailable: "Belum tersedia" };

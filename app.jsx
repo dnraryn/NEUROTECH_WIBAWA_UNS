@@ -465,6 +465,10 @@ const App = () => {
 
   const ScreenComponent = resolved.c;
   const activePersona = PERSONAS.find((p) => p.id === route.app);
+  // Pages with their own return control do not need a second shell control.
+  const screenHasBack = resolved.frame === "mobile" || ["login", "invite", "app"].includes(route.app)
+    || (route.app === "join" && route.page === "recover")
+    || (["s", "m"].includes(route.app) && ["workers", "alerts", "reports"].includes(route.page) && !!route.id);
   // Members see only the persona tabs their role allows; demo sees all.
   const roleApps = session && !demo ? allowedApps(session) : null;
   const visiblePersonas = roleApps ? PERSONAS.filter((p) => roleApps.includes(p.id)) : PERSONAS;
@@ -475,7 +479,7 @@ const App = () => {
         <>
           <header className="app-topbar">
             <div className="app-topbar-brand" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <BackButton disabled={false} />
+              {!screenHasBack && <BackButton disabled={false} />}
               <Link to={homeOf} style={{ display: "flex" }}>
                 <div className="app-brand">
                   <img src="assets/logo-topleft.png" alt="NeuroTech" width="40" height="40" style={{ borderRadius: 10, objectFit: "contain" }} />
@@ -529,7 +533,7 @@ const App = () => {
         </>
       )}
 
-      {chromeless && <BackButton floating disabled={route.app === "landing"} />}
+      {chromeless && route.app !== "landing" && !screenHasBack && <BackButton floating disabled={false} />}
 
       <main className="app-stage" style={chromeless ? { padding: 0 } : undefined}>
         <div className={"app-frame app-frame--" + resolved.frame}>

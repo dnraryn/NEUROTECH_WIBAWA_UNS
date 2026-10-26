@@ -352,9 +352,7 @@ const WorkerLive = () => {
     <div className="nt-screen worker-live worker-calibration-screen" style={{ paddingBottom: 100 }}>
       <NeuroStatusBar time="11:42" />
       <div className="worker-calibration-nav">
-        <Link to="/w/readiness" aria-label="Kembali ke beranda"><NeuroIconBtn size={40}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
-        </NeuroIconBtn></Link>
+        <WorkerBackLink to="/w/readiness" />
         <strong>KALIBRASI MUSE</strong>
         <AskAIButton variant="plus" />
       </div>
@@ -373,11 +371,7 @@ const WorkerLive = () => {
     <NeuroStatusBar time="11:42" />
 
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 24px 0" }}>
-      <Link to="/w/readiness">
-        <NeuroIconBtn size={40}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
-        </NeuroIconBtn>
-      </Link>
+      <WorkerBackLink to="/w/readiness" />
       <div style={{ fontSize: 10, letterSpacing: "0.24em", color: "var(--nt-text-2)", fontWeight: 600, whiteSpace: "nowrap" }}>
         LIVE MONITOR
       </div>
@@ -573,11 +567,7 @@ const WorkerStats = () => {
   <div className="nt-screen" style={{ paddingBottom: 100 }}>
     <NeuroStatusBar time="15:08" />
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 24px 0" }}>
-      <Link to="/w/readiness">
-        <NeuroIconBtn size={40}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
-        </NeuroIconBtn>
-      </Link>
+      <WorkerBackLink to="/w/readiness" />
       <div style={{ fontSize: 10, letterSpacing: "0.32em", color: "var(--nt-text-2)", fontWeight: 600, whiteSpace: "nowrap" }}>STATISTIK</div>
       <NeuroIconBtn size={40} onClick={() => window.toast?.("Pencarian belum tersedia, fitur akan datang", { kind: "info" })}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
@@ -896,11 +886,7 @@ const WorkerWellness = () => {
     <NeuroStatusBar time="11:42" />
 
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 24px 0" }}>
-      <Link to="/w/readiness">
-        <NeuroIconBtn size={40}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
-        </NeuroIconBtn>
-      </Link>
+      <WorkerBackLink to="/w/readiness" />
       <div style={{ fontSize: 10, letterSpacing: "0.36em", color: "var(--nt-text-2)", fontWeight: 600, whiteSpace: "nowrap" }}>KONDISI</div>
       <NeuroIconBtn size={40} onClick={() => setInfoOpen(true)}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
@@ -1248,11 +1234,7 @@ const WorkerAudio = () => {
     <NeuroStatusBar time="11:50" />
 
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 24px 0" }}>
-      <Link to="/w/wellness">
-        <NeuroIconBtn size={40}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
-        </NeuroIconBtn>
-      </Link>
+      <WorkerBackLink to="/w/wellness" label="Kembali ke kondisi" />
       <div style={{ fontSize: 10, letterSpacing: "0.2em", color: "var(--nt-text-2)", fontWeight: 600, whiteSpace: "nowrap" }}>NEUROFEEDBACK</div>
       <NeuroIconBtn size={40} onClick={() => setInfoOpen(true)}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>

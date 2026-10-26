@@ -16,11 +16,7 @@ const WorkerProfile = () => {
     <NeuroStatusBar time={new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} />
 
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 24px 0" }}>
-      <Link to="/w/readiness">
-        <NeuroIconBtn size={40}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
-        </NeuroIconBtn>
-      </Link>
+      <WorkerBackLink to="/w/readiness" />
       <div style={{ fontSize: 12, letterSpacing: "0.42em", color: "var(--nt-text-2)", fontWeight: 600 }}>P R O F I L</div>
       <NeuroIconBtn size={40} onClick={() => window.toast?.("Edit profil, fitur akan datang", { kind: "info" })}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4z"/></svg>

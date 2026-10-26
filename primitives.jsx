@@ -161,6 +161,11 @@ const NeuroIconBtn = ({ children, size = 44, active, onClick, style }) => (
 );
 
 // Status pill (Normal / Waspada / Berisiko / Kritis).
+const WorkerBackLink = ({ to = "/w/readiness", label = "Kembali ke beranda" }) => (
+  <Link to={to} className="worker-back" aria-label={label} title={label}>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+  </Link>
+);
 // Monochromatic blue severity scale — light blue (safe) → navy (critical).
 // Replaces the previous green/yellow/orange/red palette per design refresh;
 // hierarchy comes from the lightness ramp instead of hue.
@@ -518,7 +523,7 @@ const SidebarToggle = ({ style }) => {
 };
 
 Object.assign(window, {
-  NeuroLogo, NeuroGauge, NeuroBar, NeuroSlider, NeuroIconBtn,
+  NeuroLogo, NeuroGauge, NeuroBar, NeuroSlider, NeuroIconBtn, WorkerBackLink,
   StatusPill, EEGWave, NeuroStatusBar, NeuroTabBar, STATUS_MAP, ThemeToggle,
   useSidebarCollapsed, SidebarToggle, LiveSparkline,
 });
