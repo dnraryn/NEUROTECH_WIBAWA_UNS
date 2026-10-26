@@ -343,7 +343,6 @@ const App = () => {
   const workerApp = window.ntPortal.workerApp();
   const workerPublic = !route.app || ["landing","pricing","p","join","invite","app"].includes(route.app);
   const wrongWorkerAccount = workerApp && session && session.role !== "pekerja" && !workerPublic;
-  const wrongLoginPortal = session && route.app === "login" && route.page && route.page !== session.role;
   const linkedAccount=route.app==="login" ? window.ntPortal.linkAccount() : null;
   const wrongLinkedAccount=session && linkedAccount && linkedAccount.loginCode!==session.loginCode;
   React.useEffect(() => { if (!authed) window.ntLiveStop?.(); }, [authed]);
@@ -403,7 +402,7 @@ const App = () => {
     if (authLoading) return;
     if(legacyAppEntry.current){legacyAppEntry.current=false;navigate("/landing");return;}
     if (!route.app) {navigate("/landing");return;}
-    if (wrongWorkerAccount || wrongLoginPortal || wrongLinkedAccount || (session && !allowedApps(session).length)) return;
+    if (wrongWorkerAccount || wrongLinkedAccount || (session && !allowedApps(session).length)) return;
     if (workerApp && !workerPublic && route.app !== "w" && !(route.app === "login" && route.page === "pekerja")) {
       navigate(session || demo ? "/w/readiness" : "/login/pekerja"+(route.query ? "?"+route.query : "")); return;
     }
@@ -428,7 +427,7 @@ const App = () => {
   // Login, Join, and content pages always render in their brand-dark theme.
   React.useEffect(() => {
     const apply = () => {
-      const isInApp = ["w", "s", "m"].includes(route.app) && !wrongWorkerAccount && !wrongLoginPortal && !(session && !allowedApps(session).length);
+      const isInApp = ["w", "s", "m"].includes(route.app) && !wrongWorkerAccount && !(session && !allowedApps(session).length);
       let wantLight = false;
       try {
         const saved = localStorage.getItem("nt-theme");
@@ -441,7 +440,7 @@ const App = () => {
     apply();
     window.addEventListener("nt-theme", apply);
     return () => window.removeEventListener("nt-theme", apply);
-  }, [route.path, wrongWorkerAccount, wrongLoginPortal, session?.role, session?.package]);
+  }, [route.path, wrongWorkerAccount, session?.role, session?.package]);
 
   const onLogout = async () => {
     await window.ntLogout();
@@ -453,7 +452,7 @@ const App = () => {
   const chromeless = resolved.frame === "auth" || resolved.frame === "landing";
   if (opening) return <Splash text="Memulai aplikasi…" />;
   if(legacyAppEntry.current) return <Splash text="Membuka beranda…"/>;
-  if (!authLoading && (wrongWorkerAccount || wrongLoginPortal || wrongLinkedAccount || (session && !allowedApps(session).length)))
+  if (!authLoading && (wrongWorkerAccount || wrongLinkedAccount || (session && !allowedApps(session).length)))
     return <><PortalSessionGate session={session} workerOnly={workerApp} linkedAccount={wrongLinkedAccount}/><ToastProvider/></>;
   if (!authLoading && workerApp && !workerPublic && route.app !== "w" && !(route.app === "login" && route.page === "pekerja")) return <Splash text="Membuka aplikasi pekerja…"/>;
   if (authLoading && !demo && !chromeless) return <Splash text="Memeriksa sesi…" />;

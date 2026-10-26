@@ -34,7 +34,6 @@ const MemberLogin = ({ portalRole = "", inviteCode = "" }) => {
       const session=await window.ntAuth.signInCode({code:key,password,accountCode:window.ntPortal.accountCode(code) || undefined,companyCode:company || undefined});
       if(!session)throw new Error("Akun belum aktif. Hubungi pengelola perusahaan.");
       if(workerOnly && session.role!=="pekerja"){navigate("/w/readiness");return;}
-      if(portalRole && session.role!==portalRole)return;
       window.toast?.("Selamat datang, "+session.memberName+"!",{kind:"success"});
       navigate(ROLE_LANDING[session.role]);
     }catch(e){setError(e.code?.startsWith("auth/") ? "Kode akun atau password tidak sesuai. Periksa kembali atau hubungi pengelola." : e.code==="permission-denied" ? "Akun belum tersedia atau akses sudah dicabut. Hubungi pengelola." : e.message || "Belum dapat masuk. Coba kembali.");}

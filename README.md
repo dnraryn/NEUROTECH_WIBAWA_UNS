@@ -225,7 +225,7 @@ Beranda pekerja memprioritaskan hasil Live yang tersedia, lalu sesi tersimpan pa
 
 ### Portal login dan alur lintas perangkat
 
-Website dan start_url PWA membuka landing page terlebih dahulu, termasuk saat sesi masih tersimpan. Tombol Masuk membuka kode akun > password. Setelah login, akun pekerja hanya membuka /w/*, supervisor /s/*, dan manajemen /m/*. Pemilihan portal tidak mengubah peran. Aplikasi tetap khusus pengukuran pekerja; sesi petugas yang tersimpan meminta Ganti akun ketika membuka area login/pengukuran pekerja. Landing dan pendaftaran tetap dapat dibuka.
+Website dan start_url PWA membuka landing page terlebih dahulu, termasuk saat sesi masih tersimpan. Tombol Masuk membuka kode perusahaan + kode akun, kemudian password. Setelah login, akun pekerja hanya membuka /w/*, supervisor /s/*, dan manajemen /m/*. URL login per portal hanya memberi label awal. Setelah autentikasi di website, pengguna otomatis diarahkan ke dashboard berdasarkan peran keanggotaan, tanpa meminta ganti portal. Pemilihan portal tidak mengubah peran. Aplikasi tetap khusus pengukuran pekerja; sesi petugas yang tersimpan meminta Ganti akun ketika membuka area login/pengukuran pekerja. Landing dan pendaftaran tetap dapat dibuka.
 
 Kode pribadi tersedia di Profil pekerja atau Kode saya untuk petugas. Pengelola melihatnya pada Anggota/Pekerja > Kode masuk. Kode yang ditampilkan berupa P001, P002 (pekerja), S001 (supervisor), dan M001 (manajemen), terpisah per perusahaan. `accountCodeSequences/{P|S|M}` dialokasikan dalam transaksi yang sama dengan anggota; penghapusan tidak menurunkan nomor. Kode yang telah diberikan tidak berubah saat role berubah dan tidak menentukan hak akses.
 
