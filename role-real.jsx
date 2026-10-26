@@ -218,7 +218,7 @@ const RealWorkerHome = () => {
   const result=window.ntManagement.personalResult(rows,live,account?.uid);
   const trace=result.kind==="live" ? window.ntManagement.trend(live.preview,"fi",now) : null;
   return <div className="nt-screen worker-home" style={{ padding: "22px 22px 100px", display: "flex", flexDirection: "column", gap: 16 }}>
-    <header className="worker-home-header"><div><span>{account?.companyName}</span><h1>Halo, {account?.memberName}</h1></div><AskAIButton variant="plus" /></header>
+    <header className="worker-home-header"><div><span>{account?.companyName}</span><h1>Halo, {account?.memberName}</h1></div><div className="worker-home-header-actions"><AskAIButton variant="plus"/><Link to="/w/profile" className="worker-avatar" aria-label="Buka profil">{(account?.memberName || "Pekerja").split(/\s+/).slice(0,2).map(n=>n[0]).join("")}</Link></div></header>
     <WorkerSessionPanel />
     <WorkerLiveSyncStatus />
     <WorkerCalibrationCard />

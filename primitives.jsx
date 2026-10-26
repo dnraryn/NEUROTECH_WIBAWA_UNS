@@ -143,8 +143,9 @@ const NeuroSlider = ({ value = 50, color = ["#ffc56a", "#ffaebb"], width = 90, h
 );
 
 // Neuro icon button (square or circle)
-const NeuroIconBtn = ({ children, size = 44, active, onClick, style }) => (
+const NeuroIconBtn = ({ children, size = 44, active, onClick, style, ariaLabel }) => (
   <button
+    aria-label={ariaLabel}
     onClick={onClick}
     style={{
       width: size, height: size, border: "none", cursor: "pointer",
@@ -165,6 +166,9 @@ const WorkerBackLink = ({ to = "/w/readiness", label = "Kembali ke beranda" }) =
   <Link to={to} className="worker-back" aria-label={label} title={label}>
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
   </Link>
+);
+const WorkerPageHeader = ({ title, eyebrow = "NEUROTECH", to = "/w/readiness", action = null, backLabel = "Kembali ke beranda" }) => (
+  <header className="worker-page-header"><WorkerBackLink to={to} label={backLabel}/><div><span>{eyebrow}</span><h1>{title}</h1></div><div className="worker-page-action">{action}</div></header>
 );
 // Monochromatic blue severity scale — light blue (safe) → navy (critical).
 // Replaces the previous green/yellow/orange/red palette per design refresh;
@@ -523,7 +527,7 @@ const SidebarToggle = ({ style }) => {
 };
 
 Object.assign(window, {
-  NeuroLogo, NeuroGauge, NeuroBar, NeuroSlider, NeuroIconBtn, WorkerBackLink,
+  NeuroLogo, NeuroGauge, NeuroBar, NeuroSlider, NeuroIconBtn, WorkerBackLink, WorkerPageHeader,
   StatusPill, EEGWave, NeuroStatusBar, NeuroTabBar, STATUS_MAP, ThemeToggle,
   useSidebarCollapsed, SidebarToggle, LiveSparkline,
 });

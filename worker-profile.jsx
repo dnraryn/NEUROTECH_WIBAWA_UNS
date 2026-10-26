@@ -12,19 +12,13 @@ const WorkerProfile = () => {
   const [signOutModal, setSignOutModal] = React.useState(false);
 
   return (
-  <div className="nt-screen" style={{ paddingBottom: 100 }}>
+  <div className="nt-screen worker-profile" style={{ paddingBottom: 100 }}>
     <NeuroStatusBar time={new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} />
 
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 24px 0" }}>
-      <WorkerBackLink to="/w/readiness" />
-      <div style={{ fontSize: 12, letterSpacing: "0.42em", color: "var(--nt-text-2)", fontWeight: 600 }}>P R O F I L</div>
-      <NeuroIconBtn size={40} onClick={() => window.toast?.("Edit profil, fitur akan datang", { kind: "info" })}>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4z"/></svg>
-      </NeuroIconBtn>
-    </div>
+    <WorkerPageHeader title="Profil saya" eyebrow="AKUN PEKERJA" action={<Link to="/w/stats" className="worker-avatar" aria-label="Lihat riwayat"><VisualIcon name="history" size={19}/></Link>}/>
 
     {/* Hero */}
-    <div style={{ textAlign: "center", padding: "20px 32px 0" }}>
+    <div className="worker-profile-identity" style={{ textAlign: "center", padding: "20px 32px 0" }}>
       <div style={{
         width: 88, height: 88, borderRadius: "50%",
         background: `linear-gradient(135deg, ${w.img}, ${w.img}cc)`,
@@ -39,7 +33,7 @@ const WorkerProfile = () => {
     </div>
 
     {/* Quick stats */}
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, padding: "20px 24px 0" }}>
+    <div className="worker-profile-stats" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, padding: "20px 24px 0" }}>
       {(account ? [
         { l: "Sesi bulan ini", v: personal.sessions },
         { l: "Rerata fatigue", v: archiveNumber(personal.meanFI) },
@@ -66,7 +60,7 @@ const WorkerProfile = () => {
           { l: "Notifikasi istirahat mikro (simulasi)", v: notifications, set: setNotifications, type: "toggle" },
           { l: "Auto-start istirahat (simulasi)", v: autoBreak, set: setAutoBreak, type: "toggle" },
         ] : []),
-        { l: "Kalibrasi baseline", sub: "Ulangi dengan sekitar 2 menit sinyal bersih", type: "action", onClick: () => {
+        { l: "Kalibrasi baseline", sub: "Persiapan satu menit dengan sensor terpasang", type: "action", onClick: () => {
             if (!window.ntDeviceStatus?.().real) {
               window.toast?.("Hubungkan Muse dalam mode real untuk kalibrasi.", { kind: "warn" });
               return;

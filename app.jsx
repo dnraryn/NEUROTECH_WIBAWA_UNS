@@ -474,7 +474,7 @@ const App = () => {
   const visiblePersonas = roleApps ? PERSONAS.filter((p) => roleApps.includes(p.id)) : PERSONAS;
 
   return (
-    <div className={"app-shell" + (!chromeless ? " app-shell--workspace" : "") + (resolved.frame === "mobile" ? " app-shell--worker" : "")}>
+    <div className={"app-shell" + (!chromeless ? " app-shell--workspace" : "") + (resolved.frame === "mobile" ? " app-shell--worker" : "") + (session?.role === "pekerja" ? " app-shell--member" : "")}>
       {!chromeless && (
         <>
           <header className="app-topbar">

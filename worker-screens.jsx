@@ -351,11 +351,7 @@ const WorkerLive = () => {
   if (calibrating) return (
     <div className="nt-screen worker-live worker-calibration-screen" style={{ paddingBottom: 100 }}>
       <NeuroStatusBar time="11:42" />
-      <div className="worker-calibration-nav">
-        <WorkerBackLink to="/w/readiness" />
-        <strong>KALIBRASI MUSE</strong>
-        <AskAIButton variant="plus" />
-      </div>
+      <WorkerPageHeader title="Persiapan Muse" eyebrow="PENGUKURAN EEG" action={<AskAIButton variant="plus"/>}/>
       <p className="worker-calibration-intro">Pasang sensor, duduk tenang, dan buka mata.</p>
       <WorkerCalibrationCard />
     <WorkerSignalStatus />
@@ -370,20 +366,7 @@ const WorkerLive = () => {
   <div className="nt-screen worker-live" style={{ paddingBottom: 100 }}>
     <NeuroStatusBar time="11:42" />
 
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 24px 0" }}>
-      <WorkerBackLink to="/w/readiness" />
-      <div style={{ fontSize: 10, letterSpacing: "0.24em", color: "var(--nt-text-2)", fontWeight: 600, whiteSpace: "nowrap" }}>
-        LIVE MONITOR
-      </div>
-      <AskAIButton variant="plus" />
-      {/* Signal indicators describe this browser; company results use archived summaries. */}
-      <span className="worker-live-indicator" title={demoActive ? "Simulasi aktif" : muse.real ? "Muse tersambung" : "Muse belum tersambung"}>
-        <span style={{
-          width: 8, height: 8, borderRadius: "50%",
-          background: muse.real || demoActive ? "var(--nt-green)" : "var(--nt-text-3)"
-        }} />
-      </span>
-    </div>
+    <WorkerPageHeader title="Live Monitor" eyebrow="PENGUKURAN EEG" action={<AskAIButton variant="plus"/>}/>
 
     {/* Worker + connection */}
     <div className="worker-device-summary" style={{ padding: "12px 28px 0", display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
@@ -410,39 +393,16 @@ const WorkerLive = () => {
       </div>
     </div>
 
+    {!muse.real && <WorkerSessionArchive />}
     <WorkerCalibrationCard />
     <WorkerSignalStatus />
     <WorkerLiveSyncStatus />
     {!muse.real && <WorkerSignalDetails />}
 
-    {/* MAIN: Cognitive Load gauge + side fatigue gauge — live values */}
-    <div className="worker-live-gauges" style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 16, marginTop: 18 }}>
-      <NeuroGauge
-        value={cli}
-        size={180}
-        label={hasRealSample && Number.isFinite(metrics.cli) ? String(cli) : "—"}
-        sublabel="beban"
-        gradient={["#9c8bf0", "#6cb6f0"]}
-      />
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <NeuroGauge
-          value={fi}
-          size={92}
-          label={hasRealSample && Number.isFinite(metrics.fi) ? String(fi) : "—"}
-          sublabel="fatigue"
-          gradient={["#7dd1a1", "#a8e0c0"]}
-          thickness={12}
-        />
-        <NeuroGauge
-          value={ei}
-          size={92}
-          label={hasRealSample && Number.isFinite(metrics.ei) ? String(ei) : "—"}
-          sublabel="engage"
-          gradient={["#ffc56a", "#ff8aa1"]}
-          thickness={12}
-        />
-      </div>
-    </div>
+    <section className="worker-live-gauges" aria-label="Indeks EEG saat ini">
+      <div className="worker-section-title"><h2>Hasil Live</h2><span>Skala 0–100</span></div>
+      <div className="worker-live-score-grid">{[["Fatigue",fi,metrics.fi,"#2563eb"],["Beban",cli,metrics.cli,"#8b5cf6"],["Engagement",ei,metrics.ei,"#0891b2"]].map(([label,value,raw,color])=><ArchiveMetricRing key={label} label={label} value={hasRealSample && Number.isFinite(raw) ? value : null} color={color}/>)}</div>
+    </section>
 
     {/* Current status text — drives off w.status (live) */}
     <div style={{ textAlign: "center", marginTop: 14 }}>
@@ -450,8 +410,20 @@ const WorkerLive = () => {
       <details className="live-result-info"><summary title="Penjelasan hasil" aria-label="Penjelasan hasil"><VisualIcon name="info"/>Info hasil</summary><p>{hasRealSample ? stCopy : signalMessage}</p></details>
     </div>
 
+    <section className="worker-live-chart" aria-label="Perubahan indeks sesi">
+      <div className="worker-section-title"><h2>Tren pengukuran</h2><span>60 detik terakhir</span></div>
+      <div className="worker-chart-legend">{[["Fatigue","#2563eb"],["Beban","#8b5cf6"],["Engagement","#0891b2"]].map(([label,color])=><span key={label}><i style={{background:color}}/>{label}</span>)}</div>
+      {(() => {
+        const history=demoActive ? window.ntHistory?.(w.id) || [] : liveModel.preview;
+        const series=[["fi","#2563eb"],["cli","#8b5cf6"],["ei","#0891b2"]].map(([key,color])=>({color,paths:window.ntManagement.trend(history,key,signalNow)}));
+        return series.some(s=>s.paths.latest) ? <svg viewBox="-26 -6 338 122" role="img" aria-label="Tren fatigue beban dan engagement 60 detik">{[0,50,100].map(v=><g key={v}><line x1="0" x2="300" y1={100-v} y2={100-v} stroke="var(--nt-text-3)" strokeOpacity=".16"/><text x="-8" y={104-v} textAnchor="end" fill="var(--nt-text-3)" fontSize="10">{v}</text></g>)}{series.map((s,i)=><g key={i}><path d={s.paths.solid} transform="scale(.5 1)" vectorEffect="non-scaling-stroke" fill="none" stroke={s.color} strokeWidth="2.4"/><path d={s.paths.limited} transform="scale(.5 1)" vectorEffect="non-scaling-stroke" fill="none" stroke={s.color} strokeWidth="2.4" strokeDasharray="5 4"/>{s.paths.latest && <circle cx={s.paths.latest.x/2} cy={s.paths.latest.y} r="3" fill={s.color}/>}</g>)}</svg>
+          : <div className="worker-chart-empty"><VisualIcon name="signal" size={28}/><span>Grafik muncul saat hasil EEG diterima.</span></div>;
+      })()}
+      <small>Garis putus-putus: hasil sementara.</small>
+    </section>
+
     {/* EEG band power bars — live derivation from CLI/FI/EI */}
-    <div className="neu-surface" style={{ margin: "16px 24px 0", padding: "16px 14px 12px" }}>
+    <div className="neu-surface worker-band-card" style={{ margin: "16px 24px 0", padding: "16px 14px 12px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, padding: "0 4px" }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: "var(--nt-text)" }}>EEG Band Power</div>
         <div style={{ fontSize: 10, color: "var(--nt-text-3)", letterSpacing: "0.18em", textTransform: "uppercase" }}>{demoActive ? "Demo" : "2 s window"}</div>
@@ -465,7 +437,7 @@ const WorkerLive = () => {
 
     {muse.real && <details className="worker-signal-collapse"><summary title="Detail sinyal Muse" aria-label="Detail sinyal Muse"><VisualIcon name="signal"/>Sinyal</summary><WorkerSignalDetails /></details>}
 
-    <WorkerSessionArchive />
+    {muse.real && <WorkerSessionArchive />}
     <div className="worker-live-options" aria-label="Opsi pemantauan">
       <button type="button" title="Pengingat istirahat" aria-label="Pengingat istirahat" onClick={() => setBreakModal(true)}>
         {breakTimer !== null
@@ -1229,17 +1201,11 @@ const WorkerAudio = () => {
   const timeText = `${Math.floor(remain / 60)}:${String(remain % 60).padStart(2, "0")}`;
 
   return (
-  <div className="nt-screen" style={{ paddingBottom: 100 }}>
+  <div className="nt-screen worker-audio" style={{ paddingBottom: 100 }}>
     <style>{"@keyframes ntRing{0%{transform:scale(.55);opacity:.5}100%{transform:scale(1.9);opacity:0}}"}</style>
     <NeuroStatusBar time="11:50" />
 
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 24px 0" }}>
-      <WorkerBackLink to="/w/wellness" label="Kembali ke kondisi" />
-      <div style={{ fontSize: 10, letterSpacing: "0.2em", color: "var(--nt-text-2)", fontWeight: 600, whiteSpace: "nowrap" }}>NEUROFEEDBACK</div>
-      <NeuroIconBtn size={40} onClick={() => setInfoOpen(true)}>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
-      </NeuroIconBtn>
-    </div>
+    <WorkerPageHeader title="Audio & relaksasi" eyebrow="JEDA SEJENAK" to="/w/wellness" backLabel="Kembali ke kondisi" action={<NeuroIconBtn size={40} ariaLabel="Info audio" onClick={()=>setInfoOpen(true)}><VisualIcon name="info"/></NeuroIconBtn>}/>
 
     <Modal
       open={infoOpen}
@@ -1249,16 +1215,10 @@ const WorkerAudio = () => {
       actions={<NeuroBtn tone="primary" onClick={() => setInfoOpen(false)}>Mengerti</NeuroBtn>}
     />
 
-    <div style={{ padding: "16px 28px 0" }}>
-      <div className="nt-eyebrow">Meditasi &amp; fokus</div>
-      <div className="nt-title-lg">Audio Relaksasi</div>
-      <div style={{ fontSize: 12.5, color: "var(--nt-text-2)", marginTop: 4, lineHeight: 1.45 }}>
-        Pilih suara untuk membantu menurunkan stres dan menjaga fokus selama shift.
-      </div>
-    </div>
+    <p className="worker-audio-intro">Pilih suasana untuk menemani jeda Anda.</p>
 
     {/* Now-playing visual with breathing guide */}
-    <div className="neu-surface" style={{ margin: "16px 24px 0", padding: "20px 16px 18px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+    <div className={"neu-surface worker-audio-player" + (!current ? " is-idle" : "")} style={{ margin: "16px 24px 0", padding: "20px 16px 18px", display: "flex", flexDirection: "column", alignItems: "center" }}>
       <div style={{ position: "relative", width: 176, height: 176, display: "flex", alignItems: "center", justifyContent: "center" }}>
         {active && sound && [0, 1, 2].map((i) => (
           <span key={i} style={{
