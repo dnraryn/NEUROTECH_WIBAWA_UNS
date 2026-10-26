@@ -78,20 +78,20 @@ const SupervisorWorkersList = () => {
   };
 
   return (
-  <div className="nt-screen" style={{ padding: 0, display: "grid", gridTemplateColumns: "228px 1fr" }}>
+  <div className="nt-screen workspace-workers" style={{ padding: 0, display: "grid", gridTemplateColumns: "228px 1fr" }}>
     <SupervisorSidebar active="workers" />
 
     <main style={{ padding: "22px 28px 22px 6px", overflow: "hidden", display: "flex", flexDirection: "column", gap: 18 }}>
       <PageHeader
         eyebrow={`${filtered.length} dari ${workers.length} anggota perusahaan`}
-        title="Pekerja"
+        title={session?.role==="management" ? "Anggota perusahaan" : "Pekerja"}
         right={
           <div style={{ display: "flex", gap: 8 }}>
             <NeuroBtn tone="default" size="sm" onClick={() => session ? navigate(staffPath("/s/reports")) : window.toast?.("Export pekerja → CSV (mock)", { kind: "info" })}>
               {session ? "Buka laporan" : "Export CSV"}
             </NeuroBtn>
             <NeuroBtn tone="primary" size="sm" onClick={() => setAddOpen(true)}>
-              + Tambah Pekerja
+              {session?.role==="management" ? "+ Tambah anggota" : "+ Tambah Pekerja"}
             </NeuroBtn>
           </div>
         }
@@ -99,7 +99,7 @@ const SupervisorWorkersList = () => {
       {session && <RealArchiveStatus state={archive} />}
 
       {/* Filters */}
-      <div style={{ display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" }}>
+      <div className="workspace-table-filters" style={{ display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" }}>
         <div style={{ display: "flex", gap: 4, padding: 4, borderRadius: 999, background: "var(--nt-surface)", boxShadow: "var(--nt-shadow-in)" }}>
           {SHIFT_TABS.map((s) => (
             <button key={s} onClick={() => setShiftFilter(s)} style={{
@@ -116,6 +116,7 @@ const SupervisorWorkersList = () => {
         <div className="worker-status-filters" style={{ display: "flex", gap: 6 }}>
           {Object.entries(STATUS_MAP).map(([k, s]) => (
             <button key={k}
+              data-status={k} aria-pressed={statusFilter===k}
               onClick={() => setStatusFilter(statusFilter === k ? null : k)}
               style={{
                 display: "flex", alignItems: "center", gap: 6,

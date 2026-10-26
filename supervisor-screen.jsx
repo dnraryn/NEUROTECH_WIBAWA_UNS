@@ -19,7 +19,13 @@ let _svLastActive = "overview";
 
 const SupervisorSidebar = ({ active = "overview" }) => {
   const [searchOpen, setSearchOpen] = React.useState(false);
+  const [memberQuery,setMemberQuery]=React.useState("");
   const session = window.ntSession?.get(), archive = useSessionArchive();
+  React.useEffect(()=>{
+    if(session?.role==="management")return;
+    const onKey=event=>{if((event.ctrlKey || event.metaKey) && event.key.toLowerCase()==="k"){event.preventDefault();setMemberQuery("");setSearchOpen(v=>!v);}};
+    window.addEventListener("keydown",onKey);return()=>window.removeEventListener("keydown",onKey);
+  },[session?.role]);
   const messages = useWorkerAlerts();
   const workers = session ? realWorkerSummaries(archive) : WORKERS;
   const items = [
@@ -83,14 +89,15 @@ const SupervisorSidebar = ({ active = "overview" }) => {
       {/* Brand + hamburger row */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "0 4px" }}>
         <Link to={staffPath("/s/overview")} className="nt-sb-label" style={{ display: "flex", minWidth: 0 }}>
-          <NeuroLogo size={22} />
+          {session ? <div className="workspace-sidebar-heading"><span>NEUROTECH</span><strong>Operasi tim</strong></div> : <NeuroLogo size={22}/>}
         </Link>
         <SidebarToggle />
       </div>
 
       <button
+        aria-label="Cari pekerja"
         className="nt-sb-hide"
-        onClick={() => setSearchOpen(true)}
+        onClick={() => {setMemberQuery("");setSearchOpen(true);}}
         style={{
           display: "flex", alignItems: "center", gap: 10,
           padding: "10px 12px", borderRadius: 12,
@@ -99,7 +106,7 @@ const SupervisorSidebar = ({ active = "overview" }) => {
         }}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--nt-text-3)" }}><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
         <span style={{ fontSize: 12, color: "var(--nt-text-3)" }}>Cari pekerja…</span>
-        <span style={{ marginLeft: "auto", fontSize: 9.5, color: "var(--nt-text-3)", border: "1px solid var(--nt-bg-deep)", borderRadius: 4, padding: "1px 5px", fontFamily: "var(--nt-font-mono)" }}>⌘K</span>
+        <span style={{ marginLeft: "auto", fontSize: 9.5, color: "var(--nt-text-3)", border: "1px solid var(--nt-bg-deep)", borderRadius: 4, padding: "1px 5px", fontFamily: "var(--nt-font-mono)" }}>Ctrl K</span>
       </button>
 
       <Modal
@@ -108,8 +115,9 @@ const SupervisorSidebar = ({ active = "overview" }) => {
         title="Cari pekerja"
         subtitle="Klik nama untuk buka detail."
         width={420}>
+        <input className="workspace-search-input" type="search" autoFocus aria-label="Cari nama atau shift pekerja" placeholder="Nama atau shift pekerja" value={memberQuery} onChange={event=>setMemberQuery(event.target.value)}/>
         <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 360, overflowY: "auto" }}>
-          {workers.map((w) => (
+          {workers.filter(w=>[w.name,w.role,w.shift].join(" ").toLocaleLowerCase("id-ID").includes(memberQuery.trim().toLocaleLowerCase("id-ID"))).map((w) => (
             <Link key={w.id} to={staffPath(`/s/workers/${w.id}`)} onClick={() => setSearchOpen(false)}>
               <div style={{
                 padding: "10px 12px", borderRadius: 12,

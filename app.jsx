@@ -474,7 +474,7 @@ const App = () => {
   const visiblePersonas = roleApps ? PERSONAS.filter((p) => roleApps.includes(p.id)) : PERSONAS;
 
   return (
-    <div className={"app-shell" + (!chromeless ? " app-shell--workspace" : "") + (resolved.frame === "mobile" ? " app-shell--worker" : "") + (session?.role === "pekerja" ? " app-shell--member" : "")}>
+    <div className={"app-shell" + (!chromeless ? " app-shell--workspace" : "") + (resolved.frame === "mobile" ? " app-shell--worker" : "") + (resolved.frame === "desktop" ? " app-shell--desktop" : "") + (session?.role === "pekerja" ? " app-shell--member" : "")}>
       {!chromeless && (
         <>
           <header className="app-topbar">
@@ -489,6 +489,7 @@ const App = () => {
                   </div>
                 </div>
               </Link>
+              {resolved.frame === "desktop" && session && <div className="workspace-organization"><span>Perusahaan</span><strong title={session.companyName}>{session.companyName}</strong></div>}
             </div>
             <div className="app-topbar-actions" style={{ display: "flex", alignItems: "center", gap: 12 }}>
               {!session && <DeviceButton />}
@@ -497,7 +498,7 @@ const App = () => {
               {session ? (
                 <div className="app-account" style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span className="app-account-label" style={{ fontSize: 12, color: "var(--nt-text-2)" }}>
-                    {session.memberName} · {ROLE_LABEL[session.role] || session.role} · {session.companyName}
+                    {session.memberName}
                   </span>
                   <NeuroBtn tone="default" size="sm" onClick={onLogout}>Keluar</NeuroBtn>
                 </div>

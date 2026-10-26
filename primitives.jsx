@@ -187,7 +187,7 @@ const StatusPill = ({ status = "normal", showDot = true, size = "md" }) => {
     ? { padX: 10, padY: 4, fs: 11, dot: 8 }
     : { padX: 14, padY: 7, fs: 13, dot: 10 };
   return (
-    <div style={{
+    <div className="nt-status-pill" data-status={status} style={{
       display: "inline-flex", alignItems: "center", gap: 8,
       padding: `${sz.padY}px ${sz.padX}px`,
       borderRadius: 999,

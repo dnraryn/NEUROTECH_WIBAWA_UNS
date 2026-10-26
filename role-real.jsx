@@ -91,23 +91,28 @@ const RealArchiveStatus = ({ state }) => <div className="supervisor-archive-stat
 </div>;
 
 const TeamSessionConnections = ({ state, memberId = null }) => {
+  const [query,setQuery]=React.useState(""),[onlyLive,setOnlyLive]=React.useState(false);
   const [,tick] = React.useReducer(n=>n+1,0);
   React.useEffect(()=>{const id=setInterval(tick,10000);return()=>clearInterval(id);},[]);
   const rows=realSessions(state), members=realMembers().filter(m=>!memberId || m.id===memberId);
   const account=window.ntSession?.get(), sync=state.teamLive || window.ntTeamLive?.state?.() || {};
   const entries=members.map(member=>({member,view:window.ntTeamLive?.view?.(member) || {label:"Belum ada sesi Live",trace:[]},record:rows.find(r=>r.ownerUid===member.uid && r.memberId===member.id)}));
   const active=entries.filter(e=>e.view.fresh && ["live","preparing","waiting"].includes(e.view.row?.status)).length;
+  const shown=entries.filter(({member,view})=>(!onlyLive || (view.fresh && ["live","preparing","waiting"].includes(view.row?.status)))
+    && [member.name,member.accountCode,member.shift].join(" ").toLocaleLowerCase("id-ID").includes(query.trim().toLocaleLowerCase("id-ID")));
   const labels={normal:"Indeks rendah",waspada:"Waspada",berisiko:"Berisiko",kritis:"Indeks tinggi",unavailable:"Belum dinilai"};
   return <section className="team-connections team-live-panel" aria-label="Live pekerja"><div className="team-connections-heading"><strong><VisualIcon name="signal" size={19}/>Live pekerja <span className="team-live-count">{active} mengirim</span></strong><small>{account?.code} · sekitar 10 detik</small></div>
     {sync.error && <div className="team-live-error" role="alert">{sync.error}<button type="button" className="archive-back" onClick={()=>window.ntTeamLive.retry()}>Coba lagi</button></div>}
-    <div className="team-live-grid">{entries.length ? entries.map(({member,view,record})=>{
+    {!memberId && <div className="team-live-toolbar"><label><VisualIcon name="team" size={16}/><input type="search" aria-label="Cari pekerja Live" placeholder="Cari nama, kode atau shift" value={query} onChange={e=>setQuery(e.target.value)}/></label><button type="button" aria-pressed={onlyLive} onClick={()=>setOnlyLive(v=>!v)}>Mengirim saja</button><span>{shown.length}/{entries.length} pekerja</span></div>}
+    <div className="team-live-grid">{shown.length ? shown.map(({member,view,record})=>{
       const m=view.measurement, provisional=m && (m.provisional || m.quality!=="good"), points=view.trace || [], now=Date.now();
       const plotted=points.map(p=>({...p,x:Math.max(0,Math.min(240,(p.ts-now+300000)/300000*240)),y:56-p.fi*.5}));
       const path=plotted.map((p,i)=>(i && p.ts-plotted[i-1].ts<=20000 ? "L" : "M")+p.x.toFixed(1)+","+p.y.toFixed(1)).join("");
-      return <article key={member.id} className={`team-live-card ${view.fresh ? "is-current" : ""}`} aria-label={`Live ${member.name}`}>
-        <div className="team-live-person"><Link to={staffPath(`/s/workers/${encodeURIComponent(member.id)}`)}><strong>{member.name}</strong><small>{member.accountCode || "Pekerja"} · {member.shift || "Shift belum diatur"}</small></Link><span className={`team-live-badge ${view.fresh ? "is-current" : ""}`}><span className="archive-dot"/>{view.label}</span></div>
+      const badge=view.fresh && view.row?.status==="live" ? "is-current" : view.fresh && ["preparing","waiting"].includes(view.row?.status) ? "is-waiting" : "";
+      return <article key={member.id} className={`team-live-card ${badge}`} aria-label={`Live ${member.name}`}>
+        <div className="team-live-person"><Link to={staffPath(`/s/workers/${encodeURIComponent(member.id)}`)}><strong>{member.name}</strong><small>{member.accountCode || "Pekerja"} · {member.shift || "Shift belum diatur"}</small></Link><span className={`team-live-badge ${badge}`}><span className="archive-dot"/>{view.label}</span></div>
         {m ? <><div className="team-live-metrics">{[["Fatigue",m.fi],["Beban",m.cli],["Engagement",m.ei]].map(([label,value])=><div key={label}><span>{label}</span><output aria-label={`${label} ${member.name}`}>{archiveNumber(value)}</output></div>)}</div>
-          <div className="team-live-classification"><span>{labels[m.classification] || "Belum dinilai"}{provisional ? " · sementara" : ""}</span><small>{view.ageSeconds} dtk lalu</small></div>
+          <div className="team-live-classification" data-status={m.classification}><span>{labels[m.classification] || "Belum dinilai"}{provisional ? " · sementara" : ""}</span><small>{view.ageSeconds} dtk lalu</small></div>
           {plotted.length>0 && <svg viewBox="0 0 240 62" preserveAspectRatio="none" role="img" aria-label={`Tren Live fatigue ${member.name}`}><line x1="0" x2="240" y1="56" y2="56" stroke="var(--nt-bg-deep)"/><path d={path} stroke={provisional ? "#8b5cf6" : "#2563eb"} strokeWidth="2.2" vectorEffect="non-scaling-stroke" fill="none"/>{plotted.slice(-1).map(p=><circle key={p.ts} cx={p.x} cy={p.y} r="2" fill="#2563eb"/>)}</svg>}
           {m.scope==="bands-only" && <small>Band power terbaca; indeks belum tersedia.</small>}
           {m.scope==="frontal-only" && <small>Hasil parsial · periksa kontak sensor.</small>}
@@ -117,7 +122,7 @@ const TeamSessionConnections = ({ state, memberId = null }) => {
           : record ? "Arsip sesi tersedia. Perbarui aplikasi HP untuk mengirim Live."
           : member.uid ? "Buka aplikasi pekerja dan hubungkan Muse." : "Akun pekerja belum diaktifkan."}</p>}
       </article>;
-    }) : <p className="archive-muted">Tambahkan pekerja untuk mulai memantau.</p>}</div>
+    }) : <p className="archive-muted">{entries.length ? "Tidak ada pekerja yang sesuai dengan filter." : "Tambahkan pekerja untuk mulai memantau."}</p>}</div>
     <details className="visual-method"><summary><VisualIcon name="info" size={15}/>Info Live</summary><p>HP dan laptop harus memakai akun berbeda dalam perusahaan yang sama. Nilai terakhir dikirim sekitar 10 detik saat aplikasi HP terbuka dan online. Hasil sementara tetap ditandai; data tanpa pembaruan selama 30 detik tidak dianggap Live. Grafik merangkum FI yang diterima selama halaman ini dibuka, maksimal 5 menit. Rerata laporan tetap memakai hasil bersih dari arsip.</p></details>
   </section>;
 };
@@ -145,17 +150,19 @@ const RealSupervisorDashboard = () => {
   const priority = team.filter((w) => ["kritis", "berisiko", "waspada"].includes(w.status)).sort((a,b) => ["kritis","berisiko","waspada"].indexOf(a.status)-["kritis","berisiko","waspada"].indexOf(b.status));
   const eligible = team.filter((w) => w.assessment.ready).length;
   return <RealSupervisorFrame active="overview" title="Overview Tim" subtitle="Ringkasan sesi pekerja"
-    actions={<div style={{ display: "flex", gap: 6 }}>{[[1, "Hari ini"], [7, "7 hari"], [30, "30 hari"]].map(([n, label]) => <button key={n} type="button" className="archive-back" aria-pressed={days === n} onClick={() => setDays(n)} style={{ fontWeight: days === n ? 800 : 500 }}>{label}</button>)}</div>}>
+    actions={<div className="workspace-period-control" style={{ display: "flex", gap: 6 }}>{[[1, "Hari ini"], [7, "7 hari"], [30, "30 hari"]].map(([n, label]) => <button key={n} type="button" className="archive-back" aria-pressed={days === n} onClick={() => setDays(n)} style={{ fontWeight: days === n ? 800 : 500 }}>{label}</button>)}</div>}>
     <RealArchiveStatus state={state} />
-    <TeamSessionConnections state={state}/>
-    <div className="workspace-action-grid"><StaffAlertSummary/><ArchiveReviewSummary rows={rows}/></div>
     <div className="supervisor-kpis">
       {realMetric("Pekerja terdaftar", realMembers().length, `${eligible} sesi dapat dinilai`)}
       {realMetric("Anggota dengan sesi", workerIds.size, `${rows.length} sesi dalam periode ini`)}
       {realMetric("Rerata indeks FI", archiveNumber(meanFI), `${measured.length} sesi · ${data.provisional ? "termasuk hasil sementara arsip lama" : "hasil bersih"}`)}
       {realMetric("Indikasi microsleep", incidents, "Perlu tinjauan petugas")}
     </div>
-    <div className="supervisor-chart-grid"><SupervisorDailyTrend points={data.trend} /><section className="supervisor-chart-card"><div className="supervisor-section-heading"><h2>Hasil sesi pekerja</h2><span>Sesi terakhir pada periode ini</span></div><TeamDistribution categories={categories}/><div className="supervisor-status-legend">{categories.map((c) => <div key={c.key}><span><i style={{ background: c.color }} />{c.label}</span><strong>{c.count}</strong></div>)}</div></section></div>
+    <div className="desktop-operations-grid">
+      <TeamSessionConnections state={state}/>
+    <div className="workspace-action-grid"><StaffAlertSummary/><ArchiveReviewSummary rows={rows}/></div>
+    </div>
+    <div className="supervisor-chart-grid"><SupervisorDailyTrend points={data.trend} /><section className="supervisor-chart-card"><div className="supervisor-section-heading"><h2>Hasil sesi pekerja</h2><span>Sesi terakhir pada periode ini</span></div><div className="supervisor-distribution-content"><TeamDistribution categories={categories}/><div className="supervisor-status-legend">{categories.map((c) => <div key={c.key}><span><i style={{ background: c.color }} />{c.label}</span><strong>{c.count}</strong></div>)}</div></div></section></div>
     <section className="supervisor-takeaway" aria-label="Kesimpulan sesi tim"><div><span className="supervisor-kicker">TINJAUAN TIM</span><h2>{priority.length ? `${priority.length} pekerja perlu ditinjau` : eligible ? "Pantau sesi berikutnya" : "Belum cukup data untuk kesimpulan"}</h2><p>{priority[0]?.assessment.action || (eligible ? "Kesimpulan mengikuti sesi terakhir, bukan kondisi saat ini." : "Lengkapi kalibrasi dan rekam EEG bersih.")}</p></div><Link className="archive-primary" to={staffPath("/s/workers")}>Lihat pekerja</Link></section>
     <section className="supervisor-chart-card"><div className="supervisor-section-heading"><h2>Sesi Muse terbaru</h2><Link to={staffPath("/s/reports")}>Semua laporan ↗</Link></div>
       {!latest.length ? <p className="archive-muted">Belum ada sesi Muse pada periode ini.</p> : <div className="supervisor-session-list">{latest.map((r) => { const assessment = window.ntSessionInsights.assess(r); return <Link key={r.id} to={staffPath(`/s/reports/${r.id}`)} className="supervisor-session-row"><span><strong>{realName(r.memberId)}</strong><small>{realDate(r.startedAt)}</small></span><span className={`supervisor-result-tag is-${assessment.status}`}>{assessment.title}</span><span className="supervisor-row-score">{archiveNumber(r.summary.meanFI)}<small>FI</small></span></Link>; })}</div>}
@@ -248,11 +255,14 @@ const CompanyArchiveOverview = ({ state, data }) => {
     const segment = previous && date - previous.date === 86400000 ? `M${previous.x},${previous.y}L${x},${y}` : "";
     previous = { date, x, y }; return { ...p, x, y, segment };
   });
-  return <><RealArchiveStatus state={state} /><TeamSessionConnections state={state}/><div className="workspace-action-grid"><StaffAlertSummary/><ArchiveReviewSummary rows={data.rows}/></div><section className="neu-surface" aria-label="Ringkasan hasil perusahaan" style={{ padding: 18 }}>
+  return <><RealArchiveStatus state={state} /><div className="desktop-operations-grid"><TeamSessionConnections state={state}/><div className="workspace-action-grid"><StaffAlertSummary/><ArchiveReviewSummary rows={data.rows}/></div></div><section className="neu-surface company-outcomes" aria-label="Ringkasan hasil perusahaan" style={{ padding: 18 }}>
     <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 14 }}><strong>Hasil perusahaan · {data.sessions} sesi</strong><span style={{ fontSize: 12, color: "var(--nt-text-3)" }}>{data.members} anggota dengan sesi</span></div>
+    <div className="company-outcomes-grid"><div className="company-score-overview">
     {data.clean > 0 ? <div className="company-results visual-company-rings">{[["Fatigue rata-rata",data.meanFI,"#2563eb"],["Beban kognitif",data.meanCLI,"#8b5cf6"],["Engagement",data.meanEI,"#0891b2"]].map(([label,value,color])=><ArchiveMetricRing key={label} label={label} value={value} color={color}/>)}</div> : <div className="personal-result-empty"><VisualIcon name="chart" size={38}/><strong>Belum ada hasil EEG tersimpan</strong></div>}
     <div className="visual-summary-line"><span className="supervisor-result-tag">{data.clean ? labels[window.ntSessionInsights.status(data.meanFI,data.meanCLI)] : "Belum dinilai"}</span><span>{data.clean} hasil bersih</span><details className="visual-info"><summary aria-label="Metode ringkasan perusahaan" title="Metode ringkasan perusahaan"><VisualIcon name="info"/></summary><p>{data.partial} hasil terbatas dikecualikan; {data.provisional} hasil bersih masih memakai acuan sementara. Indeks prototipe untuk bahan evaluasi K3.</p></details></div>
+    </div><div className="company-trend-overview">
     <h3 style={{ fontSize: 14 }}>Tren fatigue per hari</h3>{plotted.length ? <svg viewBox="0 0 670 165" width="100%" role="img" aria-label="Tren fatigue perusahaan per hari">{[0, 25, 50, 75, 100].map((v) => <g key={v}><line x1="38" x2="638" y1={132 - v * 1.05} y2={132 - v * 1.05} stroke="var(--nt-bg-deep)" /><text x="5" y={136 - v * 1.05} fontSize="10" fill="currentColor">{v}</text></g>)}<path d={plotted.map((p) => p.segment).join("")} stroke="#2563eb" strokeWidth="2.5" fill="none" />{plotted.map((p) => <circle key={p.date} cx={p.x} cy={p.y} r="4" fill="#2563eb"><title>{p.date}: {p.fi}/100</title></circle>)}<text x="38" y="158" fontSize="10" fill="currentColor">{points[0].date}</text><text x="638" y="158" textAnchor="end" fontSize="10" fill="currentColor">{points[points.length - 1].date}</text></svg> : <p className="archive-empty">Belum ada hasil bersih untuk grafik pada periode ini.</p>}
     <details className="visual-method"><summary><VisualIcon name="info" size={16}/>Metode grafik</summary><p>Rerata ditimbang berdasarkan jumlah hasil bersih. Hari tanpa data tidak disambungkan. Indikator prototipe untuk bahan evaluasi K3.</p></details>
+    </div></div>
   </section></>;
 };

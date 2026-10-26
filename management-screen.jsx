@@ -150,7 +150,7 @@ const ManagementSidebar = ({ active = "overview" }) => {
     }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "0 4px 4px" }}>
         <div className="nt-sb-label" style={{ minWidth: 0 }}>
-          <NeuroLogo size={22} />
+          {session ? <div className="workspace-sidebar-heading"><span>NEUROTECH</span><strong>Manajemen K3</strong></div> : <NeuroLogo size={22}/>}
         </div>
         <SidebarToggle />
       </div>
@@ -357,18 +357,18 @@ const ManagementDashboard = () => {
             Fatigue Risk Management
           </div>
           <div style={{ fontSize: 11.5, color: "var(--nt-text-3)", marginTop: 3 }}>
-            {demo ? "Demo" : companyView ? "Arsip perusahaan" : "Sesi Muse"}
+            {demo ? "Demo" : companyView ? (window.ntSession?.get()?.companyName || "Arsip perusahaan") : "Sesi Muse"}
           </div>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
           {!demo && !companyView && <button type="button" className="frm-button" onClick={openMetrics}>Data sesi</button>}
-          <div style={{
+          <div className="workspace-period-control" style={{
             display: "flex", gap: 3, padding: 3, borderRadius: 999,
             background: "var(--nt-bg-deep)",
           }}>
             {periods.map((b, i) => (
-              <button key={i} type="button" onClick={() => setPeriod(i)}
+              <button key={i} type="button" aria-pressed={i===period} onClick={() => setPeriod(i)}
                 style={{
                   padding: "7px 14px", borderRadius: 999, border: "none",
                   background: i === period ? "var(--nt-surface)" : "transparent",
@@ -391,6 +391,26 @@ const ManagementDashboard = () => {
           </button>
         </div>
       </div>
+
+      <div className="frm-kpis">
+        {kpis.map((k, i) => (
+          <div key={i} className="neu-surface" style={{ padding: 14, display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div className="nt-eyebrow" style={{ fontSize: 9 }}>{k.l}</div>
+              <div style={{
+                fontSize: 9.5, fontWeight: 800,
+                padding: "2px 7px", borderRadius: 999,
+                background: "#DBEAFE", color: "#1D4ED8",
+              }}>{k.trend}</div>
+            </div>
+            <output aria-label={k.l} style={{ fontSize: 25, fontWeight: 800, color: "var(--nt-text)", lineHeight: 1.2, letterSpacing: "-0.02em" }}>{k.v}</output>
+            <div style={{ fontSize: 10.5, color: "var(--nt-text-3)" }}>{k.sub}</div>
+            {Number.isFinite(k.progress) && <div role="progressbar" aria-label="Kemajuan target pantau" aria-valuemin={0} aria-valuemax={100} aria-valuenow={k.progress} style={{ height: 5, borderRadius: 5, background: "var(--nt-bg-deep)", overflow: "hidden", margin: "3px 0" }}><div style={{ width: `${k.progress}%`, height: "100%", borderRadius: 5, background: "#2563eb" }} /></div>}
+            {!demo && k.action ? <button type="button" className="frm-link" onClick={openMetrics}>{k.action}</button> : demo ? <LiveSparkline index={i} trendDir={k.dir} animate /> : null}
+          </div>
+        ))}
+      </div>
+
 
       {companyView ? <CompanyArchiveOverview state={archive} data={company} /> : <SessionControl onOpen={(id) => { setArchiveInitialId(id); setZoom("report"); }} />}
       {/* ── KPI row ────────────────────────────────────────────── */}
@@ -463,25 +483,6 @@ const ManagementDashboard = () => {
           <div style={{ fontSize: 10.5, color: "var(--nt-text-3)", marginTop: 7 }}>Daya relatif dari sensor yang dipakai; hasil dihaluskan antarjendela. Saat sinyal tidak layak, angka pita menunggu hasil baru.</div>
         </details>
       </section>}
-      <div className="frm-kpis">
-        {kpis.map((k, i) => (
-          <div key={i} className="neu-surface" style={{ padding: 14, display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <div className="nt-eyebrow" style={{ fontSize: 9 }}>{k.l}</div>
-              <div style={{
-                fontSize: 9.5, fontWeight: 800,
-                padding: "2px 7px", borderRadius: 999,
-                background: "#DBEAFE", color: "#1D4ED8",
-              }}>{k.trend}</div>
-            </div>
-            <output aria-label={k.l} style={{ fontSize: 25, fontWeight: 800, color: "var(--nt-text)", lineHeight: 1.2, letterSpacing: "-0.02em" }}>{k.v}</output>
-            <div style={{ fontSize: 10.5, color: "var(--nt-text-3)" }}>{k.sub}</div>
-            {Number.isFinite(k.progress) && <div role="progressbar" aria-label="Kemajuan target pantau" aria-valuemin={0} aria-valuemax={100} aria-valuenow={k.progress} style={{ height: 5, borderRadius: 5, background: "var(--nt-bg-deep)", overflow: "hidden", margin: "3px 0" }}><div style={{ width: `${k.progress}%`, height: "100%", borderRadius: 5, background: "#2563eb" }} /></div>}
-            {!demo && k.action ? <button type="button" className="frm-link" onClick={openMetrics}>{k.action}</button> : demo ? <LiveSparkline index={i} trendDir={k.dir} animate /> : null}
-          </div>
-        ))}
-      </div>
-
       {/* ── Body grid: heatmap + right column ─────────────────── */}
       <details className="frm-advanced"><summary>Analisis lanjutan · pola shift, indeks lini, dan laporan</summary>
       <div className="frm-analysis-layout" style={{ display: "grid", gridTemplateColumns: "1.55fr 1fr", gap: 14, minHeight: 360, marginTop: 12 }}>
