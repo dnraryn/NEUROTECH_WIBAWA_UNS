@@ -70,3 +70,26 @@ test('descriptive filenames cannot contain path separators, formulas, or unsafe 
   assert.match(name, /^NeuroTech_SIMULASI_Ringkasan_Pekerja-Simulasi_/);
   assert.ok(!/[\\/:*?"<>|=]/.test(name)); assert.ok(name.endsWith('.csv'));
 });
+
+test('single-session filenames include the worker, local date and time, shift and session for CSV and PDF', () => {
+  const b = setup();
+  b.c.ntSession.set({ uid: 'staff', code: 'A', role: 'supervisor', companyName: 'PT Uji', members: [{ id: 'worker', name: 'Dinnar Arsyad' }] });
+  const r = record(), stamp = b.c.ntReports.stamp(r.startedAt);
+  const base = `NeuroTech_K3_Ringkasan_Dinnar-Arsyad_${stamp.date}_${stamp.time.replace(/:/g, '-')}_Pagi_${r.id}`;
+  assert.equal(b.c.ntReports.filename('Ringkasan', r), base + '.csv');
+  assert.equal(b.c.ntReports.filename('Ringkasan', [r]), base + '.csv', 'list export of one session retains its identity');
+  assert.equal(b.c.ntReports.filename('Ringkasan', r, 'pdf'), base + '.pdf');
+  assert.notEqual(b.c.ntReports.filename('Ringkasan', r), b.c.ntReports.filename('Ringkasan', record({ id: 's-other-0123456789abcdef', startedAt: r.startedAt + 1000 })));
+});
+
+test('multi-session filenames distinguish a worker archive, company archive and simulation without mutating ordering', () => {
+  const b = setup(), first = record(), last = record({ id: 's-later-0123456789abcdef', startedAt: first.startedAt + 86400000 });
+  const rows = [last, first], worker = b.c.ntReports.filename('Ringkasan', rows);
+  assert.ok(worker.includes('HYPERLINK-contoh'));
+  assert.ok(worker.includes('sampai-')); assert.ok(worker.endsWith('_2-sesi.csv'));
+  assert.equal(rows[0], last);
+  const company = b.c.ntReports.filename('Ringkasan', [first, record({ ownerUid: 'other', memberId: 'other' })]);
+  assert.ok(company.includes('PT-Uji-Bersama')); assert.ok(company.endsWith('_2-sesi.csv'));
+  const demo = b.c.ntReports.filename('Ringkasan', [record({ source: 'demo' })]);
+  assert.ok(demo.includes('_SIMULASI_')); assert.ok(demo.includes('_Pekerja-Simulasi_'));
+});

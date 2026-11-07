@@ -83,6 +83,35 @@ test('demo exports carry the simulation label and storage failures are visible r
   assert.equal(b.c.ntSessionArchive.state().storage,'memory'); assert.match(b.c.ntSessionArchive.state().error,/Ekspor CSV/);
   assert.equal(b.c.ntSessionArchive.state().rows[0].synced,false);
 });
+
+test('entering demo creates an exportable report automatically once without writing company data', async () => {
+  const b = await setup(); b.setClock(2000000);
+  let touched = false;
+  b.c.NT_FIREBASE = { emulators: true, db: { collection() { touched = true; throw Error('no demo cloud data'); } } };
+  b.c.sessionStorage.setItem('nt-demo', '1'); b.emit('nt-demo'); await settle();
+  const state = b.c.ntSessionArchive.state(), r = state.rows[0];
+  assert.equal(state.rows.length, 1); assert.equal(r.source, 'demo');
+  assert.ok(r.summary.clean > 0); assert.ok(Number.isFinite(r.summary.meanFI));
+  assert.equal(b.c.ntSessionArchive.validRecord(r), true);
+  assert.match(b.c.ntReports.summary([r]), /Pekerja Simulasi/);
+  b.emit('nt-demo'); await settle(); assert.equal(b.c.ntSessionArchive.state().rows.length, 1);
+  await b.c.ntSessionArchive.sync(); assert.equal(touched, false);
+  b.c.ntSession.set({ uid: 'real', code: 'A', memberId: 'real', role: 'pekerja' }); await settle();
+  b.emit('nt-demo'); await settle(); assert.equal(b.c.ntSessionArchive.state().rows.length, 0);
+});
+
+test('demo chosen while the archive loads waits for initialization and old examples refresh into the default report period', async () => {
+  const b = browser(); b.setClock(2000000); b.c.crypto = webcrypto; b.c.location = { hostname: 'localhost' };
+  b.c.sessionStorage.setItem('nt-demo', '1');
+  b.load('session-insights.js'); b.load('report-export.js'); b.load('session-archive.js');
+  b.emit('nt-demo'); await settle();
+  assert.equal(b.c.ntSessionArchive.state().rows.length, 1);
+  const original = b.c.ntSessionArchive.state().rows[0];
+  b.setClock(2000000 + 31 * 86400000); b.emit('nt-demo'); await settle();
+  const current = b.c.ntSessionArchive.state().rows[0];
+  assert.notEqual(current.id, original.id);
+  assert.equal(b.c.ntSessionInsights.rows(b.c.ntSessionArchive.state(), { days: 7 }).length, 1);
+});
 test('pairing may publish its event before the shared device flag; recording starts after the adapter updates',async()=>{
   const b=await setup(); b.c.ntMuseConnected=false;
   b.emit('nt-muse',{connected:true}); b.c.ntMuseConnected=true;

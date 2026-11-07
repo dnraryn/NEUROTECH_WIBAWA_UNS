@@ -535,6 +535,7 @@ const InsightAICard = () => {
 const WorkerStats = () => {
   const [period, setPeriod] = React.useState("Minggu");
   const [periodOpen, setPeriodOpen] = React.useState(false);
+  const [reportsOpen, setReportsOpen] = React.useState(false);
   return (
   <div className="nt-screen" style={{ paddingBottom: 100 }}>
     <NeuroStatusBar time="15:08" />
@@ -586,6 +587,15 @@ const WorkerStats = () => {
             }}>{p}</button>
         ))}
       </div>
+    </Modal>
+
+    <section className="archive-subcard" style={{ margin: "16px 24px 0" }}>
+      <span className="archive-badge is-demo">Simulasi</span>
+      <p>Contoh hasil dan laporan sesi, siap diunduh.</p>
+      <button type="button" className="archive-primary" onClick={() => setReportsOpen(true)}>Lihat laporan demo</button>
+    </section>
+    <Modal open={reportsOpen} onClose={() => setReportsOpen(false)} title="Laporan simulasi" width={900}>
+      <SessionArchiveHub ownOnly />
     </Modal>
 
     {/* Main score donut + breakdown grid */}

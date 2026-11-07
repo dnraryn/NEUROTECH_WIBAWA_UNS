@@ -52,6 +52,7 @@ const goRegister = () => navigate("/join");   // "Bergabung dengan Kami"
 const goLogin = () => navigate("/login");
 const goDemo = async () => {
   sessionStorage.setItem("nt-demo", "1");
+  window.dispatchEvent(new CustomEvent("nt-demo"));
   await window.ntDeviceConnect("demo");
   window.toast?.("Mode demo aktif, tanpa login", { kind: "info" });
   navigate("/w/readiness");

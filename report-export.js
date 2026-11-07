@@ -57,7 +57,17 @@
     return table(rows, options);
   }
   function safeName(text) { return String(text || "laporan").normalize("NFKD").replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 70) || "laporan"; }
-  function filename(kind, record) { return ["NeuroTech", record?.source === "demo" ? "SIMULASI" : "K3", safeName(kind), safeName(record ? person(record) : user()?.companyName), stamp(record?.startedAt ?? Date.now()).date, record ? safeName(record.id) : ""].filter(Boolean).join("_") + ".csv"; }
+  function filename(kind, input, extension) {
+    var records = (Array.isArray(input) ? input.slice() : input ? [input] : []).sort(function (a, b) { return a.startedAt - b.startedAt; });
+    var first = records[0], last = records[records.length - 1], single = records.length === 1;
+    var sameWorker = first && records.every(function (r) { return r.source === first.source && r.ownerUid === first.ownerUid && r.memberId === first.memberId; });
+    var simulated = first && records.every(function (r) { return r.source === "demo"; });
+    var current = user(), name = sameWorker ? person(first) : current?.role === "pekerja" ? current.memberName : current?.companyName;
+    var started = stamp(first?.startedAt ?? Date.now()), ended = stamp(last?.startedAt);
+    return ["NeuroTech", simulated ? "SIMULASI" : "K3", safeName(kind), safeName(name || (simulated ? "Perusahaan Simulasi" : "Laporan")),
+      started.date, single ? started.time.replace(/:/g, "-") : ended.date && ended.date !== started.date ? "sampai-" + ended.date : "",
+      single ? safeName(first.shift) : "", single ? safeName(first.id) : records.length ? records.length + "-sesi" : ""].filter(Boolean).join("_") + (extension === "pdf" ? ".pdf" : ".csv");
+  }
   function download(content, name) {
     var url = URL.createObjectURL(new Blob(["\uFEFF" + content], { type: "text/csv;charset=utf-8" }));
     var link = document.createElement("a"); link.href = url; link.download = name; document.body.appendChild(link); link.click(); link.remove();

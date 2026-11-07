@@ -174,7 +174,8 @@
   }
   function demo() {
     if (session()) throw new Error("Contoh simulasi hanya tersedia dalam mode demo.");
-    var previous = records.find(function (r) { return r.source === "demo"; });
+    if (!ready) throw new Error("Arsip sedang dimuat. Coba lagi sebentar.");
+    var previous = records.find(function (r) { return r.source === "demo" && r.startedAt >= now() - 7 * 86400000; });
     if (previous) return Promise.resolve(clone(previous));
     var start = now() - 30 * 60000;
     var record = { schemaVersion: 1, id: id(), companyCode: "", ownerUid: "", memberId: "", shift: "Pagi", source: "demo",
@@ -325,7 +326,11 @@
       storage = "device";
     } catch (ignore) { if (generation !== epoch) return; storage = "memory"; error = "Penyimpanan perangkat tidak tersedia. Ekspor CSV sebelum menutup halaman."; }
     ready = true; emit();
+    ensureDemo();
     if (cloudEnabled()) sync();
+  }
+  function ensureDemo() {
+    if (ready && !session() && window.sessionStorage?.getItem("nt-demo") === "1") demo().catch(function () {});
   }
   function csv(record) {
     return window.ntReports.minutes(record, { excel: false });
@@ -353,6 +358,7 @@
     }).catch(function () {});
   });
   window.addEventListener("nt-session", loadIdentity);
+  window.addEventListener("nt-demo", ensureDemo);
   window.addEventListener("online", function () { emit(); sync(); });
   window.addEventListener("offline", function () { serverConfirmed = false; emit(); });
   window.addEventListener("pagehide", function () { if (active) { active.updatedAt = now(); persist(active); } });

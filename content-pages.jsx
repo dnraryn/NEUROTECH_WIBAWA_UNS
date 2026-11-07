@@ -581,7 +581,7 @@ const ContentPage = ({ slug }) => {
                   Bergabung
                 </NeuroBtn>
                 <NeuroBtn tone="default" size="lg"
-                  onClick={() => { sessionStorage.setItem("nt-demo", "1"); navigate("/w/readiness"); }}>
+                  onClick={goDemo}>
                   Coba demo →
                 </NeuroBtn>
               </div>
