@@ -118,7 +118,7 @@ const SupervisorSidebar = ({ active = "overview" }) => {
         <input className="workspace-search-input" type="search" autoFocus aria-label="Cari nama atau shift pekerja" placeholder="Nama atau shift pekerja" value={memberQuery} onChange={event=>setMemberQuery(event.target.value)}/>
         <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 360, overflowY: "auto" }}>
           {workers.filter(w=>[w.name,w.role,w.shift].join(" ").toLocaleLowerCase("id-ID").includes(memberQuery.trim().toLocaleLowerCase("id-ID"))).map((w) => (
-            <Link key={w.id} to={staffPath(`/s/workers/${w.id}`)} onClick={() => setSearchOpen(false)}>
+            <Link key={w.id} to={staffPath(`/s/workers/${encodeURIComponent(w.id)}`)} onClick={() => setSearchOpen(false)}>
               <div style={{
                 padding: "10px 12px", borderRadius: 12,
                 background: "var(--nt-surface)", boxShadow: "var(--nt-shadow-out-sm)",

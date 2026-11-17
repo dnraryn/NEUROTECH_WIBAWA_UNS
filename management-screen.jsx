@@ -51,6 +51,7 @@ const ManagementSidebar = ({ active = "overview" }) => {
   if (session) {
     NAV[0].to = "/m/overview";
     NAV.find(n=>n.id === "report").to = "/m/reports";
+    NAV.find(n=>n.id === "insight").label = "Insight sesi";
     NAV.splice(1,0,
       {id:"workers",label:"Anggota",to:"/m/workers",icon:<VisualIcon name="team" size={16}/>},
       {id:"alerts",label:"Alert pekerja",to:"/m/alerts",icon:<VisualIcon name="message" size={16}/>},
@@ -103,7 +104,7 @@ const ManagementSidebar = ({ active = "overview" }) => {
     // items get the highlight so the user gets clear visual feedback.
     setHl(it.id);
     _mgmtLastActive = it.id;
-    if (it.to) { navigate(it.to); return; }
+    if (it.to) { if (it.id === "overview") window._mgmtOpenZoom?.(null, "up"); navigate(it.to); return; }
     if ((it.zoom || it.id === "settings") && !window._mgmtOpenZoom) {
       window._mgmtPendingZoom = it.zoom || "settings"; navigate("/m/overview"); return;
     }
@@ -653,10 +654,10 @@ const ManagementDashboard = () => {
       </Modal>
       <Modal open={zoom === "settings"} onClose={() => setZoom(null)} title="Setelan monitoring"
         actions={<NeuroBtn tone="primary" onClick={() => setZoom(null)}>Tutup</NeuroBtn>}>
-        <p>Kalibrasi mengumpulkan sekitar dua menit jendela EEG bersih. Gangguan sinyal perlu diperbaiki sebelum kalibrasi dapat bertambah.</p>
+        {companyView ? <><p><strong>{session.companyName}</strong><br/>{session.memberName} · {ROLE_LABEL_ID[session.role]}</p><p>Pengukuran dan kalibrasi dilakukan di HP pekerja. Dashboard ini menerima Live dan arsip perusahaan.</p><div className="archive-actions"><Link className="frm-button" to="/m/workers">Kelola anggota</Link><Link className="frm-button" to="/m/schedule">Jadwal shift</Link></div><RealArchiveStatus state={archive}/></> : <p>Live dibuka setelah satu menit persiapan. Baseline pribadi dikumpulkan dari jendela EEG bersih; hasil awal tetap diberi label sementara.</p>}
         <ThemeToggle />
-        <div style={{ marginTop: 16 }}><NeuroBtn onClick={openMetrics}>Data sesi & tidur</NeuroBtn></div>
-        <div style={{ marginTop: 18 }}><NeuroBtn tone="default" onClick={() => { window.ntMuseClearBaseline?.(); window.toast?.("Baseline direset. Kalibrasi dimulai saat EEG bersih diterima.", { kind: "info" }); }}>Kalibrasi ulang</NeuroBtn></div>
+        {!companyView && <><div style={{ marginTop: 16 }}><NeuroBtn onClick={openMetrics}>Data sesi & tidur</NeuroBtn></div>
+        <div style={{ marginTop: 18 }}><NeuroBtn tone="default" onClick={() => { window.ntMuseClearBaseline?.(); window.toast?.("Baseline direset. Kalibrasi dimulai saat EEG bersih diterima.", { kind: "info" }); }}>Kalibrasi ulang</NeuroBtn></div></>}
       </Modal>
 
       <Modal

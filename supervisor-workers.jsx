@@ -16,13 +16,15 @@ const ROLE_OPTIONS = [
 const SupervisorWorkersList = () => {
   const [shiftFilter, setShiftFilter] = React.useState("Semua");
   const [statusFilter, setStatusFilter] = React.useState(null);
+  const [query, setQuery] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
   const [addOpen, setAddOpen] = React.useState(false);
   const [removeTarget, setRemoveTarget] = React.useState(null);
   const [codeTarget, setCodeTarget] = React.useState(null);
   const [form, setForm] = React.useState({ name: "", password: "", role: "pekerja", roleDesc: "", shift: "Pagi" });
   const session = window.ntSession?.get();
   const archive = useSessionArchive();
-  const workers = session ? realWorkerSummaries(archive) : WORKERS;
+  const workers = session ? realWorkerSummaries(archive, { live: true, workersOnly: session.role === "supervisor" }) : WORKERS;
   const codeMember = session?.members?.find(m=>m.id === codeTarget);
   const availableRoles = !session || session.uid === session.ownerUid ? ROLE_OPTIONS
     : ROLE_OPTIONS.filter((r) => r.v === "pekerja" || (session.role === "management" && r.v === "supervisor"));
@@ -30,7 +32,8 @@ const SupervisorWorkersList = () => {
   const saving = React.useRef(false);
   const filtered = workers.filter((w) =>
     (shiftFilter === "Semua" || w.shift === shiftFilter) &&
-    (!statusFilter || w.status === statusFilter)
+    (!statusFilter || w.status === statusFilter) &&
+    [w.name, w.accountCode, w.role, w.shift].join(" ").toLocaleLowerCase("id-ID").includes(query.trim().toLocaleLowerCase("id-ID"))
   );
 
   // Build a fresh worker record and hand it to the shared store.
@@ -43,6 +46,7 @@ const SupervisorWorkersList = () => {
       window.toast?.("Pilih role pekerja.", { kind: "warn" }); return;
     }
     saving.current = true;
+    setBusy(true);
     try {
       const ok = session ? await window.ntCompany.addCodeMember({...form,name}) : await window.ntAddWorker({name,role:form.role,roleDesc:form.roleDesc,shift:form.shift});
       if (!ok) throw new Error("Gagal menambah pekerja.");
@@ -51,7 +55,7 @@ const SupervisorWorkersList = () => {
       setAddOpen(false);
       if(session && ok?.id)setCodeTarget(ok.id);
     } catch (error) { window.toast?.(error.message || "Gagal menyimpan pekerja.", { kind: "danger" }); }
-    finally { saving.current = false; }
+    finally { saving.current = false; setBusy(false); }
   };
 
   const confirmRemove = async () => {
@@ -59,12 +63,13 @@ const SupervisorWorkersList = () => {
     if (!removeTarget) return;
     const nm = removeTarget.name;
     saving.current = true;
+    setBusy(true);
     try {
       if (!await window.ntRemoveWorker(removeTarget.id)) throw new Error("Pekerja tidak ditemukan.");
       window.toast?.(nm + " dihapus dari daftar pekerja.", { kind: "success" });
       setRemoveTarget(null);
     } catch (error) { window.toast?.(error.message || "Gagal menghapus pekerja.", { kind: "danger" }); }
-    finally { saving.current = false; }
+    finally { saving.current = false; setBusy(false); }
   };
 
   const fieldStyle = {
@@ -87,8 +92,8 @@ const SupervisorWorkersList = () => {
         title={session?.role==="management" ? "Anggota perusahaan" : "Pekerja"}
         right={
           <div style={{ display: "flex", gap: 8 }}>
-            <NeuroBtn tone="default" size="sm" onClick={() => session ? navigate(staffPath("/s/reports")) : window.toast?.("Export pekerja → CSV (mock)", { kind: "info" })}>
-              {session ? "Buka laporan" : "Export CSV"}
+            <NeuroBtn tone="default" size="sm" onClick={() => navigate(staffPath("/s/reports"))}>
+              Buka laporan
             </NeuroBtn>
             <NeuroBtn tone="primary" size="sm" onClick={() => setAddOpen(true)}>
               {session?.role==="management" ? "+ Tambah anggota" : "+ Tambah Pekerja"}
@@ -100,6 +105,7 @@ const SupervisorWorkersList = () => {
 
       {/* Filters */}
       <div className="workspace-table-filters" style={{ display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" }}>
+        <input className="workspace-search-input" type="search" aria-label="Cari anggota" placeholder="Nama, kode akun atau shift" value={query} onChange={e=>setQuery(e.target.value)}/>
         <div style={{ display: "flex", gap: 4, padding: 4, borderRadius: 999, background: "var(--nt-surface)", boxShadow: "var(--nt-shadow-in)" }}>
           {SHIFT_TABS.map((s) => (
             <button key={s} onClick={() => setShiftFilter(s)} style={{
@@ -138,6 +144,7 @@ const SupervisorWorkersList = () => {
       </div>
 
       {/* Table */}
+      {session && <p className="archive-muted">Angka bertanda Live mengikuti pengukuran HP. Arsip terakhir ditampilkan saat tidak ada hasil Live; bukan kondisi saat ini.</p>}
       <p className="worker-table-hint">Geser tabel ke samping untuk melihat seluruh kolom.</p>
       <div className={"neu-surface workers-table" + (session ? " workers-table--real" : "")} tabIndex={0} role="region" aria-label="Daftar pekerja, dapat digeser ke samping" style={{ padding: 0, overflow: "hidden", flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
         <div style={{
@@ -159,7 +166,7 @@ const SupervisorWorkersList = () => {
           {filtered.map((w) => {
             const s = STATUS_MAP[w.status];
             return (
-              <Link key={w.id} to={staffPath(`/s/workers/${w.id}`)}>
+              <Link key={w.id} to={staffPath(`/s/workers/${encodeURIComponent(w.id)}`)}>
                 <div className="nt-card-click" style={{
                   display: "grid",
                   gridTemplateColumns: session ? "1.9fr 1.05fr 0.85fr 0.58fr 0.58fr 0.95fr 44px" : "1.9fr 1.05fr 0.85fr 0.58fr 0.58fr 0.58fr 0.68fr 0.95fr 44px",
@@ -177,6 +184,7 @@ const SupervisorWorkersList = () => {
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: "var(--nt-text)" }}>{w.name}</div>
                       {session && <small className={`worker-connection-label is-${w.connection.key}`}>{w.connection.label}</small>}
+                      {session && <small className="worker-result-source">{w.accountCode || "Kode belum tersedia"} · {w.resultLabel}{w.provisional ? " · sementara" : ""}</small>}
                       {session && <button type="button" className="worker-code-action" aria-label={`Kode masuk ${w.name}`} onClick={e=>{e.preventDefault();e.stopPropagation();setCodeTarget(w.id);}}>Kode masuk ↗</button>}
                       {(w.roleDesc || (session && w.recordedAt)) && (
                         <div style={{ fontSize: 10.5, color: "var(--nt-text-3)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{session ? realDate(w.recordedAt) : w.roleDesc}</div>
@@ -192,7 +200,7 @@ const SupervisorWorkersList = () => {
                     <StatusPill status={w.status} size="sm" />
                   </div>
                   <div style={{ display: "flex", justifyContent: "center" }}>
-                    <button
+                    {canRemoveMember(w, session) && <button
                       title={`Hapus ${w.name}`}
                       onClick={(e) => { e.preventDefault(); e.stopPropagation(); setRemoveTarget(w); }}
                       style={{
@@ -201,7 +209,7 @@ const SupervisorWorkersList = () => {
                         color: "#ff7a7a", display: "flex", alignItems: "center", justifyContent: "center",
                       }}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/></svg>
-                    </button>
+                    </button>}
                   </div>
                 </div>
               </Link>
@@ -222,13 +230,13 @@ const SupervisorWorkersList = () => {
       </Modal>
       <Modal
         open={addOpen}
-        onClose={() => setAddOpen(false)}
-        title="Tambah Pekerja"
+        onClose={() => {if (!busy) setAddOpen(false);}}
+        title={session?.role === "management" ? "Tambah anggota" : "Tambah Pekerja"}
         subtitle="Buat akun dengan nama, peran, dan password awal. Kode akun muncul setelah tersimpan."
         actions={
           <>
-            <NeuroBtn tone="ghost" onClick={() => setAddOpen(false)}>Batal</NeuroBtn>
-            <NeuroBtn tone="primary" onClick={submitAdd}>Tambah Pekerja</NeuroBtn>
+            <NeuroBtn tone="ghost" disabled={busy} onClick={() => setAddOpen(false)}>Batal</NeuroBtn>
+            <NeuroBtn tone="primary" disabled={busy} onClick={submitAdd}>{busy ? "Menyimpan…" : session?.role === "management" ? "Tambah anggota" : "Tambah Pekerja"}</NeuroBtn>
           </>
         }
       >
@@ -298,14 +306,14 @@ const SupervisorWorkersList = () => {
       {/* Hapus pekerja */}
       <Modal
         open={!!removeTarget}
-        onClose={() => setRemoveTarget(null)}
+        onClose={() => {if (!busy) setRemoveTarget(null);}}
         tone="danger"
         title={removeTarget ? `Hapus ${removeTarget.name}?` : ""}
-        subtitle="Pekerja akan dihapus dari daftar pemantauan. Anda dapat menambahkannya kembali kapan saja lewat tombol Tambah Pekerja."
+        subtitle="Akses anggota ke perusahaan akan dicabut. Riwayat sesi tetap tersimpan; akun baru tidak mewarisi identitas akun ini."
         actions={
           <>
-            <NeuroBtn tone="ghost" onClick={() => setRemoveTarget(null)}>Batal</NeuroBtn>
-            <NeuroBtn tone="danger" onClick={confirmRemove}>Hapus</NeuroBtn>
+            <NeuroBtn tone="ghost" disabled={busy} onClick={() => setRemoveTarget(null)}>Batal</NeuroBtn>
+            <NeuroBtn tone="danger" disabled={busy} onClick={confirmRemove}>{busy ? "Menghapus…" : "Hapus"}</NeuroBtn>
           </>
         }
       />

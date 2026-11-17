@@ -121,3 +121,41 @@ test('encoded member and incident IDs survive route parsing, including malformed
   const account=parse('#/login/pekerja?access=opaque&account=P001');
   assert.equal(account.page,'pekerja');assert.equal(account.path,'/login/pekerja');assert.equal(account.query,'access=opaque&account=P001');
 });
+
+test('staff list uses fresh Live including zero and unavailable metrics, then falls back to the last measured archive', () => {
+  let view = { measurement: { fi: 0, cli: null, ei: 25, quality: 'limited', provisional: true }, live: true, fresh: true, label: 'Live', row: { status: 'live' } };
+  const c = { window: { ntSession: { get: () => ({ code: 'A', members: [
+    { id: 'one', uid: 'u-one', name: 'One', role: 'pekerja', accountCode: 'P001' }, { id: 'staff', uid: 'u-staff', name: 'Staff', role: 'management' },
+  ] }) }, ntTeamLive: { view: () => view } }, ROLE_LABEL_ID: { pekerja: 'Pekerja', management: 'Manajemen' }, NT_IMG: ['blue'] };
+  vm.runInNewContext(source('session-insights.js'), c);
+  const api = vm.runInNewContext(source('role-real.jsx').split('const realMetric')[0] + '\n({ realWorkerSummaries, canRemoveMember });', c);
+  const base = { source: 'muse', companyCode: 'A', memberId: 'one', algorithmVersion: 'eeg-heuristic-v4', status: 'completed',
+    startedAt: 1000, updatedAt: 1000, minutes: [{ minute: 0, n: 30, partial: 0, provisional: 0, fi: 1500, cli: 1200, ei: 1800, incidents: 0 }], summary: { meanFI: 50, meanCLI: 40, meanEI: 60 } };
+  const state = { rows: [{ ...base, startedAt: 2000, status: 'recording', minutes: [], summary: { meanFI: null, meanCLI: null } }, base] };
+  let [worker] = api.realWorkerSummaries(state, { live: true, workersOnly: true });
+  assert.equal(worker.fi, 0); assert.equal(worker.cli, null); assert.equal(worker.ei, 25);
+  assert.equal(worker.status, 'normal'); assert.equal(worker.provisional, true); assert.equal(worker.resultLabel, 'Live');
+  assert.equal(api.realWorkerSummaries(state, { live: true, workersOnly: true }).length, 1);
+  assert.equal(api.realWorkerSummaries(state).length, 2);
+  view = { measurement: null, fresh: false, label: 'Pembaruan terhenti', row: { status: 'live' } };
+  [worker] = api.realWorkerSummaries(state, { live: true });
+  assert.equal(worker.fi, 50); assert.equal(worker.cli, 40); assert.equal(worker.recordedAt, 1000);
+  assert.equal(worker.resultLabel, 'Arsip terakhir'); assert.equal(worker.connection.label, 'Pembaruan terhenti');
+  const [archiveOnly] = api.realWorkerSummaries(state);
+  assert.equal(archiveOnly.fi, 50, 'company aggregate cards never replace archive results with provisional Live');
+  assert.equal(archiveOnly.connection.label, 'Belum terkonfirmasi', 'connection comes from the new recording, not the completed fallback');
+});
+
+test('staff member controls respect removal hierarchy and protect the owner and current account', () => {
+  const c = { window: {}, ROLE_LABEL_ID: {}, NT_IMG: [] };
+  const canRemove = vm.runInNewContext(source('role-real.jsx').split('const realMetric')[0] + '\ncanRemoveMember;', c);
+  const worker = { id: 'worker', uid: 'w', systemRole: 'pekerja' }, staff = { id: 'staff', uid: 's', systemRole: 'supervisor' }, owner = { id: 'owner', uid: 'o', systemRole: 'management' };
+  const supervisor = { uid: 's', memberId: 'staff', ownerUid: 'o', role: 'supervisor' };
+  assert.equal(canRemove(worker, supervisor), true);
+  assert.equal(canRemove(staff, supervisor), false); assert.equal(canRemove(owner, supervisor), false);
+  assert.equal(canRemove({ ...staff, id: 'other', uid: 'other' }, supervisor), false);
+  const manager = { uid: 'm', memberId: 'manager', ownerUid: 'o', role: 'management' };
+  assert.equal(canRemove(staff, manager), true); assert.equal(canRemove(owner, manager), false);
+  assert.equal(canRemove({ ...owner, id: 'other', uid: 'other' }, manager), false);
+  assert.equal(canRemove(staff, { ...manager, uid: 'o', memberId: 'owner' }), true);
+});

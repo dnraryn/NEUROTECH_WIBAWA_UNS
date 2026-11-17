@@ -38,6 +38,10 @@ const StaffAlertSummary = () => {
 const StaffAlertCenter = () => {
   const state=useWorkerAlerts(),members=(window.ntSession?.get()?.members||[]).filter(m=>m.role==="pekerja"&&m.uid);
   const [memberId,setMemberId]=React.useState(""),[title,setTitle]=React.useState(""),[message,setMessage]=React.useState(""),[severity,setSeverity]=React.useState("attention"),[filter,setFilter]=React.useState("open"),[busy,setBusy]=React.useState(false),[feedback,setFeedback]=React.useState("");
+  const route = useHashRoute();
+  const requestedMember = new URLSearchParams(route.query || "").get("worker");
+  const recipientAvailable = members.some(m=>m.id===requestedMember);
+  React.useEffect(()=>{if(recipientAvailable)setMemberId(requestedMember);},[requestedMember,recipientAvailable]);
   const submit=async(e)=>{e.preventDefault();setBusy(true);setFeedback("");try{await window.ntWorkerAlerts.send({memberId,title,message,severity});setTitle("");setMessage("");setFeedback("Alert tersimpan. Konfirmasi pekerja akan muncul setelah ia membacanya.");}catch(e){setFeedback(e.message);}finally{setBusy(false);}};
   const rows=state.rows.filter(r=>filter==="all" || (filter==="open"?!r.resolvedAt:!!r.resolvedAt));
   return <section aria-label="Pengiriman alert pekerja"><div className="alert-workspace"><form className="alert-compose" onSubmit={submit}><div className="supervisor-kicker">KOMUNIKASI K3</div><h2>Kirim arahan</h2><p>Pesan muncul di aplikasi pekerja saat terbuka atau dibuka kembali.</p>

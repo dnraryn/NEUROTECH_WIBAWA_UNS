@@ -5,21 +5,30 @@ const realName = (memberId) => window.ntSession?.get()?.members?.find((m) => m.i
 const realSessions = (state) => window.ntSessionInsights.rows(state, { source: "muse" });
 const realCard = { padding: 20, borderRadius: 18, background: "var(--nt-surface)", boxShadow: "var(--nt-shadow-out-sm)" };
 const realDate = (value) => value ? archiveDate(value) : "—";
-const realWorkerSummaries = (state) => {
+const realWorkerSummaries = (state, { live = false, workersOnly = false } = {}) => {
   const rows = realSessions(state);
-  return (window.ntSession?.get()?.members || []).map((member, i) => {
-    const latest = rows.find((r) => r.memberId === member.id);
+  return (window.ntSession?.get()?.members || []).filter(m => !workersOnly || m.role === "pekerja").map((member, i) => {
+    const memberRows = rows.filter(r => r.memberId === member.id);
+    const newest = memberRows[0];
+    const latest = memberRows.find(r => Number.isFinite(r.summary?.meanFI)) || newest;
     const summary = latest?.summary;
-    const fi = summary?.meanFI ?? null, cli = summary?.meanCLI ?? null;
+    const view = live && member.role === "pekerja" && member.uid ? window.ntTeamLive?.view?.(member) : null;
+    const measurement = view?.live ? view.measurement : null;
+    const fi = measurement ? measurement.fi : summary?.meanFI ?? null, cli = measurement ? measurement.cli : summary?.meanCLI ?? null;
     const assessment = window.ntSessionInsights.assess(latest);
-    const status = assessment.status;
-    return { id: member.id, name: member.name, systemRole: member.role,
+    const status = measurement ? window.ntSessionInsights.status(fi, cli) : assessment.status;
+    const connection = view?.row ? { key: view.live ? "active" : view.fresh ? "unknown" : "stale", label: view.label }
+      : window.ntSessionInsights.connection(newest,{confirmed:state.serverConfirmed && state.online !== false});
+    return { id: member.id, name: member.name, uid: member.uid, accountCode: member.accountCode, systemRole: member.role,
       role: member.roleDesc || ROLE_LABEL_ID[member.role] || "Anggota", shift: member.shift || "Belum diatur",
-      fi, cli, ei: summary?.meanEI ?? null, hrv: null, readiness: null, status,
-      connection: window.ntSessionInsights.connection(latest,{confirmed:state.serverConfirmed && state.online !== false}),
-      assessment, recordedAt: latest?.startedAt || null, img: NT_IMG[i % NT_IMG.length] };
+      fi, cli, ei: measurement ? measurement.ei : summary?.meanEI ?? null, hrv: null, readiness: null, status,
+      connection, measurementKind: measurement ? "live" : "archive", provisional: !!measurement && (measurement.provisional || measurement.quality !== "good"),
+      resultLabel: measurement ? "Live" : Number.isFinite(summary?.meanFI) ? "Arsip terakhir" : "Belum ada hasil",
+      assessment, recordedAt: measurement ? measurement.measuredAt : latest?.startedAt || null, img: NT_IMG[i % NT_IMG.length] };
   });
 };
+const canRemoveMember = (member, session) => !session || (!!member && member.id !== session.memberId && member.uid !== session.uid && member.uid !== session.ownerUid
+  && (session.uid === session.ownerUid || member.systemRole === "pekerja" || (session.role === "management" && member.systemRole === "supervisor")));
 const realMetric = (label,value,detail) => <section className="visual-kpi"><div className="visual-kpi-top"><span className="visual-kpi-icon"><VisualIcon name={label.includes("Pekerja")||label.includes("Anggota")?"team":label.includes("microsleep")?"signal":"chart"}/></span><span>{label}</span><details className="visual-info"><summary title={detail} aria-label={`Info ${label}`}><VisualIcon name="info" size={17}/></summary><p>{detail}</p></details></div><strong>{value}</strong></section>;
 
 // Visual summaries only; all values retain the existing archive calculations.
@@ -172,11 +181,13 @@ const RealSupervisorDashboard = () => {
 
 const RealSupervisorWorkerDetail = ({ id }) => {
   const state = useSessionArchive(), member = window.ntSession?.get()?.members?.find((m) => m.id === id), rows = realSessions(state).filter((r) => r.memberId === id);
-  const assessment = window.ntSessionInsights.assess(rows[0]);
-  return <RealSupervisorFrame active="workers" title={member?.name || "Pekerja tidak ditemukan"} subtitle={member ? `${member.roleDesc || "Pekerja"} · Shift ${member.shift || "Belum diatur"}` : "Akun ini tidak ada dalam daftar pekerja perusahaan."} actions={<Link className="archive-back" to={staffPath("/s/workers")}>Kembali ke daftar</Link>}>
+  const latest = rows.find(r => Number.isFinite(r.summary?.meanFI)) || rows[0];
+  const assessment = window.ntSessionInsights.assess(latest);
+  return <RealSupervisorFrame active="workers" title={member?.name || "Pekerja tidak ditemukan"} subtitle={member ? `${member.roleDesc || ROLE_LABEL_ID[member.role] || "Anggota"} · Shift ${member.shift || "Belum diatur"}` : "Akun ini tidak ada dalam daftar pekerja perusahaan."} actions={<Link className="archive-back" to={staffPath("/s/workers")}>Kembali ke daftar</Link>}>
     <RealArchiveStatus state={state} />
-    {member && <TeamSessionConnections state={state} memberId={id}/>}
-    {member && (!rows.length ? <div style={realCard}>Belum ada sesi Muse.</div> : <><section className="supervisor-takeaway"><div><span className="supervisor-kicker">KESIMPULAN SESI TERAKHIR</span><h2>{assessment.title}</h2><p>{assessment.action}</p></div><Link className="archive-back" to={staffPath(`/s/reports/${rows[0].id}`)}>Lihat sesi ↗</Link></section><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12 }}>{realMetric("Sesi", rows.length, "Sesi Muse tersimpan")}{realMetric("Fatigue terakhir", archiveNumber(rows[0].summary.meanFI), `${rows[0].summary.clean} hasil bersih`)}{realMetric("Beban kognitif", archiveNumber(rows[0].summary.meanCLI), "Dari EEG bersih")}{realMetric("Microsleep", rows.reduce((n, r) => n + r.summary.incidents, 0), "Indikasi seluruh sesi")}</div><section style={realCard}><h2 style={{ fontSize: 16 }}>Riwayat sesi</h2>{rows.map((r) => <Link key={r.id} to={staffPath(`/s/reports/${r.id}`)}><div className="nt-card-click" style={{ padding: 12, borderBottom: "1px solid var(--nt-bg-deep)" }}>{realDate(r.startedAt)} · FI {archiveNumber(r.summary.meanFI)} · {r.summary.clean} hasil bersih · {r.review ? "Sudah ditinjau" : "Belum ditinjau"}</div></Link>)}</section></>)}
+    {member && <section style={realCard} aria-label="Akses akun anggota"><MemberAccessCode companyCode={window.ntSession.get().code} memberId={member.id} role={member.role}/>{member.role === "pekerja" && member.uid && <Link className="archive-primary" to={staffPath(`/s/alerts?worker=${encodeURIComponent(member.id)}`)}>Kirim alert ke pekerja</Link>}</section>}
+    {member?.role === "pekerja" && <TeamSessionConnections state={state} memberId={id}/>}
+    {member && (!rows.length ? <div style={realCard}>Belum ada sesi Muse.</div> : <><section className="supervisor-takeaway"><div><span className="supervisor-kicker">KESIMPULAN ARSIP TERAKHIR DENGAN HASIL</span><h2>{assessment.title}</h2><p>{assessment.action}</p></div><Link className="archive-back" to={staffPath(`/s/reports/${latest.id}`)}>Lihat sesi ↗</Link></section><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12 }}>{realMetric("Sesi", rows.length, "Sesi Muse tersimpan")}{realMetric("Fatigue terakhir", archiveNumber(latest.summary.meanFI), `${latest.summary.clean} hasil bersih`)}{realMetric("Beban kognitif", archiveNumber(latest.summary.meanCLI), "Dari EEG bersih")}{realMetric("Microsleep", rows.reduce((n, r) => n + r.summary.incidents, 0), "Indikasi seluruh sesi")}</div><section style={realCard}><h2 style={{ fontSize: 16 }}>Riwayat sesi</h2>{rows.map((r) => <Link key={r.id} to={staffPath(`/s/reports/${r.id}`)}><div className="nt-card-click" style={{ padding: 12, borderBottom: "1px solid var(--nt-bg-deep)" }}>{realDate(r.startedAt)} · FI {archiveNumber(r.summary.meanFI)} · {r.summary.clean} hasil bersih · {r.review ? "Sudah ditinjau" : "Belum ditinjau"}</div></Link>)}</section></>)}
   </RealSupervisorFrame>;
 };
 

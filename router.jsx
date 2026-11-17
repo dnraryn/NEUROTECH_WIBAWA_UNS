@@ -181,7 +181,7 @@ const ToastProvider = () => {
 };
 
 // ── Shared button styles ─────────────────────────────────────────────────
-const NeuroBtn = ({ children, onClick, tone = "default", size = "md", style }) => {
+const NeuroBtn = ({ children, onClick, tone = "default", size = "md", style, disabled = false, type = "button", ...attributes }) => {
   const tones = {
     default:  { bg: "var(--nt-surface)", shadow: "var(--nt-shadow-out-sm)", color: "var(--nt-text-2)" },
     primary:  { bg: "linear-gradient(135deg, #9c8bf0, #6cb6f0)", shadow: "0 8px 18px rgba(108,182,240,0.32), inset 0 1px 0 rgba(255,255,255,0.4)", color: "white" },
@@ -198,6 +198,9 @@ const NeuroBtn = ({ children, onClick, tone = "default", size = "md", style }) =
       : { padX: 18, padY: 11, fs: 13 };
   return (
     <button
+      {...attributes}
+      type={type}
+      disabled={disabled}
       onClick={onClick}
       style={{
         padding: `${sz.padY}px ${sz.padX}px`,
@@ -207,7 +210,8 @@ const NeuroBtn = ({ children, onClick, tone = "default", size = "md", style }) =
         color: t.color,
         fontWeight: 700, fontSize: sz.fs,
         fontFamily: "inherit",
-        cursor: "pointer",
+        cursor: disabled ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.6 : 1,
         transition: "transform .12s, box-shadow .12s",
         ...style,
       }}
