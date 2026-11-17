@@ -326,12 +326,12 @@ const ManagementDashboard = () => {
     { l: "SLEEP DEBT", v: "1.2 j", sub: "Rerata / pekerja", trend: "−0.3", dir: -1 },
     { l: "JAM PANTAU", v: "11.4k", sub: "Total jam EEG", trend: "+18%", dir: 1 },
   ] : companyView ? [
-    { l: "CAKUPAN TARGET PANTAU", v: company.compliance === null ? "—" : archiveNumber(company.compliance, 1) + "%", sub: `${company.complianceDays} catatan anggota/hari · rerata terhadap target yang dilaporkan`, trend: "Arsip perusahaan", progress: company.compliance },
+    { l: "CAKUPAN TARGET PANTAU", v: company.compliance === null ? "—" : archiveNumber(company.compliance, 1) + "%", sub: `${archiveNumber(company.coverageMinutes,1)} / ${archiveNumber(company.coverageTargetMinutes,1)} menit · ${company.targetReachedDays}/${company.complianceDays} target harian tercapai`, trend: "Bukan kualitas EEG", progress: company.compliance, action: "Lihat perhitungan", onAction: () => setZoom("coverage") },
     { l: "INDIKASI MICROSLEEP", v: company.sessions ? String(company.incidents) : "—", sub: "Kejadian dari hasil EEG bersih tersimpan", trend: `${company.sessions} sesi` },
     { l: "KEKURANGAN TIDUR", v: company.sleepDebt === null ? "Belum diisi" : archiveNumber(company.sleepDebt, 1) + " j", sub: `Laporan tidur terakhir dari ${company.sleepReportedMembers} anggota pada periode ini`, trend: "Laporan mandiri" },
     { l: "JAM PANTAU", v: archiveNumber(company.receivedMinutes / 60, 2) + " j", sub: "Total EEG diterima pada sesi dalam periode", trend: `${company.members} anggota` },
   ] : [
-    { l: "KEPATUHAN", v: personalMetrics.compliance.toFixed(1) + "%", sub: `${personalMetrics.receivedMinutes.toFixed(1)} / ${personalMetrics.targetMinutes} menit target hari ini`, trend: "Target pantau", action: "Ubah target", progress: personalMetrics.compliance },
+    { l: "TARGET PANTAU HARI INI", v: personalMetrics.compliance.toFixed(1) + "%", sub: `${personalMetrics.receivedMinutes.toFixed(1)} / ${personalMetrics.targetMinutes} menit target hari ini`, trend: "Bukan kualitas EEG", action: "Ubah target", progress: personalMetrics.compliance },
     { l: "INSIDEN FATIGUE", v: live.history.length ? String(live.incidents) : "—", sub: live.history.length ? "Indikasi microsleep · EEG bersih" : "Menunggu pengukuran EEG bersih", trend: "Sesi ini" },
     { l: "SLEEP DEBT", v: personalMetrics.sleepDebt === null ? "Isi tidur" : personalMetrics.sleepDebt.toFixed(1) + " j", sub: personalMetrics.sleptHours === null ? "Catat tidur terakhir untuk menghitung" : `Tidur ${personalMetrics.sleptHours} j · target ${personalMetrics.sleepTargetHours} j`, trend: "Laporan mandiri", action: "Catat tidur" },
     { l: "JAM PANTAU", v: personalMetrics.receivedMinutes < 60 ? personalMetrics.receivedMinutes.toFixed(1) + " m" : (personalMetrics.receivedMinutes / 60).toFixed(2) + " j", sub: "Total EEG diterima hari ini · browser ini", trend: "Hari ini" },
@@ -407,7 +407,7 @@ const ManagementDashboard = () => {
             <output aria-label={k.l} style={{ fontSize: 25, fontWeight: 800, color: "var(--nt-text)", lineHeight: 1.2, letterSpacing: "-0.02em" }}>{k.v}</output>
             <div style={{ fontSize: 10.5, color: "var(--nt-text-3)" }}>{k.sub}</div>
             {Number.isFinite(k.progress) && <div role="progressbar" aria-label="Kemajuan target pantau" aria-valuemin={0} aria-valuemax={100} aria-valuenow={k.progress} style={{ height: 5, borderRadius: 5, background: "var(--nt-bg-deep)", overflow: "hidden", margin: "3px 0" }}><div style={{ width: `${k.progress}%`, height: "100%", borderRadius: 5, background: "#2563eb" }} /></div>}
-            {!demo && k.action ? <button type="button" className="frm-link" onClick={openMetrics}>{k.action}</button> : demo ? <LiveSparkline index={i} trendDir={k.dir} animate /> : null}
+            {!demo && k.action ? <button type="button" className="frm-link" onClick={k.onAction || openMetrics}>{k.action}</button> : demo ? <LiveSparkline index={i} trendDir={k.dir} animate /> : null}
           </div>
         ))}
       </div>
@@ -651,6 +651,11 @@ const ManagementDashboard = () => {
           {metricsError && <p role="alert">{metricsError}</p>}
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}><button type="button" className="frm-button" onClick={() => setMetricsOpen(false)}>Batal</button><button type="submit" className="frm-button frm-button-primary">Simpan data sesi</button></div>
         </form>}
+      </Modal>
+      <Modal open={zoom === "coverage"} onClose={() => setZoom(null)} title="Perhitungan target pantau" width={760} actions={<NeuroBtn onClick={() => setZoom(null)}>Tutup</NeuroBtn>}>
+        <p>Setiap anggota/hari dihitung dari menit paket EEG diterima ÷ target pantau, maksimal 100%. Kartu menampilkan rerata persentase anggota/hari. Sampel yang sinyalnya buruk tetap dihitung sebagai waktu penerimaan; angka ini bukan kualitas sinyal atau kepatuhan audit K3.</p>
+        <p>{archiveNumber(company.coverageMinutes,1)} menit diterima · {archiveNumber(company.coverageTargetMinutes,1)} menit target · {company.complianceDays} catatan anggota/hari.</p>
+        <div style={{overflowX:"auto"}}><table style={{width:"100%",textAlign:"left"}}><thead><tr><th>Anggota</th><th>Tanggal sesi</th><th>Menit diterima</th><th>Target</th><th>Capaian</th></tr></thead><tbody>{company.coverageDetails.map((d,i)=><tr key={i}><td>{realName(d.memberId)}</td><td>{d.date}</td><td>{archiveNumber(d.minutes,1)}</td><td>{d.target}</td><td>{archiveNumber(d.percent,1)}%</td></tr>)}</tbody></table></div>
       </Modal>
       <Modal open={zoom === "settings"} onClose={() => setZoom(null)} title="Setelan monitoring"
         actions={<NeuroBtn tone="primary" onClick={() => setZoom(null)}>Tutup</NeuroBtn>}>

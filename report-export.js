@@ -40,14 +40,21 @@
         c.sleptHours, c.sleepTargetHours, s.sleepDebt, c.sleepiness, c.note || "", r.review ? "Sudah ditinjau" : "Belum ditinjau", r.review?.note || "", stamp(r.review?.reviewedAt).iso,
         r.source === "demo" ? "Simulasi" : r.synced ? "Tersinkron Firebase" : "Salinan perangkat", r.algorithmVersion]));
     });
+    rows[0].push("Hasil Sementara (jendela)", "Fatigue Sementara (0-100)", "Beban Sementara (0-100)", "Engagement Sementara (0-100)", "Kualitas Terbatas (jendela)", "Belum Ada Baseline Pribadi (jendela)");
+    records.forEach(function (r, i) { var p = window.ntSessionInsights.previewSummary(r); rows[i + 1].push(p.count, p.meanFI, p.meanCLI, p.meanEI, p.limited, p.uncalibrated); });
     return table(rows, options);
   }
   function minutes(r, options) {
     var rows = [identityHeaders.concat(["Menit Ke", "Waktu Menit (UTC ISO)", "Hasil Bersih", "Hasil Terbatas", "Baseline Sementara", "Fatigue Rata-rata (0-100)", "Fatigue Maksimum (0-100)", "Beban Kognitif (0-100)", "Engagement (0-100)", "Indikasi Microsleep", "Kualitas Hasil"])];
-    r.minutes.slice().sort(function (a, b) { return a.minute - b.minute; }).forEach(function (m) {
+    rows[0].splice(rows[0].length - 1, 0, "Hasil Sementara", "Fatigue Sementara (0-100)", "Beban Sementara (0-100)", "Engagement Sementara (0-100)", "Belum Ada Baseline Pribadi");
+    var minuteNumbers = Array.from(new Set(r.minutes.concat(r.previewMinutes || []).map(function (m) { return m.minute; }))).sort(function (a, b) { return a - b; });
+    minuteNumbers.forEach(function (minute) {
+      var m = r.minutes.find(function (m) { return m.minute === minute; }) || { minute: minute, n: 0, partial: 0, provisional: 0, incidents: 0 };
+      var p = (r.previewMinutes || []).find(function (p) { return p.minute === minute; });
       rows.push(identity(r).concat([m.minute + 1, stamp(r.startedAt + m.minute * 60000).iso, m.n, m.partial, m.provisional,
         m.n ? m.fi / m.n : null, m.n ? m.fiMax : null, m.n ? m.cli / m.n : null, m.n ? m.ei / m.n : null, m.incidents,
-        m.n ? m.partial ? "Bersih dan terbatas" : "Bersih" : m.partial ? "Terbatas; indeks tidak disertakan" : "Belum ada hasil"]));
+        p?.n || 0, p?.fiN ? p.fi / p.fiN : null, p?.cliN ? p.cli / p.cliN : null, p?.eiN ? p.ei / p.eiN : null, p?.uncalibrated || 0,
+        m.n ? m.partial ? "Bersih dan terbatas" : "Bersih" : p?.n ? "Sementara; terpisah dari indeks bersih" : m.partial ? "Terbatas; indeks tidak disertakan" : "Belum ada hasil"]));
     });
     return table(rows, options);
   }

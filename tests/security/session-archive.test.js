@@ -52,6 +52,21 @@ test('latest worker readings reach both staff dashboards with provisional and pa
  await assertSucceeds(setDoc(doc(worker,...path),liveReading({status:'disconnected',measurement:null})));
 });
 
+test('experimental minute results synchronize separately from clean report data and retain company and owner isolation', async () => {
+  const r = { ...record(91), algorithmVersion: 'eeg-heuristic-v4', minutes: [], previewMinutes: [
+    { minute: 0, n: 2, fiN: 2, fi: 140, cliN: 0, cli: 0, eiN: 2, ei: 0, limited: 2, uncalibrated: 2 },
+  ] };
+  const target = ['companies','A','sessions',r.id];
+  await assertSucceeds(setDoc(doc(client('A-worker'),...target),r));
+  for (const uid of ['A-supervisor','A-owner']) {
+    const saved = (await assertSucceeds(getDoc(doc(client(uid),...target)))).data();
+    assert.equal(saved.minutes.length, 0); assert.equal(saved.previewMinutes[0].fi, 140); assert.equal(saved.previewMinutes[0].cliN, 0);
+  }
+  await assertFails(getDoc(doc(client('A-other'),...target)));
+  await assertFails(getDoc(doc(client('B-supervisor'),...target)));
+  await assertFails(setDoc(doc(client('A-worker'),'companies','A','sessions',sid(92)),{ ...r, id: sid(92), previewMinutes: 'invalid' }));
+});
+
 test('a worker recording update reaches both staff portals while other workers and companies remain isolated',async()=>{
   const path=['companies','A','sessions',sid(30)], worker=client('A-worker');
   await assertSucceeds(setDoc(doc(worker,...path),record(30,'A-worker','recording')));

@@ -37,6 +37,32 @@ test('raw samples may arrive during calibration but no report indices are saved 
   b.setClock(4000); b.c.ntMuseDSP.last = {ts:4000,qualityLevel:'good',outputScope:'full',fi:40,cli:40,ei:50}; b.emit('nt-data');
   assert.equal(b.c.ntSessionArchive.state().rows[0].summary.clean,1);
 });
+
+test('visible provisional results after preparation are archived separately with per-metric counts and no fabricated CLI or microsleep', async () => {
+  const b = await setup(); b.load('management-data.js'); b.c.ntSessionArchive.begin();
+  b.c.ntMuse.status = () => ({ connected: true, protocol: 'athena', connectedAt: 1000, lastEEGAt: b.c.Date.now() });
+  const send = (ts, changes = {}) => {
+    b.setClock(ts); b.c.ntMuseDSP = { baselineTarget: 40, baseline: null, calibration: { startedAt: 1000 }, signalState: 'limited',
+      last: { ts, qualityLevel: 'limited', outputScope: 'frontal-only', fi: 78, cli: null, ei: 0, microsleep: true, classificationProvisional: true, ...changes } };
+    b.emit('nt-data');
+  };
+  send(30000); assert.equal(b.c.ntSessionArchive.state().rows[0].previewSummary.count, 0);
+  send(65000); send(65000); send(66000, { fi: 60, cli: 40, ei: 20, outputScope: 'full' });
+  let r = b.c.ntSessionArchive.state().rows[0];
+  assert.equal(r.previewSummary.count, 2); assert.equal(r.previewSummary.meanFI, 69);
+  assert.equal(r.previewSummary.meanCLI, 40, 'missing CLI is excluded from its denominator');
+  assert.equal(r.previewSummary.meanEI, 10, 'a measured zero is preserved');
+  assert.equal(r.previewSummary.uncalibrated, 2); assert.equal(r.summary.meanFI, null); assert.equal(r.summary.incidents, 0);
+  send(70000, { fi: null, cli: null, ei: null, outputScope: 'bands-only', bands: {delta:20,theta:20,alpha:20,beta:20,gamma:20} });
+  assert.equal(b.c.ntSessionArchive.state().rows[0].previewSummary.count, 2);
+  b.setClock(75000); b.emit('nt-data'); assert.equal(b.c.ntSessionArchive.state().rows[0].previewSummary.count, 2, 'stale data cannot enter reports');
+  r = await b.c.ntSessionArchive.finish();
+  assert.equal(b.c.ntSessionArchive.validRecord(r), true);
+  assert.equal(b.c.ntSessionInsights.aggregate([r]).clean, 0);
+  assert.equal(b.c.ntSessionInsights.aggregate([r]).preview.meanFI, 69);
+  r.previewMinutes[0].cliN = 0; r.previewMinutes[0].cli = 50;
+  assert.equal(b.c.ntSessionArchive.validRecord(r), false, 'a sum without actual metric samples is invalid');
+});
 test('manual recalibration starts a separate report instead of mixing two baselines', async () => {
   const b = await setup(); b.c.ntSessionArchive.begin(); output(b,2000);
   const first = b.c.ntSessionArchive.state().activeId;
@@ -122,6 +148,37 @@ test('malformed remote minute values cannot poison report rendering or averages'
   assert.equal(b.c.ntSessionArchive.validRecord(r),true);
   r.minutes[0].fi=Infinity; assert.equal(b.c.ntSessionArchive.validRecord(r),false);
 });
+
+test('a direct report outside the latest feed loads by ID with its review, preserves tenant scope and clears on logout', async () => {
+  const b = await setup(); b.setClock(2000000);
+  const r = await b.c.ntSessionArchive.demo(); Object.assign(r, { source: 'muse', protocol: 'athena', companyCode: 'A', ownerUid: 'worker', memberId: 'worker' });
+  b.c.ntSession.set({ uid: 'staff', role: 'supervisor', code: 'A', memberId: 'staff' }); await settle();
+  b.c.NT_FIREBASE = { emulators: true, db: { collection: () => ({ doc: () => ({ collection: name => ({ doc: () => ({
+    get: async () => name === 'sessions' ? { exists: true, data: () => structuredClone(r), metadata: { hasPendingWrites: false } }
+      : { exists: true, data: () => ({ note: 'Evaluasi arsip lama', status: 'reviewed', reviewerUid: 'staff', updatedAt: { toMillis: () => 1900000 } }) },
+  }) }) }) }) } };
+  const loaded = await b.c.ntSessionArchive.loadReport(r.id);
+  assert.equal(loaded.id, r.id); assert.equal(loaded.review.note, 'Evaluasi arsip lama'); assert.equal(loaded.synced, true);
+  assert.equal(b.c.ntSessionArchive.state().rows.length, 1);
+  b.c.ntSession.clear(); await settle(); assert.equal(b.c.ntSessionArchive.state().rows.length, 0);
+  b.c.ntSession.set({ uid: 'different', role: 'supervisor', code: 'B', memberId: 'different' }); await settle();
+  assert.equal(await b.c.ntSessionArchive.loadReport(r.id), null, 'a cross-company response is rejected even if a mock provider returns it');
+});
+
+test('late direct-report responses cannot appear after account changes and provider failures support a safe retry', async () => {
+  const b = await setup(); b.setClock(2000000);
+  const r = await b.c.ntSessionArchive.demo(); Object.assign(r, { source: 'muse', protocol: 'athena', companyCode: 'A', ownerUid: 'worker', memberId: 'worker' });
+  b.c.ntSession.set({ uid: 'staff', role: 'supervisor', code: 'A', memberId: 'staff' }); await settle();
+  let complete;
+  const gate = new Promise(resolve => { complete = resolve; });
+  b.c.NT_FIREBASE = { emulators: true, db: { collection: () => ({ doc: () => ({ collection: () => ({ doc: () => ({ get: () => gate }) }) }) }) } };
+  const pending = b.c.ntSessionArchive.loadReport(r.id);
+  b.c.ntSession.clear(); complete({ exists: true, data: () => structuredClone(r) }); await pending; await settle();
+  assert.equal(b.c.ntSessionArchive.state().rows.length, 0);
+  b.c.ntSession.set({ uid: 'staff', role: 'supervisor', code: 'A', memberId: 'staff' }); await settle();
+  b.c.NT_FIREBASE.db.collection = () => { throw Error('private-provider-detail'); };
+  await assert.rejects(b.c.ntSessionArchive.loadReport(r.id), e => /coba lagi/.test(e.message) && !e.message.includes('private-provider-detail'));
+});
 test('a rejected server transaction never marks the device record synced or exposes provider error details',async()=>{
   const b=await setup(); b.c.ntSession.set({uid:'one',code:'A',memberId:'one'}); await settle();
   b.c.ntSessionArchive.begin(); output(b,2000); await b.c.ntSessionArchive.finish();
@@ -199,6 +256,18 @@ test('cloud listeners are owner scoped, update reports automatically, and reject
   b.c.ntSession.clear(); await settle(); assert.ok(listeners.every(listener => listener.stopped));
   listeners[0].next({ docs: [{ data: () => row }] });
   assert.equal(b.c.ntSessionArchive.state().rows.length, 0);
+});
+
+test('finishing a worker session uploads experimental minutes without marking them as clean measurement or microsleep', async () => {
+  const { b, writes } = await cloudSetup(); b.load('management-data.js'); b.c.ntSessionArchive.begin();
+  b.setClock(65000); b.c.ntMuse.status = () => ({ connected: true, protocol: 'athena', lastEEGAt: 65000, connectedAt: 1000 });
+  b.c.ntMuseDSP = { baselineTarget: 40, baseline: null, signalState: 'limited', calibration: { startedAt: 1000 },
+    last: { ts: 65000, fi: 70, cli: null, ei: 0, outputScope: 'frontal-only', qualityLevel: 'limited', classificationProvisional: true, microsleep: true } };
+  b.emit('nt-data'); await b.c.ntSessionArchive.finish(); await b.c.ntSessionArchive.sync(); await settle();
+  const r = writes.at(-1);
+  assert.equal(r.status, 'completed'); assert.equal(r.minutes.length, 0);
+  assert.equal(r.previewMinutes.length, 1); assert.equal(r.previewMinutes[0].fi, 70); assert.equal(r.previewMinutes[0].cliN, 0);
+  assert.equal(r.previewMinutes[0].uncalibrated, 1); assert.equal(b.c.ntSessionArchive.state().rows[0].summary.incidents, 0);
 });
 test('a session completed during an upload is queued and its final status reaches the server', async () => {
   const { b, writes } = await cloudSetup();

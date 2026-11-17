@@ -10,20 +10,22 @@ const realWorkerSummaries = (state, { live = false, workersOnly = false } = {}) 
   return (window.ntSession?.get()?.members || []).filter(m => !workersOnly || m.role === "pekerja").map((member, i) => {
     const memberRows = rows.filter(r => r.memberId === member.id);
     const newest = memberRows[0];
-    const latest = memberRows.find(r => Number.isFinite(r.summary?.meanFI)) || newest;
+    const latest = memberRows.find(r => Number.isFinite(r.summary?.meanFI)) || memberRows.find(r=>window.ntSessionInsights.previewSummary(r).count>0) || newest;
     const summary = latest?.summary;
+    const archivedPreview = window.ntSessionInsights.previewSummary(latest);
+    const previewOnly = live && !Number.isFinite(summary?.meanFI) && archivedPreview.count > 0;
     const view = live && member.role === "pekerja" && member.uid ? window.ntTeamLive?.view?.(member) : null;
     const measurement = view?.live ? view.measurement : null;
-    const fi = measurement ? measurement.fi : summary?.meanFI ?? null, cli = measurement ? measurement.cli : summary?.meanCLI ?? null;
+    const fi = measurement ? measurement.fi : previewOnly ? archivedPreview.meanFI : summary?.meanFI ?? null, cli = measurement ? measurement.cli : previewOnly ? archivedPreview.meanCLI : summary?.meanCLI ?? null;
     const assessment = window.ntSessionInsights.assess(latest);
-    const status = measurement ? window.ntSessionInsights.status(fi, cli) : assessment.status;
+    const status = measurement || previewOnly ? window.ntSessionInsights.status(fi, cli) : assessment.status;
     const connection = view?.row ? { key: view.live ? "active" : view.fresh ? "unknown" : "stale", label: view.label }
       : window.ntSessionInsights.connection(newest,{confirmed:state.serverConfirmed && state.online !== false});
     return { id: member.id, name: member.name, uid: member.uid, accountCode: member.accountCode, systemRole: member.role,
       role: member.roleDesc || ROLE_LABEL_ID[member.role] || "Anggota", shift: member.shift || "Belum diatur",
-      fi, cli, ei: measurement ? measurement.ei : summary?.meanEI ?? null, hrv: null, readiness: null, status,
-      connection, measurementKind: measurement ? "live" : "archive", provisional: !!measurement && (measurement.provisional || measurement.quality !== "good"),
-      resultLabel: measurement ? "Live" : Number.isFinite(summary?.meanFI) ? "Arsip terakhir" : "Belum ada hasil",
+      fi, cli, ei: measurement ? measurement.ei : previewOnly ? archivedPreview.meanEI : summary?.meanEI ?? null, hrv: null, readiness: null, status,
+      connection, measurementKind: measurement ? "live" : previewOnly ? "preview" : "archive", provisional: measurement ? measurement.provisional || measurement.quality !== "good" : previewOnly,
+      resultLabel: measurement ? "Live" : previewOnly ? "Arsip sementara" : Number.isFinite(summary?.meanFI) ? "Arsip terakhir" : "Belum ada hasil",
       assessment, recordedAt: measurement ? measurement.measuredAt : latest?.startedAt || null, img: NT_IMG[i % NT_IMG.length] };
   });
 };
@@ -107,12 +109,18 @@ const TeamSessionConnections = ({ state, memberId = null }) => {
   const account=window.ntSession?.get(), sync=state.teamLive || window.ntTeamLive?.state?.() || {};
   const entries=members.map(member=>({member,view:window.ntTeamLive?.view?.(member) || {label:"Belum ada sesi Live",trace:[]},record:rows.find(r=>r.ownerUid===member.uid && r.memberId===member.id)}));
   const active=entries.filter(e=>e.view.fresh && ["live","preparing","waiting"].includes(e.view.row?.status)).length;
+  const liveResults=entries.filter(e=>e.view.live && e.view.measurement).map(e=>e.view.measurement);
+  const averages=[["Fatigue","fi"],["Beban","cli"],["Engagement","ei"]].map(([label,key])=>{
+    const values=liveResults.map(m=>m[key]).filter(v=>typeof v==="number" && Number.isFinite(v));
+    return {label,value:values.length ? values.reduce((a,b)=>a+b,0)/values.length : null,n:values.length};
+  });
   const shown=entries.filter(({member,view})=>(!onlyLive || (view.fresh && ["live","preparing","waiting"].includes(view.row?.status)))
     && [member.name,member.accountCode,member.shift].join(" ").toLocaleLowerCase("id-ID").includes(query.trim().toLocaleLowerCase("id-ID")));
   const labels={normal:"Indeks rendah",waspada:"Waspada",berisiko:"Berisiko",kritis:"Indeks tinggi",unavailable:"Belum dinilai"};
   return <section className="team-connections team-live-panel" aria-label="Live pekerja"><div className="team-connections-heading"><strong><VisualIcon name="signal" size={19}/>Live pekerja <span className="team-live-count">{active} mengirim</span></strong><small>{account?.code} · sekitar 10 detik</small></div>
     {sync.error && <div className="team-live-error" role="alert">{sync.error}<button type="button" className="archive-back" onClick={()=>window.ntTeamLive.retry()}>Coba lagi</button></div>}
     {!memberId && <div className="team-live-toolbar"><label><VisualIcon name="team" size={16}/><input type="search" aria-label="Cari pekerja Live" placeholder="Cari nama, kode atau shift" value={query} onChange={e=>setQuery(e.target.value)}/></label><button type="button" aria-pressed={onlyLive} onClick={()=>setOnlyLive(v=>!v)}>Mengirim saja</button><span>{shown.length}/{entries.length} pekerja</span></div>}
+    {liveResults.length>0 && <div className="team-live-metrics" role="group" aria-label="Rerata indeks Live tim">{averages.map(m=><div key={m.label}><span>{m.label} · {m.n} pekerja</span><output aria-label={`${m.label} rerata Live tim`}>{archiveNumber(m.value)}</output></div>)}<small style={{gridColumn:"1/-1"}}>Rerata pekerja yang mengirim hasil saat ini · dapat mencakup hasil sementara · terpisah dari arsip bersih.</small></div>}
     <div className="team-live-grid">{shown.length ? shown.map(({member,view,record})=>{
       const m=view.measurement, provisional=m && (m.provisional || m.quality!=="good"), points=view.trace || [], now=Date.now();
       const plotted=points.map(p=>({...p,x:Math.max(0,Math.min(240,(p.ts-now+300000)/300000*240)),y:56-p.fi*.5}));
@@ -171,7 +179,7 @@ const RealSupervisorDashboard = () => {
       <TeamSessionConnections state={state}/>
     <div className="workspace-action-grid"><StaffAlertSummary/><ArchiveReviewSummary rows={rows}/></div>
     </div>
-    <div className="supervisor-chart-grid"><SupervisorDailyTrend points={data.trend} /><section className="supervisor-chart-card"><div className="supervisor-section-heading"><h2>Hasil sesi pekerja</h2><span>Sesi terakhir pada periode ini</span></div><div className="supervisor-distribution-content"><TeamDistribution categories={categories}/><div className="supervisor-status-legend">{categories.map((c) => <div key={c.key}><span><i style={{ background: c.color }} />{c.label}</span><strong>{c.count}</strong></div>)}</div></div></section></div>
+    <ArchivePreviewResults record={{previewMinutes:rows.flatMap(r=>r.previewMinutes || [])}}/><div className="supervisor-chart-grid"><SupervisorDailyTrend points={data.trend} /><section className="supervisor-chart-card"><div className="supervisor-section-heading"><h2>Hasil sesi pekerja</h2><span>Sesi terakhir pada periode ini</span></div><div className="supervisor-distribution-content"><TeamDistribution categories={categories}/><div className="supervisor-status-legend">{categories.map((c) => <div key={c.key}><span><i style={{ background: c.color }} />{c.label}</span><strong>{c.count}</strong></div>)}</div></div></section></div>
     <section className="supervisor-takeaway" aria-label="Kesimpulan sesi tim"><div><span className="supervisor-kicker">TINJAUAN TIM</span><h2>{priority.length ? `${priority.length} pekerja perlu ditinjau` : eligible ? "Pantau sesi berikutnya" : "Belum cukup data untuk kesimpulan"}</h2><p>{priority[0]?.assessment.action || (eligible ? "Kesimpulan mengikuti sesi terakhir, bukan kondisi saat ini." : "Lengkapi kalibrasi dan rekam EEG bersih.")}</p></div><Link className="archive-primary" to={staffPath("/s/workers")}>Lihat pekerja</Link></section>
     <section className="supervisor-chart-card"><div className="supervisor-section-heading"><h2>Sesi Muse terbaru</h2><Link to={staffPath("/s/reports")}>Semua laporan ↗</Link></div>
       {!latest.length ? <p className="archive-muted">Belum ada sesi Muse pada periode ini.</p> : <div className="supervisor-session-list">{latest.map((r) => { const assessment = window.ntSessionInsights.assess(r); return <Link key={r.id} to={staffPath(`/s/reports/${r.id}`)} className="supervisor-session-row"><span><strong>{realName(r.memberId)}</strong><small>{realDate(r.startedAt)}</small></span><span className={`supervisor-result-tag is-${assessment.status}`}>{assessment.title}</span><span className="supervisor-row-score">{archiveNumber(r.summary.meanFI)}<small>FI</small></span></Link>; })}</div>}
@@ -187,6 +195,7 @@ const RealSupervisorWorkerDetail = ({ id }) => {
     <RealArchiveStatus state={state} />
     {member && <section style={realCard} aria-label="Akses akun anggota"><MemberAccessCode companyCode={window.ntSession.get().code} memberId={member.id} role={member.role}/>{member.role === "pekerja" && member.uid && <Link className="archive-primary" to={staffPath(`/s/alerts?worker=${encodeURIComponent(member.id)}`)}>Kirim alert ke pekerja</Link>}</section>}
     {member?.role === "pekerja" && <TeamSessionConnections state={state} memberId={id}/>}
+    {member && latest && <ArchivePreviewResults record={latest}/>}
     {member && (!rows.length ? <div style={realCard}>Belum ada sesi Muse.</div> : <><section className="supervisor-takeaway"><div><span className="supervisor-kicker">KESIMPULAN ARSIP TERAKHIR DENGAN HASIL</span><h2>{assessment.title}</h2><p>{assessment.action}</p></div><Link className="archive-back" to={staffPath(`/s/reports/${latest.id}`)}>Lihat sesi ↗</Link></section><div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12 }}>{realMetric("Sesi", rows.length, "Sesi Muse tersimpan")}{realMetric("Fatigue terakhir", archiveNumber(latest.summary.meanFI), `${latest.summary.clean} hasil bersih`)}{realMetric("Beban kognitif", archiveNumber(latest.summary.meanCLI), "Dari EEG bersih")}{realMetric("Microsleep", rows.reduce((n, r) => n + r.summary.incidents, 0), "Indikasi seluruh sesi")}</div><section style={realCard}><h2 style={{ fontSize: 16 }}>Riwayat sesi</h2>{rows.map((r) => <Link key={r.id} to={staffPath(`/s/reports/${r.id}`)}><div className="nt-card-click" style={{ padding: 12, borderBottom: "1px solid var(--nt-bg-deep)" }}>{realDate(r.startedAt)} · FI {archiveNumber(r.summary.meanFI)} · {r.summary.clean} hasil bersih · {r.review ? "Sudah ditinjau" : "Belum ditinjau"}</div></Link>)}</section></>)}
   </RealSupervisorFrame>;
 };
@@ -275,5 +284,5 @@ const CompanyArchiveOverview = ({ state, data }) => {
     <h3 style={{ fontSize: 14 }}>Tren fatigue per hari</h3>{plotted.length ? <svg viewBox="0 0 670 165" width="100%" role="img" aria-label="Tren fatigue perusahaan per hari">{[0, 25, 50, 75, 100].map((v) => <g key={v}><line x1="38" x2="638" y1={132 - v * 1.05} y2={132 - v * 1.05} stroke="var(--nt-bg-deep)" /><text x="5" y={136 - v * 1.05} fontSize="10" fill="currentColor">{v}</text></g>)}<path d={plotted.map((p) => p.segment).join("")} stroke="#2563eb" strokeWidth="2.5" fill="none" />{plotted.map((p) => <circle key={p.date} cx={p.x} cy={p.y} r="4" fill="#2563eb"><title>{p.date}: {p.fi}/100</title></circle>)}<text x="38" y="158" fontSize="10" fill="currentColor">{points[0].date}</text><text x="638" y="158" textAnchor="end" fontSize="10" fill="currentColor">{points[points.length - 1].date}</text></svg> : <p className="archive-empty">Belum ada hasil bersih untuk grafik pada periode ini.</p>}
     <details className="visual-method"><summary><VisualIcon name="info" size={16}/>Metode grafik</summary><p>Rerata ditimbang berdasarkan jumlah hasil bersih. Hari tanpa data tidak disambungkan. Indikator prototipe untuk bahan evaluasi K3.</p></details>
     </div></div>
-  </section></>;
+  </section><ArchivePreviewResults record={{previewMinutes:data.rows.flatMap(r=>r.previewMinutes || [])}}/></>;
 };

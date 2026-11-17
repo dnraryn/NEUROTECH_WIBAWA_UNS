@@ -323,7 +323,7 @@ service cloud.firestore {
       match /sessions/{id} {
         function sessionPath() { return /databases/$(database)/documents/companies/$(code)/sessions/$(id); }
         function validSession(d) {
-          return d.keys().hasOnly(['schemaVersion','id','companyCode','ownerUid','memberId','shift','source','startedAt','endedAt','updatedAt','status','protocol','algorithmVersion','receivedSamples','minutes','checkin','savedAt'])
+          return d.keys().hasOnly(['schemaVersion','id','companyCode','ownerUid','memberId','shift','source','startedAt','endedAt','updatedAt','status','protocol','algorithmVersion','receivedSamples','minutes','previewMinutes','checkin','savedAt'])
             && d.keys().hasAll(['schemaVersion','id','companyCode','ownerUid','memberId','shift','source','startedAt','endedAt','updatedAt','status','protocol','algorithmVersion','receivedSamples','minutes','checkin','savedAt'])
             && d.schemaVersion == 1 && d.id == id && id.matches('^s-[a-z0-9]+-[a-f0-9]{16}$')
             && d.companyCode == code && d.ownerUid == request.auth.uid
@@ -337,6 +337,7 @@ service cloud.firestore {
               (d.status != 'recording' && d.endedAt is number && d.endedAt >= d.startedAt && d.endedAt <= request.time.toMillis() + 5000))
             && d.receivedSamples is int && d.receivedSamples >= 0 && d.receivedSamples <= 4 * 256 * 60 * 60 * 13
             && d.minutes is list && d.minutes.size() <= 721
+            && (!('previewMinutes' in d) || (d.previewMinutes is list && d.previewMinutes.size() <= 721))
             && d.checkin is map && d.checkin.keys().hasOnly(['sleptHours','sleepTargetHours','targetMinutes','sleepiness','note'])
             && (d.checkin.sleptHours == null || (d.checkin.sleptHours is number && d.checkin.sleptHours >= 0 && d.checkin.sleptHours <= 24))
             && d.checkin.sleepTargetHours is number && d.checkin.sleepTargetHours >= 1 && d.checkin.sleepTargetHours <= 16

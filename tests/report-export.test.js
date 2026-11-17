@@ -47,6 +47,34 @@ test('per-minute export leaves unavailable indices blank and preserves zero; sta
   assert.equal(rows[2].at(-1), 'Terbatas; indeks tidak disertakan');
   assert.equal(rows[1][rows[0].indexOf('Beban Kognitif (0-100)')], '1.5');
 });
+
+test('preview-only sessions export actual experimental metrics independently from clean averages including a missing metric and zero', () => {
+  const b = setup(), r = record({ minutes: [], previewMinutes: [{ minute: 1, n: 2, fiN: 2, fi: 140, cliN: 0, cli: 0, eiN: 2, ei: 0, limited: 2, uncalibrated: 2 }],
+    summary: { ...record().summary, clean: 0, meanFI: null, meanCLI: null, meanEI: null, incidents: 0 } });
+  const rows = parse(b.c.ntReports.minutes(r), ';');
+  assert.equal(rows.length, 2); assert.equal(rows[0].length, rows[1].length);
+  const m = Object.fromEntries(rows[0].map((key, i) => [key, rows[1][i]]));
+  assert.equal(m['Fatigue Rata-rata (0-100)'], ''); assert.equal(m['Fatigue Sementara (0-100)'], '70');
+  assert.equal(m['Beban Sementara (0-100)'], ''); assert.equal(m['Engagement Sementara (0-100)'], '0');
+  assert.equal(m['Hasil Sementara'], '2'); assert.equal(m['Indikasi Microsleep'], '0');
+  const csv = parse(b.c.ntReports.summary([r]), ';'); assert.equal(csv[0].length, csv[1].length);
+  const data = Object.fromEntries(csv[0].map((key, i) => [key, csv[1][i]]));
+  assert.equal(data['Fatigue Rata-rata (0-100)'], ''); assert.equal(data['Fatigue Sementara (0-100)'], '70');
+});
+
+test('daily coverage caps a reached target but exposes its actual numerator without multiplying targets for repeated sessions', () => {
+  const b = setup(), sampleMinute = 4 * 256 * 60;
+  b.setClock(100000000);
+  const r = record({ startedAt: 100000, receivedSamples: 45 * sampleMinute });
+  let data = b.c.ntSessionInsights.aggregate([r]);
+  assert.equal(data.compliance, 75); assert.equal(data.targetReachedDays, 0);
+  data = b.c.ntSessionInsights.aggregate([r, record({ startedAt: 200000, receivedSamples: 45 * sampleMinute })]);
+  assert.equal(data.compliance, 100); assert.equal(data.coverageMinutes, 90); assert.equal(data.coverageTargetMinutes, 60);
+  assert.equal(data.complianceDays, 1); assert.equal(data.targetReachedDays, 1); assert.equal(data.coverageDetails[0].minutes, 90);
+  data = b.c.ntSessionInsights.aggregate([r, record({ memberId: 'other', ownerUid: 'other', startedAt: 200000, receivedSamples: 0 })]);
+  assert.equal(data.compliance, 37.5, 'a recorded member/day with no samples must not receive 100%');
+  assert.equal(b.c.ntSessionInsights.aggregate([]).compliance, null);
+});
 test('company aggregation weights clean windows and excludes demo, other tenants, missing data and repeated daily targets', () => {
   const b = setup(), base = record();
   const first = record({ startedAt: 100000, minutes: [{ minute: 0, n: 1, fi: 100, cli: 20, ei: 30, partial: 0, provisional: 0, incidents: 1 }] });

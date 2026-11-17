@@ -7,6 +7,7 @@
   var localQueue = Promise.resolve(), cloudRows = [], reviews = {}, cloudError = "";
   var cloudUnsubscribers = [], cloudListening = false, syncRequested = false;
   var serverConfirmed = false;
+  var detailRows = new Map();
   var CLOUD_SAVE_MS = 60000;
   var clone = function (x) { return JSON.parse(JSON.stringify(x)); };
   var session = function () { return window.ntSession?.get?.() || null; };
@@ -34,7 +35,10 @@
         return m && count(m.minute, 720) && count(m.n, 120) && count(m.partial, 120) && count(m.provisional, m.n) &&
           bounded(m.fi, 0, m.n * 100) && bounded(m.cli, 0, m.n * 100) && bounded(m.ei, 0, m.n * 100) &&
           bounded(m.fiMax, 0, 100) && count(m.incidents, m.n);
-      }) && r.checkin && (r.checkin.sleptHours === null || bounded(r.checkin.sleptHours, 0, 24)) &&
+      }) && (r.previewMinutes === undefined || (Array.isArray(r.previewMinutes) && r.previewMinutes.length <= 721 && r.previewMinutes.every(function (m) {
+        return m && count(m.minute, 720) && count(m.n, 120) && count(m.limited, m.n) && count(m.uncalibrated, m.n) &&
+          ["fi", "cli", "ei"].every(function (key) { return count(m[key + "N"], m.n) && bounded(m[key], 0, m[key + "N"] * 100); });
+      }))) && r.checkin && (r.checkin.sleptHours === null || bounded(r.checkin.sleptHours, 0, 24)) &&
       bounded(r.checkin.sleepTargetHours, 1, 16) && bounded(r.checkin.targetMinutes, 1, 1440) &&
       (r.checkin.sleepiness === null || (Number.isInteger(r.checkin.sleepiness) && bounded(r.checkin.sleepiness, 1, 5))) &&
       typeof r.checkin.note === "string" && r.checkin.note.length <= 500;
@@ -114,7 +118,7 @@
     active = { schemaVersion: 1, id: id(), companyCode: s?.code || "", ownerUid: s?.uid || "", memberId: s?.memberId || "",
       shift: window.CURRENT_WORKER?.shift || "Pagi", source: "muse", startedAt: now(), endedAt: null, updatedAt: now(),
       status: "recording", protocol: device.protocol || "unknown", algorithmVersion: window.ntEEGAlgorithmVersion || "eeg-heuristic-v4", receivedSamples: 0,
-      minutes: [], checkin: { sleptHours: metrics.sleptHours ?? null, sleepTargetHours: metrics.sleepTargetHours || 8,
+      minutes: [], previewMinutes: [], checkin: { sleptHours: metrics.sleptHours ?? null, sleepTargetHours: metrics.sleepTargetHours || 8,
         targetMinutes: metrics.targetMinutes || 60, sleepiness: null, note: "" } };
     lastResult = null; microsleepPrevious = false; suppressedDevice = null; lastUiEmit = 0; lastCloudSave = now();
     records.unshift(active); changed(active); persist(active); emit();
@@ -139,17 +143,28 @@
     if (!device.connected) return;
     if (!active && suppressedDevice !== (device.connectedAt || true)) begin();
     if (!active || !result || result.ts === lastResult || result.ts < active.startedAt || result.ts > now() || now() - result.ts >= 3000) return;
-    // Samples count during calibration, but session indices begin only after
-    // a fresh baseline for this pairing is complete.
-    if (window.ntMuseDSP?.baselineTarget && (!window.ntMuseDSP.baseline || result.ts < window.ntMuseDSP.baseline.ts)) return;
+    var dsp = window.ntMuseDSP, calibrated = !dsp?.baselineTarget || (dsp.baseline && result.ts >= dsp.baseline.ts);
     if (!["ready", "limited", "calibrating"].includes(window.ntMuseDSP?.signalState)) return;
     if (now() - active.startedAt > 12 * 3600000) { finish().then(begin).catch(function () {}); return; }
     lastResult = result.ts;
     var minute = Math.floor((result.ts - active.startedAt) / 60000);
+    var clean = calibrated && result.qualityLevel === "good" && result.outputScope === "full" &&
+      [result.fi, result.cli, result.ei].every(function (v) { return typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 100; });
+    if (!clean) {
+      // Use the same preparation/freshness/quality gates as the worker's screen.
+      // Experimental output is archived separately, never as a clean average or microsleep event.
+      var live = window.ntManagement?.snapshot?.({ now: now(), device: device, dsp: dsp, history: [] });
+      if (live?.valid && live.latest?.ts === result.ts && [result.fi, result.cli, result.ei].some(function (v) { return typeof v === "number" && Number.isFinite(v); })) {
+        var previews = active.previewMinutes || (active.previewMinutes = []);
+        var preview = previews.find(function (m) { return m.minute === minute; });
+        if (!preview) { preview = { minute: minute, n: 0, fiN: 0, fi: 0, cliN: 0, cli: 0, eiN: 0, ei: 0, limited: 0, uncalibrated: 0 }; previews.push(preview); }
+        preview.n++; if (result.qualityLevel !== "good") preview.limited++; if (!calibrated) preview.uncalibrated++;
+        ["fi", "cli", "ei"].forEach(function (key) { if (typeof result[key] === "number" && Number.isFinite(result[key]) && result[key] >= 0 && result[key] <= 100) { preview[key + "N"]++; preview[key] += result[key]; } });
+      }
+    }
+    if (!calibrated) { changed(active); if (now() - lastUiEmit >= 2000) { lastUiEmit = now(); emit(); } return; }
     var bucket = active.minutes.find(function (m) { return m.minute === minute; });
     if (!bucket) { bucket = { minute: minute, n: 0, partial: 0, provisional: 0, fi: 0, cli: 0, ei: 0, fiMax: 0, incidents: 0 }; active.minutes.push(bucket); }
-    var clean = result.qualityLevel === "good" && result.outputScope === "full" &&
-      [result.fi, result.cli, result.ei].every(function (v) { return typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 100; });
     if (clean) {
       bucket.n++; bucket.fi += result.fi; bucket.cli += result.cli; bucket.ei += result.ei;
       bucket.fiMax = Math.max(bucket.fiMax, result.fi);
@@ -188,11 +203,12 @@
   function localState() {
     if (cachedState) return cachedState;
     var combined = new Map();
+    detailRows.forEach(function (r) { combined.set(r.id, r); });
     cloudRows.forEach(function (r) { combined.set(r.id, r); });
     records.forEach(function (r) { var remote = combined.get(r.id); if (!remote || r.updatedAt >= remote.updatedAt) combined.set(r.id, r); });
     cachedState = { ready: ready, storage: storage, error: error, cloudError: cloudError, syncing: syncing, cloudEnabled: cloudEnabled(), liveUpdates: cloudListening, serverConfirmed: serverConfirmed, online: window.navigator.onLine !== false, lastSyncedAt: lastSyncedAt, cloudLimit: 60,
       activeId: active?.id || null, rows: Array.from(combined.values()).sort(function (a, b) { return b.startedAt - a.startedAt; }).map(function (r) {
-        return Object.assign(clone(r), { summary: summary(r), review: clone(reviews[r.id] || null),
+        return Object.assign(clone(r), { summary: summary(r), previewSummary: window.ntSessionInsights.previewSummary(r), review: clone(reviews[r.id] || r._detailReview || null),
           synced: r.source !== "demo" && (r._remote === true || ((savedRevisions.get(r.id) || 0) >= (revisions.get(r.id) || 1))) });
       }) };
     return cachedState;
@@ -301,13 +317,33 @@
     if (generation !== epoch) return;
     await refreshCloud(s, generation); emit();
   }
+  async function loadReport(id) {
+    var existing = localState().rows.find(function (r) { return r.id === id; });
+    if (existing) return existing;
+    var s = session(), generation = epoch;
+    if (!cloudEnabled() || !s?.uid || !/^s-[a-z0-9]+-[a-f0-9]{16}$/.test(id)) return null;
+    try {
+      var doc = await cloudCollection("sessions", s).doc(id).get();
+      if (generation !== epoch || !doc.exists) return null;
+      var r = doc.data(); delete r.savedAt;
+      if (!validRecord(r) || r.id !== id || r.companyCode !== s.code || r.source !== "muse" || (s.role === "pekerja" && r.ownerUid !== s.uid)) return null;
+      if (["supervisor", "management"].includes(s.role)) {
+        var note = await cloudCollection("sessionReviews", s).doc(id).get();
+        if (generation !== epoch) return null;
+        if (note.exists) { var data = note.data(); r._detailReview = { status: data.status, note: data.note, reviewerUid: data.reviewerUid, reviewedAt: data.updatedAt?.toMillis?.() || null }; }
+      }
+      r._remote = doc.metadata?.hasPendingWrites !== true;
+      detailRows.set(id, r); emit();
+      return localState().rows.find(function (r) { return r.id === id; });
+    } catch (ignore) { if (generation !== epoch) return null; throw new Error("Laporan belum dapat dimuat. Periksa koneksi dan akses akun, lalu coba lagi."); }
+  }
   async function loadIdentity() {
     var previous = active, previousNamespace = namespace;
     var previousRevision = previous ? (revisions.get(previous.id) || 1) + 1 : 0;
     var previousSynced = previous ? savedRevisions.get(previous.id) : 0;
     var generation = ++epoch;
     stopCloudListeners(); syncRequested = false;
-    namespace = identity(); ready = false; records = []; active = null; cloudRows = []; reviews = {}; syncing = false;
+    namespace = identity(); ready = false; records = []; active = null; cloudRows = []; detailRows = new Map(); reviews = {}; syncing = false;
     revisions = new Map(); savedRevisions = new Map(); error = ""; cloudError = ""; suppressedDevice = null; lastSyncedAt = null; emit();
     if (previous) {
       previous.endedAt = now(); previous.updatedAt = now(); previous.status = "interrupted";
@@ -336,7 +372,7 @@
     return window.ntReports.minutes(record, { excel: false });
   }
   window.ntSessionArchive = { state: localState, begin: begin, finish: finish, save: function () { return persist(active); },
-    updateCheckin: updateCheckin, demo: demo, sync: sync, review: review, summary: summary, csv: csv, validRecord: validRecord };
+    updateCheckin: updateCheckin, demo: demo, sync: sync, review: review, loadReport: loadReport, summary: summary, csv: csv, validRecord: validRecord };
   window.addEventListener("nt-data", capture);
   window.addEventListener("nt-muse-eeg", function (e) {
     if (!active || !window.ntMuseConnected || !["TP9", "AF7", "AF8", "TP10"].includes(e.detail?.channel)) return;

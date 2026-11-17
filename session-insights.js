@@ -11,6 +11,15 @@
     var d = new Date(timestamp);
     return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, "0"), String(d.getDate()).padStart(2, "0")].join("-");
   }
+  function previewSummary(record) {
+    var totals = { n: 0, fiN: 0, fi: 0, cliN: 0, cli: 0, eiN: 0, ei: 0, limited: 0, uncalibrated: 0 };
+    (record?.previewMinutes || []).forEach(function (m) {
+      Object.keys(totals).forEach(function (key) { totals[key] += m[key] || 0; });
+    });
+    return { count: totals.n, meanFI: totals.fiN ? Math.round(totals.fi / totals.fiN) : null,
+      meanCLI: totals.cliN ? Math.round(totals.cli / totals.cliN) : null, meanEI: totals.eiN ? Math.round(totals.ei / totals.eiN) : null,
+      limited: totals.limited, uncalibrated: totals.uncalibrated };
+  }
   function rows(state, options) {
     options = options || {};
     var user = options.account === undefined ? account() : options.account;
@@ -35,7 +44,7 @@
       minutes += received;
       var key = identity + ":" + day(r.startedAt), checkin = r.checkin || {};
       if (!latestSleep.has(identity) && Number.isFinite(checkin.sleptHours) && Number.isFinite(checkin.sleepTargetHours)) latestSleep.set(identity, r);
-      var monitored = daily.get(key) || { minutes: 0, target: 0 };
+      var monitored = daily.get(key) || { memberId: r.memberId, date: day(r.startedAt), minutes: 0, target: 0 };
       monitored.minutes += received;
       if (Number.isFinite(checkin.targetMinutes)) monitored.target = Math.max(monitored.target, checkin.targetMinutes);
       daily.set(key, monitored);
@@ -51,10 +60,15 @@
     });
     var coverage = Array.from(daily.values()).filter(function (d) { return d.target > 0; });
     var sleep = Array.from(latestSleep.values());
-    return { rows: data, sessions: data.length, members: latestByMember.size, clean: clean, partial: partial, provisional: provisional,
+    var preview = previewSummary({ previewMinutes: data.flatMap(function (r) { return r.previewMinutes || []; }) });
+    return { rows: data, sessions: data.length, members: latestByMember.size, clean: clean, partial: partial, provisional: provisional, preview: preview,
       meanFI: clean ? Math.round(fi / clean) : null, meanCLI: clean ? Math.round(cli / clean) : null, meanEI: clean ? Math.round(ei / clean) : null,
       incidents: incidents, receivedMinutes: minutes, cleanPercent: clean + partial ? Math.round(clean / (clean + partial) * 100) : null,
       compliance: coverage.length ? coverage.reduce(function (s, d) { return s + Math.min(100, d.minutes / d.target * 100); }, 0) / coverage.length : null,
+      coverageMinutes: coverage.reduce(function (sum, d) { return sum + d.minutes; }, 0),
+      coverageTargetMinutes: coverage.reduce(function (sum, d) { return sum + d.target; }, 0),
+      targetReachedDays: coverage.filter(function (d) { return d.minutes >= d.target; }).length,
+      coverageDetails: coverage.map(function (d) { return Object.assign({}, d, { percent: Math.min(100, d.minutes / d.target * 100) }); }),
       complianceDays: coverage.length, sleepReportedMembers: sleep.length,
       sleepDebt: sleep.length ? sleep.reduce(function (s, r) { return s + Math.max(0, r.checkin.sleepTargetHours - r.checkin.sleptHours); }, 0) / sleep.length : null,
       heatRows: shifts.map(function (shift, i) { return { l: shift, h: bins[i].map(function (b) { return b.n ? Math.round(b.sum / b.n) : null; }) }; }),
@@ -101,5 +115,5 @@
     var age = (options.now ?? Date.now()) - record.updatedAt;
     return age >= -5000 && age <= 90000 ? {key:"active",label:"Sesi mengirim"} : {key:"stale",label:"Pembaruan terhenti"};
   }
-  window.ntSessionInsights = { rows: rows, aggregate: aggregate, status: status, day: day, assess: assess, connection: connection };
+  window.ntSessionInsights = { rows: rows, aggregate: aggregate, previewSummary: previewSummary, status: status, day: day, assess: assess, connection: connection };
 })();
