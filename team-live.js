@@ -26,6 +26,7 @@
       measurement:value ? {fi:index(value.fi),cli:index(value.cli),ei:index(value.ei),measuredAt:value.ts,
         quality:value.qualityLevel==="good" ? "good" : "limited",scope:value.outputScope,
         provisional:!dsp.baseline || value.classificationProvisional===true,
+        microsleep:dsp.baseline && value.classificationProvisional!==true && value.qualityLevel==="good" && value.outputScope==="full" ? value.microsleep===true : null,
         classification:index(value.fi)===null ? "unavailable" : ["normal","waspada","berisiko","kritis"].includes(value.instantStatus || value.status) ? value.instantStatus || value.status : "unavailable"} : null,
       updatedAt:window.firebase.firestore.FieldValue.serverTimestamp()};
   }

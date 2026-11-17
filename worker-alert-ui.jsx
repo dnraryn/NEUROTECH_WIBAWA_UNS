@@ -38,8 +38,10 @@ const WorkerAlertNotice = () => {
     seen.current.add(key);setOpen(true);
   },[account?.uid,current?.id,requested,state.confirmed,state.foreground]);
   if(!pending.length&&!open) return null;
-  return <><button type="button" className="worker-alert-notice" onClick={()=>setOpen(true)} aria-label={`Buka ${pending.length} pesan K3 baru`}><span aria-hidden="true">●</span><span><strong>{pending[0]?.title || "Pesan K3"}</strong><small>{pending.length} pesan menunggu konfirmasi</small></span><span aria-hidden="true">↗</span></button>
-    <Modal open={open} onClose={()=>setOpen(false)} title="Pesan petugas K3" actions={<NeuroBtn tone="default" onClick={()=>setOpen(false)}>Tutup</NeuroBtn>}><WorkerAlertInbox/></Modal></>;
+  return <>{pending.length>0 && <button type="button" className={`worker-alert-notice is-${pending[0].severity}`} onClick={()=>setOpen(true)} aria-label={`Buka ${pending.length} pesan K3 baru`}><VisualIcon name="message" size={30}/><span><small>PESAN K3 · {alertPriority[pending[0].severity]}</small><strong>{pending[0].title}</strong><small>{pending.length} pesan · Ketuk untuk membaca</small></span><span aria-hidden="true">↗</span></button>}
+    <Modal open={open} onClose={()=>setOpen(false)} title="Pesan petugas K3" width={480} tone={current?.severity==="urgent"?"danger":"warn"} dialogClassName="worker-alert-dialog" actions={<NeuroBtn tone="default" onClick={()=>setOpen(false)}>Tutup</NeuroBtn>}>
+      {current ? <><div className={`worker-alert-headline is-${current.severity}`}><VisualIcon name="message" size={36}/><div><strong>{alertPriority[current.severity]}</strong><span>Arahan dari petugas perusahaan</span></div></div><AlertRows key={current.id} rows={[current]}/>{pending.length>1 && <p>{pending.length-1} pesan lain menunggu dibaca.</p>}</> : <p role="status">Semua pesan sudah dibaca atau diselesaikan.</p>}
+    </Modal></>;
 };
 const StaffAlertSummary = () => {
   const state=useWorkerAlerts();const open=state.rows.filter(r=>!r.resolvedAt),confirmed=open.filter(r=>r.acknowledgedAt);
@@ -68,9 +70,11 @@ const StaffAlertCenter = () => {
 };
 Object.assign(window,{WorkerAlertInbox,WorkerAlertNotice,StaffAlertCenter,StaffAlertSummary});
 const WorkerAlertVibration = () => {
-  const state=useWorkerAlerts(),h=state.haptics || {};
+  const state=useWorkerAlerts(),h=state.haptics || {},s=state.sound || {};
   return <section className="worker-alert-vibration" aria-label="Getar pesan K3"><div><VisualIcon name="message" size={18}/><span>Getar pesan K3</span></div><div>
     {h.supported ? <><button type="button" aria-pressed={h.enabled} onClick={()=>window.ntWorkerAlerts.setHaptics(!h.enabled)}>{h.enabled ? "Aktif" : "Nonaktif"}</button><button type="button" onClick={()=>window.ntWorkerAlerts.testHaptics()}>Tes getar</button></> : <small>Browser ini tidak mendukung getar</small>}
-  </div>{h.result === "blocked" && <small role="status">Getar dibatasi browser/HP. Pesan tetap muncul di aplikasi.</small>}{h.result === "requested" && <small role="status">Permintaan getar dikirim ke HP.</small>}</section>;
+  </div><div className="worker-alert-sound"><span>Bunyi peringatan</span>{s.supported ? <><button type="button" aria-pressed={s.enabled && s.ready} onClick={()=>window.ntWorkerAlerts.setSound(!s.enabled || !s.ready)}>{s.enabled && s.ready?"Matikan bunyi":"Aktifkan bunyi"}</button><button type="button" onClick={()=>window.ntWorkerAlerts.testSound()}>Tes bunyi</button></> : <small>Browser ini tidak mendukung bunyi</small>}</div>
+    {s.enabled && !s.ready && <small role="status">Ketuk Aktifkan bunyi setelah membuka aplikasi.</small>}{s.result==="requested" && <small role="status">Bunyi diuji. Pastikan volume media HP terdengar.</small>}
+    {h.result === "blocked" && <small role="status">Getar dibatasi browser/HP. Ketuk Tes getar dan periksa pengaturan HP.</small>}{h.result === "requested" && <small role="status">Permintaan getar dikirim ke HP.</small>}</section>;
 };
 Object.assign(window,{WorkerAlertVibration});

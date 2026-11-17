@@ -403,6 +403,7 @@ const WorkerLive = () => {
       <div className="worker-section-title"><h2>Hasil Live</h2><span>Skala 0–100</span></div>
       <div className="worker-live-score-grid">{[["Fatigue",fi,metrics.fi,"#2563eb"],["Beban",cli,metrics.cli,"#8b5cf6"],["Engagement",ei,metrics.ei,"#0891b2"]].map(([label,value,raw,color])=><ArchiveMetricRing key={label} label={label} value={hasRealSample && Number.isFinite(raw) ? value : null} color={color}/>)}</div>
     </section>
+    <div className="worker-live-microsleep"><MicrosleepLiveIndicator value={hasRealSample && muse.real && dsp.baseline && !liveModel.latest?.classificationProvisional && liveModel.latest?.qualityLevel==="good" && liveModel.latest?.outputScope==="full" ? liveModel.latest.microsleep===true : null}/></div>
 
     {/* Current status text — drives off w.status (live) */}
     <div style={{ textAlign: "center", marginTop: 14 }}>

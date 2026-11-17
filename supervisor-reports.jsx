@@ -14,11 +14,11 @@ const SupervisorReportDetail = ({ id }) => {
   const account = window.ntSession?.get();
   const [loading,setLoading] = React.useState(false), [error,setError] = React.useState(""), [attempt,retry] = React.useReducer(n=>n+1,0);
   React.useEffect(()=>{
-    if (!state.ready || record) return;
+    if (!state.ready || (record && !record._needsReview)) return;
     let cancelled=false; setLoading(true); setError("");
     window.ntSessionArchive.loadReport(id).catch(e=>{if(!cancelled)setError(e.message);}).finally(()=>{if(!cancelled)setLoading(false);});
     return()=>{cancelled=true;};
-  },[id,account?.uid,account?.code,state.ready,!!record,attempt]);
+  },[id,account?.uid,account?.code,state.ready,!!record,record?._needsReview,attempt]);
   return <div className="nt-screen archive-screen" style={{ padding: 0, display: "grid", gridTemplateColumns: "228px 1fr" }}>
     <SupervisorSidebar active="reports" />
     <main style={{ padding: "24px 28px 24px 6px", overflowY: "auto" }}>

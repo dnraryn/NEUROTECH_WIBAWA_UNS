@@ -24,7 +24,7 @@
     options = options || {};
     var user = options.account === undefined ? account() : options.account;
     var now = options.now ?? Date.now();
-    var cutoff = options.days === 1 ? new Date(now).setHours(0, 0, 0, 0) : Number.isFinite(options.days) ? now - options.days * 86400000 : 0;
+    var cutoff = options.days === 1 ? new Date(now).setHours(0, 0, 0, 0) : Number.isFinite(options.days) && options.days > 0 ? now - options.days * 86400000 : 0;
     return (Array.isArray(state) ? state : state.rows || []).filter(function (r) {
       if (r.startedAt < cutoff || r.startedAt > now) return false;
       if (user && (r.source !== "muse" || r.companyCode !== user.code || (user.role === "pekerja" && r.ownerUid !== user.uid))) return false;
@@ -37,6 +37,8 @@
     var bins = shifts.map(function () { return Array.from({ length: 8 }, function () { return { sum: 0, n: 0 }; }); });
     var shiftTotals = shifts.map(function () { return { sum: 0, n: 0 }; });
     var dailyTrend = new Map();
+    var previewBins = shifts.map(function () { return Array.from({ length: 8 }, function () { return { sum: 0, n: 0 }; }); });
+    var previewShifts = shifts.map(function () { return { sum: 0, n: 0 }; }), previewTrend = new Map();
     data.forEach(function (r) {
       var identity = r.ownerUid || r.memberId || r.id;
       if (!latestByMember.has(identity)) latestByMember.set(identity, r);
@@ -57,10 +59,21 @@
         var date = day(r.startedAt + m.minute * 60000), point = dailyTrend.get(date) || { date: date, sum: 0, n: 0 };
         point.sum += m.fi; point.n += m.n; dailyTrend.set(date, point);
       });
+      (r.previewMinutes || []).forEach(function (m) {
+        if (!m.fiN) return;
+        var shift = shifts.indexOf(r.shift), hour = Math.floor(m.minute / 60);
+        if (shift >= 0) { previewShifts[shift].sum += m.fi; previewShifts[shift].n += m.fiN; }
+        if (shift >= 0 && hour < 8) { previewBins[shift][hour].sum += m.fi; previewBins[shift][hour].n += m.fiN; }
+        var date = day(r.startedAt + m.minute * 60000), point = previewTrend.get(date) || { date: date, sum: 0, n: 0 };
+        point.sum += m.fi; point.n += m.fiN; previewTrend.set(date, point);
+      });
     });
     var coverage = Array.from(daily.values()).filter(function (d) { return d.target > 0; });
     var sleep = Array.from(latestSleep.values());
     var preview = previewSummary({ previewMinutes: data.flatMap(function (r) { return r.previewMinutes || []; }) });
+    preview.heatRows = shifts.map(function (shift, i) { return { l: shift, h: previewBins[i].map(function (b) { return b.n ? Math.round(b.sum / b.n) : null; }) }; });
+    preview.shiftIndices = shifts.map(function (shift, i) { var b = previewShifts[i]; return { l: shift, v: b.n ? Math.round(b.sum / b.n) : null }; });
+    preview.trend = Array.from(previewTrend.values()).sort(function (a,b) { return a.date.localeCompare(b.date); }).map(function(p) { return {date:p.date, fi:Math.round(p.sum/p.n)}; });
     return { rows: data, sessions: data.length, members: latestByMember.size, clean: clean, partial: partial, provisional: provisional, preview: preview,
       meanFI: clean ? Math.round(fi / clean) : null, meanCLI: clean ? Math.round(cli / clean) : null, meanEI: clean ? Math.round(ei / clean) : null,
       incidents: incidents, receivedMinutes: minutes, cleanPercent: clean + partial ? Math.round(clean / (clean + partial) * 100) : null,

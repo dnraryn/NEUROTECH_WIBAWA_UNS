@@ -238,7 +238,7 @@ const ManagementDashboard = () => {
     return () => { clearInterval(timer); window.removeEventListener("nt-device", update); window.removeEventListener("nt-data", update); };
   }, [companyView]);
   const [period, setPeriod] = React.useState(1);
-  const periods = ["7 hari", "30 hari", "Kuartal", "Tahun"];
+  const periods = companyView ? ["7 hari", "30 hari", "Kuartal", "Tahun", "Semua"] : ["7 hari", "30 hari", "Kuartal", "Tahun"];
   const [heatCell, setHeatCell] = React.useState(null);
   // Zoom modals for sidebar items — Pola Fatigue / Indeks Lini / Insight AI /
   // Laporan SMK3 open inside this dashboard instead of routing away. The
@@ -289,7 +289,9 @@ const ManagementDashboard = () => {
   };
   const live = window.ntManagement.snapshot({ now, device, dsp, period, demo,
     history: window.ntHistory?.(window.CURRENT_WORKER?.id) || [] });
-  const company = React.useMemo(() => window.ntSessionInsights.aggregate(archive, { days: [7, 30, 90, 365][period] }), [archive, period]);
+  const company = React.useMemo(() => window.ntSessionInsights.aggregate(archive, { days: [7, 30, 90, 365, 0][period] }), [archive, period]);
+  const [analysisSource,setAnalysisSource] = React.useState("auto");
+  const analysis = fatigueSeries(company,analysisSource);
   const exportRows = () => {
     if (companyView) {
       if (!company.rows.length) { window.toast?.("Belum ada sesi tersimpan pada periode ini.", { kind: "info" }); return; }
@@ -304,7 +306,7 @@ const ManagementDashboard = () => {
     { l: "Sore",   h: [28, 32, 38, 52, 62, 71, 78, 64] },
     { l: "Malam",  h: [42, 48, 58, 72, 86, 92, 88, 76] },
     { l: "Lembur", h: [38, 44, 56, 68, 80, 86, 78, 70] },
-  ] : companyView ? company.heatRows : live.heatRows;
+  ] : companyView ? analysis.heatRows : live.heatRows;
 
   const lini = demo ? [
     { l: "Lab",       v: 32 },
@@ -312,7 +314,7 @@ const ManagementDashboard = () => {
     { l: "Dispatch",  v: 58 },
     { l: "Transport", v: 71 },
     { l: "Security",  v: 64 },
-  ] : companyView ? company.shiftIndices : live.lini;
+  ] : companyView ? analysis.shiftIndices : live.lini;
 
   const insights = demo ? [
     { tier: "critical", icon: "⚠", t: "Shift malam jam +5/+6, fatigue puncak",     d: "Pertimbangkan istirahat wajib 15 menit pada +4j; rotasi tugas di +6j." },
@@ -327,7 +329,7 @@ const ManagementDashboard = () => {
     { l: "JAM PANTAU", v: "11.4k", sub: "Total jam EEG", trend: "+18%", dir: 1 },
   ] : companyView ? [
     { l: "CAKUPAN TARGET PANTAU", v: company.compliance === null ? "—" : archiveNumber(company.compliance, 1) + "%", sub: `${archiveNumber(company.coverageMinutes,1)} / ${archiveNumber(company.coverageTargetMinutes,1)} menit · ${company.targetReachedDays}/${company.complianceDays} target harian tercapai`, trend: "Bukan kualitas EEG", progress: company.compliance, action: "Lihat perhitungan", onAction: () => setZoom("coverage") },
-    { l: "INDIKASI MICROSLEEP", v: company.sessions ? String(company.incidents) : "—", sub: "Kejadian dari hasil EEG bersih tersimpan", trend: `${company.sessions} sesi` },
+    { l: "INDIKASI MICROSLEEP", v: company.clean > company.provisional ? String(company.incidents) : "—", sub: company.clean > company.provisional ? "Kejadian dari hasil EEG bersih tersimpan" : "Belum dapat dinilai · perlu EEG bersih pascakalibrasi", trend: `${company.sessions} sesi` },
     { l: "KEKURANGAN TIDUR", v: company.sleepDebt === null ? "Belum diisi" : archiveNumber(company.sleepDebt, 1) + " j", sub: `Laporan tidur terakhir dari ${company.sleepReportedMembers} anggota pada periode ini`, trend: "Laporan mandiri" },
     { l: "JAM PANTAU", v: archiveNumber(company.receivedMinutes / 60, 2) + " j", sub: "Total EEG diterima pada sesi dalam periode", trend: `${company.members} anggota` },
   ] : [
@@ -414,6 +416,7 @@ const ManagementDashboard = () => {
 
 
       {companyView ? <CompanyArchiveOverview state={archive} data={company} /> : <SessionControl onOpen={(id) => { setArchiveInitialId(id); setZoom("report"); }} />}
+      {companyView && <><StaffFatigueAnalytics data={company}/><MicrosleepArchiveStatus data={company}/></>}
       {/* ── KPI row ────────────────────────────────────────────── */}
       {!demo && !companyView && <div className="frm-live-status" role="status" style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "6px 14px", padding: "10px 14px", borderRadius: 12, background: "var(--nt-surface)", fontSize: 11 }}>
         <span style={{ flex: "1 1 320px", color: "var(--nt-text-2)" }}>{live.message}</span>
@@ -485,7 +488,7 @@ const ManagementDashboard = () => {
         </details>
       </section>}
       {/* ── Body grid: heatmap + right column ─────────────────── */}
-      <details className="frm-advanced"><summary>Analisis lanjutan · pola shift, indeks lini, dan laporan</summary>
+      {!companyView && <details className="frm-advanced"><summary>Analisis lanjutan · pola shift, indeks lini, dan laporan</summary>
       <div className="frm-analysis-layout" style={{ display: "grid", gridTemplateColumns: "1.55fr 1fr", gap: 14, minHeight: 360, marginTop: 12 }}>
         {/* Heatmap */}
         <div id="frm-fatigue" className="neu-surface" style={{ padding: 18, display: "flex", flexDirection: "column", gap: 12, minHeight: 0 }}>
@@ -602,7 +605,7 @@ const ManagementDashboard = () => {
         </div>
       </div>
 
-      </details>
+      </details>}
       <Modal open={signalDetails} onClose={() => setSignalDetails(false)} title="Detail sinyal Muse"
         subtitle={live.message} width={650}
         actions={<NeuroBtn tone="primary" onClick={() => setSignalDetails(false)}>Tutup</NeuroBtn>}>
@@ -679,11 +682,12 @@ const ManagementDashboard = () => {
         open={zoom === "fatigue"}
         onClose={() => setZoom(null)}
         title="Pola Fatigue · Shift × Jam"
-        subtitle={demo ? "Rata-rata Fatigue Index dari " + workerCount + " pekerja · " + dateLabel : companyView ? "Hasil EEG bersih pada arsip perusahaan dalam periode terpilih" : "Hasil EEG bersih yang tersedia di sesi browser ini"}
+        subtitle={demo ? "Rata-rata Fatigue Index dari " + workerCount + " pekerja · " + dateLabel : companyView ? analysis.label + " · jam sejak awal tiap rekaman" : "Hasil EEG bersih yang tersedia di sesi browser ini"}
         width={920}
         popDir={zoomDir}
         actions={<NeuroBtn tone="primary" onClick={() => setZoom(null)}>Tutup</NeuroBtn>}
       >
+        {companyView && <FatigueSourceControl value={analysisSource} onChange={setAnalysisSource}/>}
         <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, marginBottom: 14 }}>
           <span style={{ fontSize: 11, color: "var(--nt-text-3)" }}>Rendah</span>
           <div style={{
@@ -730,11 +734,12 @@ const ManagementDashboard = () => {
         open={zoom === "lini"}
         onClose={() => setZoom(null)}
         title={companyView ? "Indeks per Shift" : "Indeks per Lini"}
-        subtitle={companyView ? "Rerata fatigue dari sesi per shift · " + dateLabel : "Rata-rata risk per lini operasional · " + lini.length + " lini · " + dateLabel}
+        subtitle={companyView ? analysis.label + " · rerata per shift" : "Rata-rata risk per lini operasional · " + lini.length + " lini · " + dateLabel}
         width={720}
         popDir={zoomDir}
         actions={<NeuroBtn tone="primary" onClick={() => setZoom(null)}>Tutup</NeuroBtn>}
       >
+        {companyView && <FatigueSourceControl value={analysisSource} onChange={setAnalysisSource}/>}
         <div style={{
           display: "flex", justifyContent: "space-around", alignItems: "flex-end",
           padding: "20px 8px 12px",

@@ -214,7 +214,7 @@ test('idle archive snapshots are shared until actual changes, while recording em
 });
 
 async function cloudSetup() {
-  const b = browser(), listeners = [], writes = [];
+  const b = browser(), listeners = [], writes = [], pages = [];
   b.c.crypto = webcrypto; b.c.location = { hostname: 'localhost' };
   b.c.ntSession.set({ uid: 'one', code: 'A', memberId: 'one', role: 'pekerja' });
   b.c.ntMuseConnected = true; b.c.ntMuse = { status: () => ({ connected: b.c.ntMuseConnected, protocol: 'athena', connectedAt: 900 }) };
@@ -226,7 +226,7 @@ async function cloudSetup() {
     request.onsuccess();
   }); return request; } };
   const collection = name => {
-    const query = { name, filters: [], where(field, op, value) { this.filters.push([field, op, value]); return this; }, orderBy() { return this; }, limit() { return this; }, doc: id => ({ name, id }),
+    const query = { name, filters: [], where(field, op, value) { this.filters.push([field, op, value]); return this; }, orderBy() { return this; }, limit() { return this; }, startAfter(cursor){this.cursor=cursor;return this;},get:async()=>({docs:pages.shift() || []}),doc: id => ({ name, id }),
       onSnapshot(options, next, fail) { const listener = { name, filters: this.filters, next, fail, stopped: false }; listeners.push(listener); return () => { listener.stopped = true; }; } };
     return query;
   };
@@ -234,8 +234,22 @@ async function cloudSetup() {
   b.c.NT_FIREBASE = { emulators: true, db: { collection: () => ({ doc: () => ({ collection }) }),
     runTransaction: async callback => callback({ get: async () => ({ exists: false }), set: (ref, record) => writes.push(JSON.parse(JSON.stringify(record))) }) } };
   b.load('session-insights.js'); b.load('report-export.js'); b.load('session-archive.js'); await settle(); await settle();
-  return { b, listeners, writes };
+  return { b, listeners, writes, pages };
 }
+
+test('older report pages remain owner-scoped, validated and deduplicated and do not survive account changes',async()=>{
+  const {b,listeners,pages}=await cloudSetup();b.c.ntMuseConnected=false;
+  const base={schemaVersion:1,id:'s-test-0123456789abcdef',companyCode:'A',ownerUid:'one',memberId:'one',shift:'Pagi',source:'muse',startedAt:100,updatedAt:500,endedAt:500,status:'completed',protocol:'athena',algorithmVersion:'eeg-heuristic-v4',receivedSamples:0,minutes:[],checkin:{sleptHours:null,sleepTargetHours:8,targetMinutes:60,sleepiness:null,note:''}};
+  const doc=(id,changes={})=>({id,data:()=>({...base,id,...changes}),metadata:{hasPendingWrites:false}});
+  const head=Array.from({length:60},(_,i)=>doc('s-test-'+i.toString(16).padStart(16,'0')));
+  listeners[0].next({docs:head,metadata:{fromCache:false}});assert.equal(b.c.ntSessionArchive.state().hasMore,true);
+  pages.push([doc('s-older-0000000000000001'),doc('s-older-0000000000000002',{ownerUid:'other'}),doc('s-older-0000000000000003',{companyCode:'B'}),head[0]]);
+  await b.c.ntSessionArchive.loadMore();const state=b.c.ntSessionArchive.state();
+  assert.equal(state.rows.length,61);assert.equal(state.hasMore,false);assert.equal(state.loadingMore,false);
+  assert.ok(state.rows.find(r=>r.id==='s-older-0000000000000001')._needsReview);
+  listeners[0].next({docs:head,metadata:{fromCache:false}});assert.equal(b.c.ntSessionArchive.state().rows.length,61);
+  b.c.ntSession.clear();assert.equal(b.c.ntSessionArchive.state().rows.length,0);assert.equal(b.c.ntSessionArchive.state().hasMore,false);
+});
 test('cloud listeners are owner scoped, update reports automatically, and reject late callbacks after logout', async () => {
   const { b, listeners } = await cloudSetup();
   assert.equal(listeners.length, 2); assert.equal(b.c.ntSessionArchive.state().liveUpdates, true);

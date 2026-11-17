@@ -74,3 +74,35 @@ test('offline sends are explicit and only active worker accounts are selectable 
   const s=b.c.ntSession.get();s.members[0].status='invited';b.c.ntSession.set(s);
   await assert.rejects(b.c.ntWorkerAlerts.send({memberId:'worker-id',title:'a',message:'b',severity:'info'}),/Pilih pekerja/);
 });
+
+test('buzzer requires worker activation, sounds once for a confirmed foreground batch and respects mute and identity changes',async()=>{
+  const {b,listeners,documentListeners}=setup(),notes=[],contexts=[];
+  b.c.AudioContext=class {
+    constructor(){this.state='suspended';this.currentTime=0;this.destination={};contexts.push(this);}
+    async resume(){this.state='running';}async close(){this.state='closed';}
+    createOscillator(){return {frequency:{},connect(){},disconnect(){},start:t=>notes.push(t),stop(){}};}
+    createGain(){return {gain:{setValueAtTime(){},linearRampToValueAtTime(){}},connect(){},disconnect(){}};}
+  };
+  const snapshot=(id,metadata={fromCache:false,hasPendingWrites:false})=>listeners.at(-1).next({docs:[{id,data:()=>({...record,severity:'urgent'})}],metadata});
+  snapshot('silent');assert.equal(notes.length,0);
+  assert.equal(await b.c.ntWorkerAlerts.setSound(true),true);assert.equal(b.c.ntWorkerAlerts.state().sound.ready,true);
+  snapshot('cached',{fromCache:true});assert.equal(notes.length,0);
+  snapshot('loud');assert.equal(notes.length,3);snapshot('loud');assert.equal(notes.length,3);
+  b.c.document.visibilityState='hidden';snapshot('hidden');assert.equal(notes.length,3);
+  b.c.document.visibilityState='visible';documentListeners.visibilitychange();assert.equal(notes.length,6);
+  await b.c.ntWorkerAlerts.setSound(false);snapshot('muted');assert.equal(notes.length,6);
+  await b.c.ntWorkerAlerts.testSound();assert.equal(notes.length,8);
+  assert.equal(b.c.ntWorkerAlerts.state().sound.result,'requested');
+  b.c.ntSession.clear();assert.equal(contexts[0].state,'closed');assert.equal(b.c.ntWorkerAlerts.state().sound.enabled,false);
+});
+
+test('blocked or unsupported audio never prevents receipt, and a late resume cannot sound for another account',async()=>{
+  const {b,listeners}=setup();
+  assert.equal(await b.c.ntWorkerAlerts.testSound(),false);assert.equal(b.c.ntWorkerAlerts.state().sound.result,'unsupported');
+  let resume; b.c.AudioContext=class{constructor(){this.state='suspended';}resume(){return new Promise(r=>resume=r);}async close(){this.state='closed';}};
+  const pending=b.c.ntWorkerAlerts.testSound();b.c.ntSession.clear();resume();assert.equal(await pending,false);
+  const next=setup();next.b.c.AudioContext=class{async resume(){throw Error('autoplay');}};
+  assert.equal(await next.b.c.ntWorkerAlerts.testSound(),false);
+  next.listeners[0].next({docs:[{id:'still-visible',data:()=>record}],metadata:{fromCache:false}});
+  assert.equal(next.b.c.ntWorkerAlerts.state().rows.length,1);assert.equal(next.b.c.ntWorkerAlerts.state().error,'');
+});

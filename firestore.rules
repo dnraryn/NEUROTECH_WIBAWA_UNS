@@ -350,7 +350,7 @@ service cloud.firestore {
         allow create: if verified() && active(code) && validSession(request.resource.data);
         allow update: if verified() && active(code) && resource.data.ownerUid == request.auth.uid
           && resource.data.status == 'recording' && validSession(request.resource.data)
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['endedAt','updatedAt','status','receivedSamples','minutes','checkin','savedAt'])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['endedAt','updatedAt','status','receivedSamples','minutes','previewMinutes','checkin','savedAt'])
           && request.resource.data.receivedSamples >= resource.data.receivedSamples
           && request.resource.data.updatedAt >= resource.data.updatedAt;
         allow delete: if false;
@@ -359,9 +359,10 @@ service cloud.firestore {
         function metric(v) { return v == null || (v is number && v >= 0 && v <= 100); }
         function measurement(m) {
           return m is map && m.keys().hasAll(['fi','cli','ei','measuredAt','quality','scope','provisional','classification'])
-            && m.keys().hasOnly(['fi','cli','ei','measuredAt','quality','scope','provisional','classification'])
+            && m.keys().hasOnly(['fi','cli','ei','measuredAt','quality','scope','provisional','classification','microsleep'])
             && metric(m.fi) && metric(m.cli) && metric(m.ei) && m.measuredAt is number && m.measuredAt > 0
             && m.quality in ['good','limited'] && m.provisional is bool
+            && (!('microsleep' in m) || m.microsleep == null || (m.microsleep is bool && m.quality == 'good' && m.scope == 'full' && m.provisional == false))
             && m.classification in ['normal','waspada','berisiko','kritis','unavailable']
             && ((m.scope == 'full' && m.fi != null && m.cli != null && m.ei != null)
               || (m.scope == 'frontal-only' && (m.fi != null || m.ei != null) && m.quality == 'limited' && m.provisional == true)

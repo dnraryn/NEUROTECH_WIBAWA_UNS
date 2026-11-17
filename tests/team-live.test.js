@@ -51,6 +51,17 @@ test('staff shows confirmed fresh values including zero, excludes other identiti
  snapshot(old,[row(32000)]);assert.equal(c.ntTeamLive.state().rows.length,0);
 });
 
+test('microsleep is explicitly unavailable for previews and only shared for clean calibrated full measurements',async()=>{
+  const {b,c,writes}=setup();await settle();b.setClock(65000);measured(c,65000,{microsleep:true});
+  await c.ntTeamLive.publish(true);assert.equal(writes.at(-1).measurement.microsleep,null);
+  c.ntMuseDSP.baseline={ts:64000};c.ntMuseDSP.signalState='ready';measured(c,65000,{microsleep:true,classificationProvisional:false});
+  await c.ntTeamLive.publish(true);assert.equal(writes.at(-1).measurement.microsleep,true);
+  measured(c,65000,{microsleep:false,classificationProvisional:false});await c.ntTeamLive.publish(true);
+  assert.equal(writes.at(-1).measurement.microsleep,false);
+  measured(c,65000,{microsleep:true,outputScope:'frontal-only',qualityLevel:'limited'});await c.ntTeamLive.publish(true);
+  assert.equal(writes.at(-1).measurement.microsleep,null);
+});
+
 test('a failed write never reports delivery, late acknowledgements cannot leak across accounts, and previews never publish',async()=>{
  const {b,c,writes,listeners,setter}=setup();await settle();b.setClock(65000);measured(c,65000);
  setter(async()=>{throw {code:'permission-denied'};});await c.ntTeamLive.publish(true);

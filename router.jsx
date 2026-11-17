@@ -49,7 +49,7 @@ const Link = ({ to, children, style, className, onClick, ...attributes }) => (
 );
 
 // ── Modal ────────────────────────────────────────────────────────────────
-const Modal = ({ open, onClose, title, subtitle, children, actions, width = 420, tone = "default", popDir }) => {
+const Modal = ({ open, onClose, title, subtitle, children, actions, width = 420, tone = "default", popDir, dialogClassName = "" }) => {
   React.useEffect(() => {
     if (!open) return;
     const onKey = (e) => { if (e.key === "Escape") onClose?.(); };
@@ -78,7 +78,7 @@ const Modal = ({ open, onClose, title, subtitle, children, actions, width = 420,
       }}
     >
       <div
-        className="nt-dialog"
+        className={"nt-dialog " + dialogClassName}
         role="dialog"
         aria-modal="true"
         aria-label={title}

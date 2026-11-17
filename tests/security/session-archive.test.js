@@ -67,6 +67,29 @@ test('experimental minute results synchronize separately from clean report data 
   await assertFails(setDoc(doc(client('A-worker'),'companies','A','sessions',sid(92)),{ ...r, id: sid(92), previewMinutes: 'invalid' }));
 });
 
+test('an existing recording can receive experimental minute updates and finish without losing staff report access', async () => {
+  const worker=client('A-worker'), target=['companies','A','sessions',sid(93)];
+  const r={...record(93,'A-worker','recording'),algorithmVersion:'eeg-heuristic-v4',minutes:[],previewMinutes:[]};
+  await assertSucceeds(setDoc(doc(worker,...target),r));
+  const previewMinutes=[{minute:0,n:1,fiN:1,fi:72,cliN:0,cli:0,eiN:1,ei:0,limited:1,uncalibrated:1}];
+  await assertSucceeds(updateDoc(doc(worker,...target),{previewMinutes,receivedSamples:2048,updatedAt:Date.now(),savedAt:serverTimestamp()}));
+  for(const uid of ['A-supervisor','A-owner'])assert.equal((await assertSucceeds(getDoc(doc(client(uid),...target)))).data().previewMinutes[0].fi,72);
+  await assertFails(updateDoc(doc(client('A-supervisor'),...target),{previewMinutes:[]}));
+  await assertFails(updateDoc(doc(client('A-other'),...target),{previewMinutes:[]}));
+  await assertSucceeds(updateDoc(doc(worker,...target),{endedAt:Date.now(),status:'completed',updatedAt:Date.now(),savedAt:serverTimestamp()}));
+  await assertFails(updateDoc(doc(worker,...target),{previewMinutes:[],savedAt:serverTimestamp()}));
+});
+
+test('live microsleep status supports old clients but cannot label limited or uncalibrated data as assessed',async()=>{
+  const worker=client('A-worker'),target=doc(worker,'companies','A','liveReadings','A-worker');
+  const m={...liveReading().measurement,microsleep:null};
+  await assertSucceeds(setDoc(target,liveReading({measurement:m})));
+  await assertFails(setDoc(target,liveReading({measurement:{...m,microsleep:false}})));
+  await assertFails(setDoc(target,liveReading({measurement:{...m,quality:'good',microsleep:true}})));
+  for(const microsleep of [true,false])await assertSucceeds(setDoc(target,liveReading({measurement:{...m,quality:'good',provisional:false,microsleep}})));
+  await assertFails(setDoc(target,liveReading({measurement:{...m,quality:'good',provisional:false,microsleep:'yes'}})));
+});
+
 test('a worker recording update reaches both staff portals while other workers and companies remain isolated',async()=>{
   const path=['companies','A','sessions',sid(30)], worker=client('A-worker');
   await assertSucceeds(setDoc(doc(worker,...path),record(30,'A-worker','recording')));

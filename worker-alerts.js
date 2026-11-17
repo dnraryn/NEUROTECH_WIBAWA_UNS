@@ -4,14 +4,42 @@
   var rows = [], error = "", ready = false, unsubscribe = null, generation = 0, key = "";
   var confirmed = false, notified = new Set(), vibrationResult = "";
   var hapticsPreferences = new Map();
+  var soundPreferences = new Map(), audio = null, soundResult = "";
   function session() { return window.ntSession?.get?.(); }
   function emit() { window.dispatchEvent(new CustomEvent("nt-worker-alerts")); }
   function enabled() { return !!window.NT_FIREBASE?.emulators || ["neurotech-id.web.app", "neurotech-id.firebaseapp.com"].includes(window.location?.hostname); }
   function collection(s) { return window.NT_FIREBASE.db.collection("companies").doc(s.code).collection("workerAlerts"); }
   function hapticsEnabled() { var s = session(); if (!s) return false; if(hapticsPreferences.has(s.uid))return hapticsPreferences.get(s.uid);try { return localStorage.getItem("nt-alert-haptics:" + s.uid) !== "0"; } catch (_) { return true; } }
   function foreground() { return window.document?.visibilityState !== "hidden"; }
+  function soundEnabled() { var s=session();if(!s)return false;if(soundPreferences.has(s.uid))return soundPreferences.get(s.uid);try{return localStorage.getItem("nt-alert-sound:"+s.uid)==="1";}catch(_){return false;} }
   function state() { return { rows: rows.slice(), ready: ready, error: error, enabled: enabled(), confirmed: confirmed, foreground: foreground(),
-    haptics: { supported: typeof navigator.vibrate === "function", enabled: hapticsEnabled(), result: vibrationResult } }; }
+    haptics: { supported: typeof navigator.vibrate === "function", enabled: hapticsEnabled(), result: vibrationResult },
+    sound: { supported: typeof (window.AudioContext || window.webkitAudioContext) === "function", enabled:soundEnabled(), ready:audio?.state==="running", result:soundResult } }; }
+  function buzzer(urgent) {
+    if(!soundEnabled())return false;
+    if(!audio || audio.state!=="running"){soundResult="blocked";return false;}
+    try {
+      var t=audio.currentTime;
+      (urgent?[0,0.32,0.64]:[0,0.32]).forEach(function(offset,i){
+        var oscillator=audio.createOscillator(),gain=audio.createGain();
+        oscillator.type="sine";oscillator.frequency.value=i%2?660:880;
+        gain.gain.setValueAtTime(0,t+offset);gain.gain.linearRampToValueAtTime(0.16,t+offset+0.02);gain.gain.linearRampToValueAtTime(0,t+offset+0.23);
+        oscillator.connect(gain);gain.connect(audio.destination);oscillator.onended=function(){oscillator.disconnect();gain.disconnect();};
+        oscillator.start(t+offset);oscillator.stop(t+offset+0.25);
+      });
+      soundResult="requested";return true;
+    } catch(_){soundResult="blocked";return false;}
+  }
+  async function setSound(value, test) {
+    var s=session(),ticket=generation;if(s?.role!=="pekerja" || !foreground())return false;
+    soundPreferences.set(s.uid,!!value);try{localStorage.setItem("nt-alert-sound:"+s.uid,value?"1":"0");}catch(_){}
+    if(!value){soundResult="";emit();return false;}
+    var Audio=window.AudioContext || window.webkitAudioContext;
+    if(!Audio){soundResult="unsupported";emit();return false;}
+    try{if(!audio || audio.state==="closed")audio=new Audio();await audio.resume();if(ticket!==generation)return false;soundResult=audio.state==="running"?"ready":"blocked";if(test)buzzer(false);}
+    catch(_){if(ticket!==generation)return false;soundResult="blocked";}
+    emit();return audio?.state==="running";
+  }
   function vibrate(pattern) {
     if (typeof navigator.vibrate !== "function") { vibrationResult = "unsupported"; return false; }
     try { var accepted = navigator.vibrate(pattern); vibrationResult = accepted ? "requested" : "blocked"; return accepted; }
@@ -30,11 +58,13 @@
     if (!fresh.length) return;
     fresh.forEach(function (r) { var id = s.uid + ":" + r.id; notified.add(id); try { sessionStorage.setItem("nt-alert-vibrated:" + id, "1"); } catch (_) {} });
     if (hapticsEnabled()) vibrate(fresh.some(function (r) { return r.severity === "urgent"; }) ? [250,100,250,100,400] : [200,100,200]);
+    if(soundEnabled())buzzer(fresh.some(function(r){return r.severity==="urgent";}));
   }
   function timestamp(value) { return typeof value?.toMillis === "function" ? value.toMillis() : null; }
   function start(force) {
     var s = session(), next = s?.uid && s?.code ? [s.code,s.uid,s.role].join(":") : "";
     if (!force && next === key && (unsubscribe || ready)) return;
+    if(next!==key){try{audio?.close()?.catch?.(function(){});}catch(_){}audio=null;soundResult="";}
     key = next; var token = ++generation;
     if (unsubscribe) unsubscribe(); unsubscribe = null;
     rows = []; error = ""; ready = false; confirmed = false; notified = new Set(); vibrationResult = ""; emit();
@@ -79,6 +109,7 @@
     catch (ignore) { throw new Error("Perubahan belum tersimpan. Periksa koneksi lalu coba lagi."); }
   }
   window.ntWorkerAlerts = { state:state, send:send, acknowledge:function(id){return update(id,false);}, resolve:function(id){return update(id,true);}, retry:function(){start(true);},
+    setSound:function(value){return setSound(value,false);},testSound:function(){return setSound(true,true);},
     setHaptics:function(value){var s=session();if(s?.role!=="pekerja")return;hapticsPreferences.set(s.uid,!!value);try{localStorage.setItem("nt-alert-haptics:"+s.uid,value?"1":"0");}catch(_){}vibrationResult="";emit();},
     testHaptics:function(){if(session()?.role!=="pekerja" || !foreground())return false;var ok=vibrate([100,60,100]);emit();return ok;} };
   window.addEventListener("nt-session", function(){start(false);});

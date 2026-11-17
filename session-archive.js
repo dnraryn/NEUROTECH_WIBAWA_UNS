@@ -8,6 +8,7 @@
   var cloudUnsubscribers = [], cloudListening = false, syncRequested = false;
   var serverConfirmed = false;
   var detailRows = new Map();
+  var pageCursor = null, feedCursor = null, hasMore = false, loadingMore = false;
   var CLOUD_SAVE_MS = 60000;
   var clone = function (x) { return JSON.parse(JSON.stringify(x)); };
   var session = function () { return window.ntSession?.get?.() || null; };
@@ -206,7 +207,7 @@
     detailRows.forEach(function (r) { combined.set(r.id, r); });
     cloudRows.forEach(function (r) { combined.set(r.id, r); });
     records.forEach(function (r) { var remote = combined.get(r.id); if (!remote || r.updatedAt >= remote.updatedAt) combined.set(r.id, r); });
-    cachedState = { ready: ready, storage: storage, error: error, cloudError: cloudError, syncing: syncing, cloudEnabled: cloudEnabled(), liveUpdates: cloudListening, serverConfirmed: serverConfirmed, online: window.navigator.onLine !== false, lastSyncedAt: lastSyncedAt, cloudLimit: 60,
+    cachedState = { ready: ready, storage: storage, error: error, cloudError: cloudError, syncing: syncing, cloudEnabled: cloudEnabled(), liveUpdates: cloudListening, serverConfirmed: serverConfirmed, online: window.navigator.onLine !== false, lastSyncedAt: lastSyncedAt, cloudLimit: 60 + detailRows.size, hasMore:hasMore, loadingMore:loadingMore,
       activeId: active?.id || null, rows: Array.from(combined.values()).sort(function (a, b) { return b.startedAt - a.startedAt; }).map(function (r) {
         return Object.assign(clone(r), { summary: summary(r), previewSummary: window.ntSessionInsights.previewSummary(r), review: clone(reviews[r.id] || r._detailReview || null),
           synced: r.source !== "demo" && (r._remote === true || ((savedRevisions.get(r.id) || 0) >= (revisions.get(r.id) || 1))) });
@@ -261,6 +262,8 @@
   }
   function acceptSessions(result, generation) {
     if (generation !== epoch) return;
+    feedCursor = result.docs[result.docs.length-1] || null;
+    if(!pageCursor)hasMore=result.docs.length===60;
     cloudRows = result.docs.map(function (d) { var r = d.data(); delete r.savedAt; return Object.assign(r, { _remote: true }); }).filter(validRecord);
     cloudError = cloudRows.length !== result.docs.length ? "Sebagian arsip memiliki format tidak valid dan tidak ditampilkan." : "";
     serverConfirmed = result.metadata?.fromCache === false && result.metadata?.hasPendingWrites !== true;
@@ -319,7 +322,7 @@
   }
   async function loadReport(id) {
     var existing = localState().rows.find(function (r) { return r.id === id; });
-    if (existing) return existing;
+    if (existing && !existing._needsReview) return existing;
     var s = session(), generation = epoch;
     if (!cloudEnabled() || !s?.uid || !/^s-[a-z0-9]+-[a-f0-9]{16}$/.test(id)) return null;
     try {
@@ -337,6 +340,23 @@
       return localState().rows.find(function (r) { return r.id === id; });
     } catch (ignore) { if (generation !== epoch) return null; throw new Error("Laporan belum dapat dimuat. Periksa koneksi dan akses akun, lalu coba lagi."); }
   }
+  async function loadMore() {
+    var s=session(), generation=epoch;
+    if(loadingMore || !hasMore || !cloudEnabled() || !s?.uid || !(pageCursor || feedCursor))return;
+    loadingMore=true;emit();
+    try {
+      var query=cloudCollection("sessions",s);
+      if(s.role==="pekerja")query=query.where("ownerUid","==",s.uid);
+      var result=await query.orderBy("startedAt","desc").startAfter(pageCursor || feedCursor).limit(60).get();
+      if(generation!==epoch)return;
+      result.docs.forEach(function(doc){var r=doc.data();delete r.savedAt;
+        if(validRecord(r) && r.id===doc.id && r.companyCode===s.code && r.source==="muse" && (s.role!=="pekerja" || r.ownerUid===s.uid))detailRows.set(r.id,Object.assign(r,{_remote:doc.metadata?.hasPendingWrites!==true,_needsReview:true}));
+      });
+      if(result.docs.length)pageCursor=result.docs[result.docs.length-1];
+      hasMore=result.docs.length===60;
+    } catch(_){if(generation===epoch)throw new Error("Arsip sebelumnya belum dapat dimuat. Periksa koneksi lalu coba lagi.");}
+    finally{if(generation===epoch){loadingMore=false;emit();}}
+  }
   async function loadIdentity() {
     var previous = active, previousNamespace = namespace;
     var previousRevision = previous ? (revisions.get(previous.id) || 1) + 1 : 0;
@@ -344,6 +364,7 @@
     var generation = ++epoch;
     stopCloudListeners(); syncRequested = false;
     namespace = identity(); ready = false; records = []; active = null; cloudRows = []; detailRows = new Map(); reviews = {}; syncing = false;
+    pageCursor=null;feedCursor=null;hasMore=false;loadingMore=false;
     revisions = new Map(); savedRevisions = new Map(); error = ""; cloudError = ""; suppressedDevice = null; lastSyncedAt = null; emit();
     if (previous) {
       previous.endedAt = now(); previous.updatedAt = now(); previous.status = "interrupted";
@@ -372,7 +393,7 @@
     return window.ntReports.minutes(record, { excel: false });
   }
   window.ntSessionArchive = { state: localState, begin: begin, finish: finish, save: function () { return persist(active); },
-    updateCheckin: updateCheckin, demo: demo, sync: sync, review: review, loadReport: loadReport, summary: summary, csv: csv, validRecord: validRecord };
+    updateCheckin: updateCheckin, demo: demo, sync: sync, review: review, loadReport: loadReport, loadMore:loadMore, summary: summary, csv: csv, validRecord: validRecord };
   window.addEventListener("nt-data", capture);
   window.addEventListener("nt-muse-eeg", function (e) {
     if (!active || !window.ntMuseConnected || !["TP9", "AF7", "AF8", "TP10"].includes(e.detail?.channel)) return;

@@ -93,6 +93,21 @@ test('worker analytics remain private and shift averages include results beyond 
   assert.equal(data.sessions, 1); assert.equal(data.meanFI, 77); assert.equal(data.shiftIndices[0].v, 77);
   assert.ok(data.heatRows[0].h.every(v => v === null));
 });
+
+test('shift patterns and daily trends use separate weighted experimental FI counts, preserving zero and missing data',()=>{
+  const b=setup();
+  const preview=(minute,fiN,fi)=>({minute,n:10,fiN,fi,cliN:0,cli:0,eiN:0,ei:0,limited:10,uncalibrated:10});
+  const first=record({minutes:[],previewMinutes:[preview(0,1,0),preview(61,3,240),preview(62,0,0)]});
+  const second=record({id:'second',minutes:[],previewMinutes:[preview(0,1,100),preview(600,1,50)]});
+  let data=b.c.ntSessionInsights.aggregate([first,second]);
+  assert.equal(data.meanFI,null);assert.equal(data.incidents,0);assert.equal(data.preview.shiftIndices[0].v,65);
+  assert.equal(data.preview.heatRows[0].h[0],50);assert.equal(data.preview.heatRows[0].h[1],80);
+  assert.equal(data.preview.heatRows[0].h[2],null);assert.equal(data.preview.shiftIndices[1].v,null);
+  assert.equal(data.preview.trend[0].fi,65);
+  data=b.c.ntSessionInsights.aggregate([record({minutes:[{minute:0,n:1,fi:25,cli:20,ei:30,partial:0,provisional:0,incidents:0}],previewMinutes:first.previewMinutes})]);
+  assert.equal(data.shiftIndices[0].v,25);assert.equal(data.preview.shiftIndices[0].v,60);
+  assert.equal(data.trend[0].fi,25);assert.equal(data.preview.trend[0].fi,60);
+});
 test('descriptive filenames cannot contain path separators, formulas, or unsafe punctuation', () => {
   const b = setup(), name = b.c.ntReports.filename('Ringkasan', record({ source: 'demo' }));
   assert.match(name, /^NeuroTech_SIMULASI_Ringkasan_Pekerja-Simulasi_/);
