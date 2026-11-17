@@ -26,7 +26,17 @@ const WorkerAlertInbox = () => {
 };
 const WorkerAlertNotice = () => {
   const state=useWorkerAlerts(),[open,setOpen]=React.useState(false);
+  const account=window.ntSession?.get(),route=useHashRoute(),seen=React.useRef(new Set());
   const pending=state.rows.filter(r=>!r.pending&&!r.acknowledgedAt&&!r.resolvedAt);
+  const requested = new URLSearchParams(route.query || "").get("alert");
+  const current = pending.find(r=>r.id===requested) || pending[0];
+  React.useEffect(()=>{
+    if(!current || !account?.uid || state.confirmed === false || state.foreground === false)return;
+    const key="nt-alert-shown:"+account.uid+":"+current.id;
+    if(seen.current.has(key))return;
+    try{if(sessionStorage.getItem(key)==="1" && current.id!==requested)return;sessionStorage.setItem(key,"1");}catch(_){}
+    seen.current.add(key);setOpen(true);
+  },[account?.uid,current?.id,requested,state.confirmed,state.foreground]);
   if(!pending.length&&!open) return null;
   return <><button type="button" className="worker-alert-notice" onClick={()=>setOpen(true)} aria-label={`Buka ${pending.length} pesan K3 baru`}><span aria-hidden="true">●</span><span><strong>{pending[0]?.title || "Pesan K3"}</strong><small>{pending.length} pesan menunggu konfirmasi</small></span><span aria-hidden="true">↗</span></button>
     <Modal open={open} onClose={()=>setOpen(false)} title="Pesan petugas K3" actions={<NeuroBtn tone="default" onClick={()=>setOpen(false)}>Tutup</NeuroBtn>}><WorkerAlertInbox/></Modal></>;
@@ -36,13 +46,14 @@ const StaffAlertSummary = () => {
   return <section className="staff-alert-summary"><div className="message-art" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none"><path d="M9 8h30v24H22l-10 8v-8H9zM16 16h16M16 23h10" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round"/></svg></div><div><small>PESAN & TINDAK LANJUT</small><h2>{state.error?"Periksa koneksi pesan":`${open.length} alert aktif`}</h2><p>{confirmed.length} dikonfirmasi pekerja · {state.rows.filter(r=>r.resolvedAt).length} selesai</p></div><Link className="archive-primary" to={staffPath("/s/alerts")}>Kelola alert ↗</Link></section>;
 };
 const StaffAlertCenter = () => {
-  const state=useWorkerAlerts(),members=(window.ntSession?.get()?.members||[]).filter(m=>m.role==="pekerja"&&m.uid);
+  const state=useWorkerAlerts(),members=(window.ntSession?.get()?.members||[]).filter(m=>m.role==="pekerja"&&m.uid&&m.status==="active");
   const [memberId,setMemberId]=React.useState(""),[title,setTitle]=React.useState(""),[message,setMessage]=React.useState(""),[severity,setSeverity]=React.useState("attention"),[filter,setFilter]=React.useState("open"),[busy,setBusy]=React.useState(false),[feedback,setFeedback]=React.useState("");
   const route = useHashRoute();
   const requestedMember = new URLSearchParams(route.query || "").get("worker");
   const recipientAvailable = members.some(m=>m.id===requestedMember);
+  const sending = React.useRef(false);
   React.useEffect(()=>{if(recipientAvailable)setMemberId(requestedMember);},[requestedMember,recipientAvailable]);
-  const submit=async(e)=>{e.preventDefault();setBusy(true);setFeedback("");try{await window.ntWorkerAlerts.send({memberId,title,message,severity});setTitle("");setMessage("");setFeedback("Alert tersimpan. Konfirmasi pekerja akan muncul setelah ia membacanya.");}catch(e){setFeedback(e.message);}finally{setBusy(false);}};
+  const submit=async(e)=>{e.preventDefault();if(sending.current)return;sending.current=true;setBusy(true);setFeedback("");try{await window.ntWorkerAlerts.send({memberId,title,message,severity});setTitle("");setMessage("");setFeedback("Alert tersimpan. Konfirmasi pekerja akan muncul setelah ia membacanya.");}catch(e){setFeedback(e.message);}finally{sending.current=false;setBusy(false);}};
   const rows=state.rows.filter(r=>filter==="all" || (filter==="open"?!r.resolvedAt:!!r.resolvedAt));
   return <section aria-label="Pengiriman alert pekerja"><div className="alert-workspace"><form className="alert-compose" onSubmit={submit}><div className="supervisor-kicker">KOMUNIKASI K3</div><h2>Kirim arahan</h2><p>Pesan muncul di aplikasi pekerja saat terbuka atau dibuka kembali.</p>
     <label className="archive-field">Pekerja<select aria-label="Penerima alert" value={memberId} onChange={e=>setMemberId(e.target.value)} required><option value="">Pilih pekerja</option>{members.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
@@ -56,3 +67,10 @@ const StaffAlertCenter = () => {
   </div></div></section>;
 };
 Object.assign(window,{WorkerAlertInbox,WorkerAlertNotice,StaffAlertCenter,StaffAlertSummary});
+const WorkerAlertVibration = () => {
+  const state=useWorkerAlerts(),h=state.haptics || {};
+  return <section className="worker-alert-vibration" aria-label="Getar pesan K3"><div><VisualIcon name="message" size={18}/><span>Getar pesan K3</span></div><div>
+    {h.supported ? <><button type="button" aria-pressed={h.enabled} onClick={()=>window.ntWorkerAlerts.setHaptics(!h.enabled)}>{h.enabled ? "Aktif" : "Nonaktif"}</button><button type="button" onClick={()=>window.ntWorkerAlerts.testHaptics()}>Tes getar</button></> : <small>Browser ini tidak mendukung getar</small>}
+  </div>{h.result === "blocked" && <small role="status">Getar dibatasi browser/HP. Pesan tetap muncul di aplikasi.</small>}{h.result === "requested" && <small role="status">Permintaan getar dikirim ke HP.</small>}</section>;
+};
+Object.assign(window,{WorkerAlertVibration});

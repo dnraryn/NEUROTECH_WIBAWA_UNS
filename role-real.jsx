@@ -249,7 +249,7 @@ const RealWorkerHome = () => {
     <WorkerSessionPanel />
     <WorkerLiveSyncStatus />
     <WorkerCalibrationCard />
-    {account?.role === "pekerja" && <WorkerAlertInbox />}
+    {account?.role === "pekerja" && <><WorkerAlertInbox /><WorkerAlertVibration/></>}
     {result.kind!=="empty" ? <section className="worker-home-results" aria-label="Hasil sesi pribadi terakhir">
       <div className="worker-home-section-heading"><h2>{result.title}</h2><Link to={result.kind==="live"?"/w/live":"/w/stats"} title={result.kind==="live"?"Buka Live":"Lihat arsip pribadi"} aria-label={result.kind==="live"?"Buka hasil Live":"Lihat arsip pribadi"}><VisualIcon name={result.kind==="live"?"signal":"history"}/></Link></div>
       <div className="worker-home-scores">{[["Fatigue",result.metrics.fi,"#2563eb"],["Beban",result.metrics.cli,"#8b5cf6"],["Engagement",result.metrics.ei,"#0891b2"]].map(([label,value,color])=><ArchiveMetricRing key={label} label={label} value={value} color={color}/>)}</div>

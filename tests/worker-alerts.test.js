@@ -1,15 +1,16 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {browser}=require('./helpers');
 function setup(role='pekerja') {
-  const b=browser(),listeners=[],writes=[];
-  b.c.ntSession.set({uid:'one',code:'A',role,members:[{id:'worker-id',uid:'worker-one',role:'pekerja',name:'Fixture'}]});
+  const b=browser(),listeners=[],writes=[],documentListeners={};
+  b.c.document={visibilityState:'visible',addEventListener(type,fn){documentListeners[type]=fn;}};
+  b.c.ntSession.set({uid:'one',code:'A',role,members:[{id:'worker-id',uid:'worker-one',role:'pekerja',name:'Fixture',status:'active'}]});
   b.c.firebase={firestore:{FieldValue:{serverTimestamp:()=> 'server-time'}}};
   b.c.NT_FIREBASE={emulators:true,db:{collection:()=>({doc:()=>({collection:()=>{
     const q={filters:[],where(...args){this.filters.push(args);return this;},orderBy(){return this;},limit(){return this;},
-      onSnapshot(next,fail){const listener={next,fail,filters:q.filters,stopped:false};listeners.push(listener);return()=>listener.stopped=true;},
+      onSnapshot(options,next,fail){const listener={next,fail,filters:q.filters,stopped:false,options};listeners.push(listener);return()=>listener.stopped=true;},
       add:async data=>{writes.push(data);},doc:id=>({update:async data=>writes.push({id,...data})})};return q;
   }})})}};
-  b.load('worker-alerts.js');return{b,listeners,writes};
+  b.load('worker-alerts.js');return{b,listeners,writes,documentListeners};
 }
 const record={recipientUid:'one',memberId:'worker-id',senderUid:'staff',title:'Arahan',message:'Pesan fixture',severity:'attention',createdAt:{toMillis:()=>1000},acknowledgedAt:null,resolvedAt:null};
 test('worker alert subscriptions are recipient scoped and late snapshots cannot cross identity changes',()=>{
@@ -36,4 +37,40 @@ test('only the recipient acknowledges and only staff resolve; pending messages s
   assert.equal(b.c.ntWorkerAlerts.state().rows[0].pending,true);
   await b.c.ntWorkerAlerts.acknowledge('id');assert.equal(writes[0].acknowledgedAt,'server-time');
   await assert.rejects(b.c.ntWorkerAlerts.resolve('id'),/tidak diizinkan/);
+});
+
+test('a confirmed incoming worker alert vibrates once, never for cached or pending data or another recipient',()=>{
+  const {b,listeners}=setup(),patterns=[];
+  b.c.navigator.vibrate=pattern=>{patterns.push(Array.from(pattern));return true;};
+  const snapshot=(metadata,changes={})=>({docs:[{id:'new-alert',data:()=>({...record,...changes})}],metadata});
+  assert.equal(listeners[0].options.includeMetadataChanges,true);
+  listeners[0].next(snapshot({fromCache:true,hasPendingWrites:false}));assert.equal(patterns.length,0);
+  listeners[0].next(snapshot({fromCache:false,hasPendingWrites:true}));assert.equal(patterns.length,0);
+  listeners[0].next(snapshot({fromCache:false,hasPendingWrites:false},{severity:'urgent'}));
+  assert.deepEqual(patterns,[[250,100,250,100,400]]);
+  listeners[0].next(snapshot({fromCache:false,hasPendingWrites:false}));assert.equal(patterns.length,1);
+  b.c.ntWorkerAlerts.retry();listeners.at(-1).next(snapshot({fromCache:false,hasPendingWrites:false}));assert.equal(patterns.length,1,'reconnecting does not vibrate again for the same unread alert');
+  listeners.at(-1).next({docs:[{id:'foreign',data:()=>({...record,recipientUid:'other'})}],metadata:{fromCache:false}});assert.equal(patterns.length,1);
+});
+
+test('alerts received while hidden wait for foreground, respect mute, and vibration failures never block the inbox',()=>{
+  const {b,listeners,documentListeners}=setup(),patterns=[];
+  b.c.navigator.vibrate=pattern=>{patterns.push(pattern);return false;};b.c.document.visibilityState='hidden';
+  listeners[0].next({docs:[{id:'hidden',data:()=>record}],metadata:{fromCache:false,hasPendingWrites:false}});
+  assert.equal(patterns.length,0);
+  b.c.document.visibilityState='visible';documentListeners.visibilitychange();assert.equal(patterns.length,1);
+  assert.equal(b.c.ntWorkerAlerts.state().haptics.result,'blocked');assert.equal(b.c.ntWorkerAlerts.state().rows.length,1);
+  b.c.ntWorkerAlerts.setHaptics(false);
+  listeners[0].next({docs:[{id:'muted',data:()=>record}],metadata:{fromCache:false}});assert.equal(patterns.length,1);
+  b.c.ntWorkerAlerts.setHaptics(true);b.c.navigator.vibrate=()=>{throw Error('not supported');};
+  listeners[0].next({docs:[{id:'unsupported',data:()=>record}],metadata:{fromCache:false}});
+  assert.equal(b.c.ntWorkerAlerts.state().rows.length,1);assert.equal(b.c.ntWorkerAlerts.state().error,'');
+});
+
+test('offline sends are explicit and only active worker accounts are selectable as recipients',async()=>{
+  const {b,writes}=setup('management');b.c.navigator.onLine=false;
+  await assert.rejects(b.c.ntWorkerAlerts.send({memberId:'worker-id',title:'a',message:'b',severity:'info'}),/Hubungkan internet/);assert.equal(writes.length,0);
+  b.c.navigator.onLine=true;
+  const s=b.c.ntSession.get();s.members[0].status='invited';b.c.ntSession.set(s);
+  await assert.rejects(b.c.ntWorkerAlerts.send({memberId:'worker-id',title:'a',message:'b',severity:'info'}),/Pilih pekerja/);
 });
