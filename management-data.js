@@ -231,6 +231,13 @@
       return r.ownerUid === uid && r.source === "muse" && r.summary?.clean > 0 &&
         [r.summary.meanFI,r.summary.meanCLI,r.summary.meanEI].some(validIndex);
     }).slice().sort(function (a,b) { return b.startedAt-a.startedAt; })[0];
+    if (!measured && uid) {
+      var previews=(rows || []).filter(function(r){return r.ownerUid===uid && r.source==="muse";}).slice().sort(function(a,b){return b.startedAt-a.startedAt;});
+      for (var r of previews) {
+        var p=window.ntSessionInsights?.previewSummary(r);
+        if(p && [p.meanFI,p.meanCLI,p.meanEI].some(validIndex))return {kind:"preview",title:"Hasil sementara tersimpan",record:r,timestamp:r.startedAt,provisional:true,metrics:{fi:p.meanFI,cli:p.meanCLI,ei:p.meanEI}};
+      }
+    }
     return measured ? { kind:"archive", title:"Hasil tersimpan", record:measured, timestamp:measured.startedAt,
       metrics:{fi:measured.summary.meanFI,cli:measured.summary.meanCLI,ei:measured.summary.meanEI}, provisional:false }
       : {kind:"empty",title:"Belum ada hasil olahan",metrics:null,record:null,timestamp:null};

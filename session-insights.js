@@ -128,5 +128,23 @@
     var age = (options.now ?? Date.now()) - record.updatedAt;
     return age >= -5000 && age <= 90000 ? {key:"active",label:"Sesi mengirim"} : {key:"stale",label:"Pembaruan terhenti"};
   }
-  window.ntSessionInsights = { rows: rows, aggregate: aggregate, previewSummary: previewSummary, status: status, day: day, assess: assess, connection: connection };
+  function personalSeries(state, options) {
+    options=options || {};var user=options.account===undefined?account():options.account;
+    if(!user?.uid)return [];
+    var data=rows(state,Object.assign({},options,{account:user,ownOnly:true,source:"muse"})),preview=options.metricSource==="preview",points=[];
+    data.forEach(function(r){(preview?r.previewMinutes || []:r.minutes || []).forEach(function(m){
+      var p={ts:r.startedAt+m.minute*60000,sessionId:r.id,minute:m.minute,provisional:preview || m.provisional>0,incidents:preview?0:m.incidents || 0};
+      ["fi","cli","ei"].forEach(function(key){var n=preview?m[key+"N"]:m.n;p[key+"N"]=n || 0;p[key]=n?m[key]/n:null;});
+      if([p.fi,p.cli,p.ei].some(Number.isFinite))points.push(p);
+    });});
+    return points.sort(function(a,b){return a.ts-b.ts || a.sessionId.localeCompare(b.sessionId);});
+  }
+  function personalDays(state, options) {
+    var bins=new Map();
+    personalSeries(state,options).forEach(function(p){var date=day(p.ts),b=bins.get(date) || {date:date,fi:0,fiN:0,cli:0,cliN:0,ei:0,eiN:0};
+      ["fi","cli","ei"].forEach(function(key){if(Number.isFinite(p[key])){b[key]+=p[key]*p[key+"N"];b[key+"N"]+=p[key+"N"];}});bins.set(date,b);
+    });
+    return Array.from(bins.values()).sort(function(a,b){return a.date.localeCompare(b.date);}).map(function(b){["fi","cli","ei"].forEach(function(key){b[key]=b[key+"N"]?Math.round(b[key]/b[key+"N"]):null;});return b;});
+  }
+  window.ntSessionInsights = { rows: rows, aggregate: aggregate, previewSummary: previewSummary, status: status, day: day, assess: assess, connection: connection,personalSeries:personalSeries,personalDays:personalDays };
 })();

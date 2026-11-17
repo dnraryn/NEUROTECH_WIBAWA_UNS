@@ -309,11 +309,11 @@ const NeuroTabBar = ({ active = "home" }) => {
     { k: "chart", to: "/w/stats",     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg> },
   ];
   if (window.ntSession?.get()) {
-    tabs = tabs.filter((tab) => tab.k !== "pulse");
+    tabs = tabs.filter((tab) => tab.k !== "audio");
     tabs.push({ k: "profile", to: "/w/profile", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg> });
   }
   const labels = { home: "Beranda", brain: "Live", pulse: "Kondisi", audio: "Audio", chart: "Riwayat", profile: "Profil" };
-  const activeKey = window.location?.hash?.includes("/w/profile") ? "profile" : active;
+  const activeKey = window.location?.hash?.includes("/w/profile") ? "profile" : window.ntSession?.get() && active==="audio" ? "pulse" : active;
   return (
     <nav className="nt-tabbar" aria-label="Navigasi pekerja" style={{
       position: "sticky", bottom: 18,

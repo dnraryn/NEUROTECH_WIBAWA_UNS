@@ -279,8 +279,6 @@ const RealWorkerHome = () => {
   </div>;
 };
 
-const RealWorkerHistory = () => <div className="nt-screen personal-archive" style={{ padding: "20px 16px 100px" }}><SessionArchiveHub ownOnly backTo="/w/readiness" heading="Arsip pribadi" /><NeuroTabBar active="chart" /></div>;
-
 const CompanyArchiveOverview = ({ state, data }) => {
   const labels = { normal: "Normal", waspada: "Waspada", berisiko: "Berisiko", kritis: "Kritis", unavailable: "Belum tersedia" };
   const points = data.trend.filter((p) => Number.isFinite(p.fi));

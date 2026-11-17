@@ -46,7 +46,8 @@ const WorkerAppInstallCard = ({ always = false, showUpdates = false }) => {
 
 const VisualIcon = ({name="signal",size=20}) => {
   const paths={signal:"M3 12h4l3-7 4 14 3-7h4",chart:"M4 19h16M6 16v-4M12 16V5M18 16V9",team:"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M18 8a3 3 0 0 1 0 6M22 21v-2a4 4 0 0 0-3-3.8",file:"M14 2H6v20h12V6zM14 2v5h5M8 12h8M8 16h6",info:"M12 16v-4M12 8h.01M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0",history:"M3 11a9 9 0 1 1 2 7M3 4v7h7M12 7v5l3 2",message:"M3 3h18v14H9l-6 4zM7 8h10M7 12h6",play:"M8 4l13 8-13 8z",check:"M4 12l5 5L20 6",settings:"M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M6 18l2-2M16 8l2-2M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0"};
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]||paths.signal}/></svg>;
+  const personal={moon:"M21 13a9 9 0 1 1-10-10 7 7 0 0 0 10 10",headphones:"M3 14v-2a9 9 0 0 1 18 0v2M3 14h4v7H3zM17 14h4v7h-4z",download:"M12 3v12M7 10l5 5 5-5M4 16v5h16v-5"};
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]||personal[name]||paths.signal}/></svg>;
 };
 
 const MemberAccessCode = ({ companyCode, memberId, role }) => {

@@ -8,7 +8,7 @@ const ROUTES = {
   // Worker mobile (app prefix: w)
   "w/readiness": { c: () => window.ntSession?.get() ? <RealWorkerHome /> : <WorkerReadiness />, frame: "mobile", label: "Readiness" },
   "w/live":      { c: () => <WorkerLive />,      frame: "mobile", label: "Live" },
-  "w/wellness":  { c: () => window.ntSession?.get() ? <RealWorkerHome /> : <WorkerWellness />,  frame: "mobile", label: "Kondisi" },
+  "w/wellness":  { c: () => window.ntSession?.get() ? <RealWorkerWellness /> : <WorkerWellness />,  frame: "mobile", label: "Kondisi" },
   "w/audio":     { c: () => <WorkerAudio />,     frame: "mobile", label: "Neurofeedback" },
   "w/stats":     { c: () => window.ntSession?.get() ? <RealWorkerHistory /> : <WorkerStats />, frame: "mobile", label: "Statistik" },
   "w/profile":   { c: () => <WorkerProfile />,   frame: "mobile", label: "Profil" },
